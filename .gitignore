@@ -1,0 +1,30 @@
+node_modules/
+.env
+.env.local
+*.local
+
+# Expo / React Native
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+android/
+ios/
+
+# Vite / web build
+.output/
+build/
+
+# Supabase CLI
+supabase/.branches
+supabase/.temp
+
+# Éditeurs / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json

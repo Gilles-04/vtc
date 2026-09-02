@@ -1,0 +1,11 @@
+{
+  "name": "vtc-togo",
+  "private": true,
+  "description": "Plateforme VTC pour le Togo — abonnement chauffeur journalier, matching temps réel, Mobile Money",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {},
+  "license": "UNLICENSED"
+}
