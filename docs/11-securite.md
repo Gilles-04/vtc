@@ -25,6 +25,13 @@ qui interroge `admin_roles` — jamais une policy RLS ouverte à
 politique RLS commune qui exposerait les données de l'autre : les policies
 sont écrites par table et par rôle, pas génériques.
 
+**Suspension effective, pas juste un drapeau** : `admin_suspend_user` pose
+`profiles.is_suspended`, et `private.assert_not_suspended()` est appelée en
+première ligne de chaque action sensible côté client (`create_ride_request`,
+`set_driver_availability`, `purchase_subscription`, `create_support_ticket`)
+— confirmé par un test réel : un compte suspendu voit sa demande de course
+rejetée (`account_suspended`) avant même la moindre écriture.
+
 ## RLS — principes appliqués table par table
 
 - `profiles` : lecture/écriture limitées à `auth.uid() = id`, sauf staff admin.
@@ -38,13 +45,14 @@ sont écrites par table et par rôle, pas génériques.
 - `ride_offers` : un chauffeur ne voit que ses propres offres, jamais celles
   envoyées aux autres candidats (ne doit pas pouvoir déduire qui d'autre a
   été sollicité).
-- `ride_locations` : écriture réservée au chauffeur assigné à la course
-  active ; lecture limitée au passager de cette course, au chauffeur
-  lui-même, et au staff admin.
-- `payments`, `driver_subscriptions` : lecture limitée au chauffeur
-  propriétaire + staff `finance`/`admin`/`super_admin`. Écriture uniquement
-  via fonctions serveur (Edge Functions avec la clé de service), jamais en
-  direct depuis le client.
+- `driver_locations` : écriture réservée au chauffeur, pour sa propre
+  ligne ; lecture limitée à lui-même, au passager de la course en cours
+  (si `ride_id` renseigné), et au staff admin.
+- `payments`, `subscriptions` : lecture limitée au chauffeur propriétaire +
+  staff `finance`/`admin`/`super_admin`. Écriture uniquement via fonctions
+  serveur (`SECURITY DEFINER` + Edge Functions avec la clé de service),
+  jamais en direct depuis le client — **vérifié réellement** : aucune
+  policy d'écriture cliente n'existe sur ces deux tables (migration 1).
 - `admin_roles` : lecture/écriture réservées à `super_admin`.
 - `audit_logs` : écriture uniquement via fonctions serveur, lecture réservée
   au staff admin.
@@ -58,19 +66,45 @@ sont écrites par table et par rôle, pas génériques.
 - Toute décision (approbation/rejet) est tracée dans `audit_logs` avec
   l'identité du staff, l'horodatage et le motif.
 
-## Protection contre les faux comptes / comptes multiples
+## Anti-fraude
 
-- Un numéro de téléphone = un compte (contrainte native de l'auth par
-  téléphone).
-- Détection de doublons chauffeur : alerte admin si un même numéro de pièce
-  d'identité ou une même plaque d'immatriculation apparaît sur plusieurs
-  dossiers `driver_documents`/`vehicles` (contrainte unique sur
-  `plate_number`, vérification manuelle assistée pour les pièces d'identité
-  — l'OCR/reconnaissance automatique de document est une extension hors
-  MVP, voir [12-roadmap.md](12-roadmap.md)).
-- Limitation de débit (`rate limiting`) sur les endpoints sensibles :
-  demande d'OTP, tentative de code, création de course, achat d'abonnement —
-  au niveau Edge Function / Supabase (déjà natif pour l'OTP côté Auth).
+Trois mécanismes complémentaires, **implémentés et vérifiés** contre un
+Postgres local (migration `00000000000002_business_logic.sql`) — jamais
+de blocage automatique silencieux, toujours une file de revue humaine :
+
+- **Comptes multiples / appareils partagés** — `device_fingerprints`
+  (`user_id`, `device_id` déclaré par le client). Un même `device_id`
+  associé à plus d'un compte déclenche automatiquement (trigger) un
+  signalement dans `fraud_flags` (`subject_type='device'`), sévérité
+  croissante avec le nombre de comptes liés. Confirmé par un test réel :
+  deux comptes déclarant le même appareil produisent bien un signalement.
+- **Anomalie de position GPS** — `update_driver_location()` compare
+  chaque nouveau point à la position précédente du même chauffeur ; une
+  vitesse implicite supérieure à 150 km/h (survolant tout mode de
+  déplacement urbain plausible) déclenche un signalement
+  (`subject_type='driver'`), sévérité `high` au-delà de 400 km/h
+  (téléportation manifeste). Confirmé par un test réel (saut de ~80 km en
+  quelques millisecondes entre deux appels).
+- **Limitation de débit** (`private.enforce_rate_limit`, table interne
+  `rate_limit_counters`, fenêtre fixe) sur les actions à coût ou à risque
+  d'abus : demande de code SMS (5/heure/numéro), création de course
+  (5/5 min/passager), achat d'abonnement (10/heure/chauffeur), ticket
+  support (10/heure/compte). Confirmé par un test réel : une 6ᵉ demande de
+  course en moins de 5 minutes est bien rejetée (`rate_limit_exceeded`).
+
+Toute entrée dans `fraud_flags` (statut `open`/`reviewing`/`confirmed`/
+`dismissed`) attend une décision `admin_resolve_fraud_flag` — jamais de
+suspension ou de blocage déclenché automatiquement par ces signaux seuls.
+
+**Distinct, non redondant** : détection de doublons *documentaires*
+(numéro de pièce d'identité ou plaque d'immatriculation identique sur
+plusieurs dossiers `driver_documents`/`vehicles` — contrainte unique déjà
+en place sur `plate_number`, vérification manuelle assistée pour les
+pièces d'identité). L'OCR/reconnaissance automatique de document reste une
+extension hors MVP, voir [12-roadmap.md](12-roadmap.md).
+
+Un numéro de téléphone = un compte (contrainte native de l'auth par
+téléphone) — première ligne de défense, avant même ces trois mécanismes.
 
 ## SOS et signalement
 
@@ -113,6 +147,6 @@ sont écrites par table et par rôle, pas génériques.
   définitive) — à définir avec vous avant la mise en production réelle,
   cohérent avec la réglementation togolaise applicable aux données
   personnelles.
-- Conservation des positions GPS (`ride_locations`) : durée de rétention à
-  fixer (utile pour litiges à court terme, coûteux à conserver indéfiniment
-  à grande échelle).
+- Conservation des positions GPS (`driver_locations`) : durée de rétention
+  à fixer (utile pour litiges à court terme, coûteux à conserver
+  indéfiniment à grande échelle).

@@ -1,0 +1,19 @@
+[Unit]
+Description=VTC Togo — worker de dispatch (expiration des offres de course)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vtc
+WorkingDirectory=/srv/vtc/services/matching-worker
+EnvironmentFile=/srv/vtc/services/matching-worker/.env
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

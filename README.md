@@ -48,8 +48,11 @@ packages/
   api-client/   # client Supabase + fonctions typées communes
   ui/           # composants partagés passager/chauffeur
 supabase/
-  migrations/   # schéma SQL, source de vérité (voir doc 06)
-  functions/    # Edge Functions (voir doc 07)
+  migrations/   # schéma + logique métier SQL, source de vérité (doc 06/07)
+  functions/    # 5 Edge Functions (doc 07) — écrites et vérifiées avec Deno,
+                # jamais déployées faute de projet Supabase disponible
+services/
+  matching-worker/  # processus à part, toujours actif (doc 08 §Concurrence)
 docs/           # les 12 livrables + suivi de projet
 ```
 
@@ -61,15 +64,24 @@ npx supabase link --project-ref <ref-du-projet-supabase-dedie>
 npx supabase db push
 ```
 
-Le schéma initial (`supabase/migrations/00000000000001_schema_initial.sql`)
-a été vérifié en local (Postgres 16 + PostGIS) avant d'être versionné :
-application propre, RLS fonctionnelle, contrainte d'unicité sur les
-abonnements actifs, colonnes sensibles protégées côté chauffeur — pas
-seulement relu.
+Les 4 migrations (`supabase/migrations/`) — schéma, logique métier (RPC,
+triggers, `pg_cron`), vérification téléphone, jetons push — ont été
+**réellement testées** en local (Postgres 16 + PostGIS), pas seulement
+relues : cycle complet d'une course (création → matching → acceptation →
+trajet → fin → notation), abonnement (achat → confirmation → expiration
+automatique → blocage du chauffeur), KYC, anti-fraude (appareil partagé,
+anomalie GPS, limitation de débit), suspension de compte, tickets support —
+25 vérifications automatisées, toutes passantes. Le worker de dispatch
+(`services/matching-worker/`) et les 5 Edge Functions
+(`supabase/functions/`) sont écrits et vérifiés avec Deno/Node réels
+(compilation, typage contre les vraies bibliothèques, lint) ; le worker a
+en plus été exécuté pour de vrai contre un Postgres local.
 
 Le reste de la stack (apps mobiles, dashboard admin) démarre en Phase 0/1 de
 la [roadmap](docs/12-roadmap.md), une fois les comptes fournisseurs
-(Supabase, Google Maps, eSMS Africa, Expo/EAS) ouverts.
+(Supabase, Google Maps, eSMS Africa, Expo/EAS) ouverts — **aucun élément
+n'a encore tourné contre un vrai projet Supabase déployé**, seulement en
+local.
 
 ## Licence
 

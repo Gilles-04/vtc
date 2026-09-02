@@ -14,7 +14,7 @@ conditions simultanément :
 
 1. `drivers.status = 'approved'`
 2. `drivers.is_available = true`
-3. Un abonnement `driver_subscriptions` avec `status='active'` **et**
+3. Un abonnement `subscriptions` avec `status='active'` **et**
    `expires_at > now()` — vérifié à l'instant du matching, pas mis en cache
 4. `drivers.last_location_at` récent (position fraîche — au-delà d'un seuil,
    ex. 2 minutes, le chauffeur est considéré injoignable même s'il se dit
@@ -31,20 +31,27 @@ pas un calcul applicatif — indispensable pour rester performant à l'échelle
 
 ## Étape 1 — Classement des candidats
 
-Score composite, dans cet ordre de priorité (le premier critère départage la
-majorité des cas ; les suivants ne servent qu'à trancher les ex-æquo) :
+Score composite, **implémenté et testé** tel quel dans `dispatch_next_offer`
+(migration `00000000000002_business_logic.sql`), dans cet ordre de priorité
+(le premier critère départage la majorité des cas ; les suivants ne
+servent qu'à trancher les ex-æquo) :
 
-1. **Distance** au point de prise en charge (croissant) — critère dominant :
-   un passager togolais attend un chauffeur proche, pas un chauffeur mieux
-   noté mais loin.
+1. **Distance** au point de prise en charge (croissant, `ST_Distance`) —
+   critère dominant : un passager togolais attend un chauffeur proche, pas
+   un chauffeur mieux noté mais loin.
 2. **Note moyenne** (`rating_avg`, décroissant) — départage à distance
-   comparable (même tranche, ex. ±300 m).
-3. **Fiabilité** — taux d'acceptation récent et taux d'annulation après
-   acceptation (décroissant) : un chauffeur qui accepte puis annule
-   fréquemment descend dans le classement, sans être exclu.
-4. **Ancienneté de disponibilité** (chauffeur disponible depuis le plus
-   longtemps en dernier recours, pour une répartition plus équitable des
-   courses entre chauffeurs abonnés).
+   comparable.
+3. **Ancienneté de disponibilité** (`last_location_at` le plus ancien en
+   dernier recours, pour une répartition plus équitable des courses entre
+   chauffeurs abonnés).
+
+**Non implémenté au MVP** (documenté ici pour ne pas le re-découvrir plus
+tard) : un critère de **fiabilité** — taux d'acceptation récent, taux
+d'annulation après acceptation — nécessiterait de nouvelles colonnes
+agrégées sur `drivers` (ex. `acceptance_rate`, `cancellation_rate`) et le
+calcul correspondant, pas encore construits. Le schéma n'interdit pas de
+l'ajouter (`ride_offers.status`/`rides.cancelled_by` portent déjà les
+données brutes nécessaires) — voir [12-roadmap.md](12-roadmap.md).
 
 ## Étape 2 — Dispatch séquentiel
 
@@ -89,9 +96,15 @@ déclarer `no_drivers_found`. Chaque palier relance l'étape 1 complète.
   `UPDATE ... WHERE id = $1 AND status = 'pending'` — si deux tentatives
   arrivent en même temps (ne devrait pas arriver avec le dispatch séquentiel,
   mais reste une garantie), une seule réussit.
-- L'expiration est gérée par la Edge Function `ride-offer-timeout`
-  (`pg_cron`, cadence courte) plutôt que par un minuteur côté client, pour
+- L'expiration est gérée par `expire_ride_offers_and_dispatch()`, appelée
+  toutes les ~5 secondes par un petit processus à part toujours actif
+  (`services/matching-worker/`) — jamais par un minuteur côté client, pour
   ne jamais dépendre de la connectivité du téléphone du chauffeur.
+  `pg_cron` a été envisagé puis écarté pour ce rôle précis : sa
+  granularité minimale est la minute, quatre fois plus lent que le délai
+  d'une offre (15 s) — voir le README du worker pour le détail. Vérifié
+  réellement : une offre expirée artificiellement a bien été balayée et
+  relancée au cycle suivant du worker contre un Postgres local.
 - Toute annulation du passager pendant la recherche (avant acceptation)
   expire immédiatement l'offre `pending` en cours et arrête le dispatch.
 

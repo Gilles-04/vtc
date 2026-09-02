@@ -45,8 +45,17 @@ App Chauffeur ─► purchase_subscription(plan_id, provider)
                            │
               payments.status = 'success' | 'failed'
                            │
-              si succès → driver_subscriptions activé/prolongé
+              si succès → subscriptions activé/prolongé
 ```
+
+**Implémenté et vérifié** : `purchase_subscription`/`confirm_subscription_payment`/
+`admin_manual_payment_confirm` testés de bout en bout contre un Postgres
+local (y compris avec code promo). L'Edge Function `payment-webhook-momo`
+existe et vérifie déjà signature HMAC + déduplication + appel à
+`confirm_subscription_payment` (`deno check`/`deno lint` propres contre les
+vrais types) — seules la forme exacte du payload et la re-vérification
+auprès de l'API du fournisseur restent à adapter une fois celui-ci choisi
+(marqué `À ADAPTER` dans le code, isolé à deux fonctions).
 
 Déduplication par `payment_webhook_events.event_key` (unique) — un webhook
 livré deux fois (cas fréquent chez la plupart des fournisseurs Mobile Money)

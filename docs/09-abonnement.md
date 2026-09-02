@@ -22,22 +22,34 @@ Les plans 7j/30j existent déjà dans `subscription_plans` dès le MVP
 
 ## Cycle de vie d'un abonnement
 
+**Implémenté et testé** de bout en bout contre un Postgres local (achat →
+confirmation manuelle → activation → expiration forcée → blocage
+automatique du chauffeur) — voir `purchase_subscription`,
+`confirm_subscription_payment`, `admin_manual_payment_confirm`,
+`expire_subscriptions` dans la migration
+`00000000000002_business_logic.sql`.
+
 ```
-Achat (purchase_subscription) ─► payments(status='pending')
+Achat (purchase_subscription, code promo optionnel) ─► payments(status='pending')
                                           │
-                          Webhook fournisseur + re-vérification API
-                                          │
+              ┌───────────────────────────┴───────────────────────────┐
+     Mode manuel (actif au MVP)                  Mode automatique (fournisseur à choisir)
+     admin_manual_payment_confirm                 Edge Function payment-webhook-momo
+              │                                                  │
+              └───────────────────────────┬───────────────────────────┘
+                                           │
+                          confirm_subscription_payment (idempotente)
+                                           │
                               ┌───────────┴───────────┐
                         succès                     échec
                               │                          │
               payments.status='success'      payments.status='failed'
                               │                    notif. chauffeur, réessayer
-        driver_subscriptions créé :
-          started_at = now()
-          expires_at = now() + duration_hours
+        subscriptions activé/prolongé :
+          expires_at = max(expires_at actuel, now()) + duration_hours
           status = 'active'
                               │
-              (tâche planifiée, chaque minute)
+              expire_subscriptions() — pg_cron, chaque minute
                               │
                   expires_at <= now() ?
                               │
@@ -45,6 +57,13 @@ Achat (purchase_subscription) ─► payments(status='pending')
                   driver.is_available = false
                      notification d'expiration
 ```
+
+Le mode manuel n'est pas un raccourci de développement laissé de côté :
+c'est le chemin **actuellement fonctionnel**, choisi tant qu'aucun
+fournisseur Mobile Money n'est retenu (voir [10-paiements.md](10-paiements.md)).
+Un code promo (`validate_promo_code`/table `promotions`) peut réduire le
+montant à payer, en pourcentage ou en montant fixe — une utilisation par
+code et par chauffeur.
 
 ## Règles
 
@@ -62,7 +81,7 @@ Achat (purchase_subscription) ─► payments(status='pending')
   fermeture de l'écran de paiement côté app. Le même principe que MBONPLAN
   pour ses propres abonnements boutique : webhook + re-vérification API,
   déduplication par `event_key`.
-- **Historique conservé indéfiniment** (`driver_subscriptions`, statuts
+- **Historique conservé indéfiniment** (`subscriptions`, statuts
   `expired`/`cancelled` inclus) — nécessaire pour les statistiques admin et
   un futur programme de fidélité/tarif dégressif (hors MVP).
 - **Affichage chauffeur** (`/abonnement`, `/accueil`) : statut actif/inactif,

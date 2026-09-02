@@ -1,15 +1,13 @@
--- Schéma initial de la plateforme VTC (MVP)
--- Voir docs/06-schema-base-donnees.md pour la description narrative,
--- docs/11-securite.md pour les principes RLS appliqués ici.
+-- Schéma de données de la plateforme VTC — structure (tables, enums, index, RLS).
+-- La logique métier (RPC, triggers, tâches planifiées) vit dans
+-- 00000000000002_business_logic.sql. Voir docs/06-schema-base-donnees.md pour
+-- la description narrative, docs/11-securite.md pour les principes RLS.
 --
 -- Convention : toute mutation qui touche à l'argent (paiements, abonnements),
 -- au dispatch d'une course (rides, ride_offers) ou qui exige une trace
--- d'audit (décisions admin : validation KYC, suspension, résolution de
--- réclamation/SOS) ne reçoit **aucune** policy RLS d'écriture directe ici.
--- Ces écritures passent exclusivement par des fonctions SECURITY DEFINER
--- (RPC) ou par les Edge Functions (clé de service), ajoutées dans les
--- migrations des phases correspondantes de docs/12-roadmap.md — jamais par
--- un accès table brut depuis le client, même authentifié.
+-- d'audit (décisions admin) ne reçoit **aucune** policy RLS d'écriture
+-- directe ici — uniquement des fonctions SECURITY DEFINER (migration 2) ou
+-- des Edge Functions (clé de service), jamais un accès table brut.
 
 create extension if not exists postgis with schema extensions;
 create extension if not exists pgcrypto with schema extensions;
@@ -36,10 +34,24 @@ create type public.payment_method_type as enum ('cash', 'mobile_money');
 create type public.rater_role_type as enum ('passenger', 'driver');
 create type public.report_status as enum ('open', 'investigating', 'resolved', 'dismissed');
 create type public.sos_status as enum ('open', 'acknowledged', 'resolved');
+create type public.support_ticket_category as enum ('paiement', 'course', 'compte', 'document', 'autre');
+create type public.support_ticket_status as enum ('open', 'pending', 'resolved', 'closed');
+create type public.support_ticket_priority as enum ('low', 'normal', 'high', 'urgent');
+create type public.support_sender_type as enum ('user', 'staff');
+create type public.promotion_discount_type as enum ('percent', 'fixed');
+create type public.promotion_applies_to as enum ('subscription');
+create type public.fraud_subject_type as enum ('user', 'driver', 'device');
+create type public.fraud_flag_status as enum ('open', 'reviewing', 'confirmed', 'dismissed');
+create type public.fraud_severity as enum ('low', 'medium', 'high');
 
 -- ========================================================================
--- TABLES
+-- IDENTITÉ
 -- ========================================================================
+-- `auth.users` (géré par Supabase Auth) est la table "users" de
+-- l'architecture : identifiants, téléphone vérifié, session. `profiles` la
+-- prolonge avec les champs communs à tout compte ; `passengers`/`drivers`
+-- portent les données propres à chaque casquette (un compte peut cumuler
+-- les deux, voir docs/11-securite.md).
 
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -66,14 +78,14 @@ create table public.admin_roles (
   primary key (user_id, role)
 );
 
-create table public.zones (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  city text not null,
-  boundary extensions.geography(Polygon, 4326),
-  night_start_time time not null default '20:00',
-  night_end_time time not null default '05:00',
-  is_active boolean not null default true,
+create table public.passengers (
+  id uuid primary key references public.profiles (id) on delete cascade,
+  preferred_payment_method public.payment_method_type not null default 'cash',
+  referral_code text unique,
+  referred_by uuid references public.passengers (id),
+  rating_avg numeric(2, 1) not null default 5.0,
+  rating_count integer not null default 0,
+  total_rides integer not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -118,6 +130,10 @@ create table public.vehicles (
   created_at timestamptz not null default now()
 );
 
+-- ========================================================================
+-- ABONNEMENTS & PAIEMENTS
+-- ========================================================================
+
 create table public.subscription_plans (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
@@ -151,7 +167,7 @@ create table public.payment_webhook_events (
   processed_at timestamptz
 );
 
-create table public.driver_subscriptions (
+create table public.subscriptions (
   id uuid primary key default gen_random_uuid(),
   driver_id uuid not null references public.drivers (id) on delete cascade,
   plan_id uuid not null references public.subscription_plans (id),
@@ -161,7 +177,50 @@ create table public.driver_subscriptions (
   status public.subscription_status not null default 'active'
 );
 
-create unique index driver_subscriptions_one_active_idx on public.driver_subscriptions (driver_id) where status = 'active';
+create unique index subscriptions_one_active_idx on public.subscriptions (driver_id) where status = 'active';
+create index subscriptions_driver_idx on public.subscriptions (driver_id, started_at desc);
+
+create table public.promotions (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  description text,
+  discount_type public.promotion_discount_type not null,
+  discount_value integer not null,
+  applies_to public.promotion_applies_to not null default 'subscription',
+  max_redemptions integer,
+  redemptions_count integer not null default 0,
+  valid_from timestamptz not null default now(),
+  valid_to timestamptz,
+  is_active boolean not null default true,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  constraint promotions_discount_value_chk check (discount_value > 0),
+  constraint promotions_percent_range_chk check (discount_type <> 'percent' or discount_value <= 100)
+);
+
+create table public.promotion_redemptions (
+  id uuid primary key default gen_random_uuid(),
+  promotion_id uuid not null references public.promotions (id),
+  user_id uuid not null references auth.users (id),
+  payment_id uuid references public.payments (id),
+  redeemed_at timestamptz not null default now(),
+  unique (promotion_id, user_id)
+);
+
+-- ========================================================================
+-- TARIFICATION & ZONES
+-- ========================================================================
+
+create table public.zones (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  city text not null,
+  boundary extensions.geography(Polygon, 4326),
+  night_start_time time not null default '20:00',
+  night_end_time time not null default '05:00',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
 
 create table public.pricing_rules (
   id uuid primary key default gen_random_uuid(),
@@ -174,6 +233,10 @@ create table public.pricing_rules (
   effective_from timestamptz not null default now(),
   created_by uuid references auth.users (id)
 );
+
+-- ========================================================================
+-- COURSES
+-- ========================================================================
 
 create table public.rides (
   id uuid primary key default gen_random_uuid(),
@@ -220,16 +283,45 @@ create table public.ride_offers (
 );
 
 create index ride_offers_driver_pending_idx on public.ride_offers (driver_id, status);
+create index ride_offers_ride_status_idx on public.ride_offers (ride_id, status);
+create index ride_offers_expiry_idx on public.ride_offers (expires_at) where status = 'pending';
 
-create table public.ride_locations (
+-- Journal complet de tous les changements de statut d'une course, alimenté
+-- automatiquement par un trigger (migration 2) — jamais écrit à la main :
+-- c'est la source d'historique/preuve en cas de litige, indépendante de ce
+-- que l'application affiche.
+create table public.ride_status_history (
   id uuid primary key default gen_random_uuid(),
   ride_id uuid not null references public.rides (id) on delete cascade,
-  driver_id uuid not null references public.drivers (id),
+  from_status public.ride_status,
+  to_status public.ride_status not null,
+  changed_by uuid references auth.users (id),
+  changed_at timestamptz not null default now(),
+  metadata jsonb not null default '{}'::jsonb
+);
+
+create index ride_status_history_ride_idx on public.ride_status_history (ride_id, changed_at);
+
+-- Positions du chauffeur, échantillonnées côté client (~1 point/5-10s).
+-- `ride_id` est renseigné quand le point est capté pendant une course
+-- (reconstruction du trajet, litiges) et nul le reste du temps (position de
+-- fond pendant que le chauffeur est disponible — alimente aussi la
+-- détection d'anomalie GPS, voir §anti-fraude en migration 2).
+create table public.driver_locations (
+  id uuid primary key default gen_random_uuid(),
+  driver_id uuid not null references public.drivers (id) on delete cascade,
+  ride_id uuid references public.rides (id),
   location extensions.geography(Point, 4326) not null,
+  accuracy_meters numeric(6, 1),
   recorded_at timestamptz not null default now()
 );
 
-create index ride_locations_ride_idx on public.ride_locations (ride_id, recorded_at);
+create index driver_locations_driver_idx on public.driver_locations (driver_id, recorded_at desc);
+create index driver_locations_ride_idx on public.driver_locations (ride_id, recorded_at) where ride_id is not null;
+
+-- ========================================================================
+-- CONFIANCE & SÉCURITÉ
+-- ========================================================================
 
 create table public.ratings (
   id uuid primary key default gen_random_uuid(),
@@ -267,6 +359,89 @@ create table public.sos_alerts (
   resolved_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+-- support_tickets/messages : assistance générale (paiement, compte...),
+-- distincte de `reports` (signalement d'un comportement lié à une course)
+-- et de `sos_alerts` (urgence en cours de course).
+create table public.support_tickets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id),
+  category public.support_ticket_category not null default 'autre',
+  subject text not null,
+  status public.support_ticket_status not null default 'open',
+  priority public.support_ticket_priority not null default 'normal',
+  ride_id uuid references public.rides (id),
+  assigned_to uuid references auth.users (id),
+  resolved_by uuid references auth.users (id),
+  resolved_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index support_tickets_status_idx on public.support_tickets (status, created_at);
+
+create table public.support_ticket_messages (
+  id uuid primary key default gen_random_uuid(),
+  ticket_id uuid not null references public.support_tickets (id) on delete cascade,
+  sender_id uuid not null references auth.users (id),
+  sender_type public.support_sender_type not null,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index support_ticket_messages_ticket_idx on public.support_ticket_messages (ticket_id, created_at);
+
+-- ========================================================================
+-- ANTI-FRAUDE
+-- ========================================================================
+-- Trois mécanismes complémentaires : détection d'appareils partagés entre
+-- comptes (`device_fingerprints`), limitation de débit sur les actions
+-- sensibles (`rate_limit_counters`, jamais exposé au client), et une file
+-- de signalements centralisée pour revue humaine (`fraud_flags`) — jamais
+-- de bannissement automatique silencieux, voir migration 2.
+
+create table public.device_fingerprints (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  device_id text not null,
+  platform text,
+  first_seen_at timestamptz not null default now(),
+  last_seen_at timestamptz not null default now(),
+  unique (user_id, device_id)
+);
+
+create index device_fingerprints_device_idx on public.device_fingerprints (device_id);
+
+-- Référence polymorphe volontaire (`subject_type` + `subject_id text`) :
+-- un signalement peut porter sur un compte (uuid en texte), un chauffeur
+-- (idem) ou un appareil (device_id déjà textuel) — une seule table de revue
+-- plutôt que trois tables quasi identiques.
+create table public.fraud_flags (
+  id uuid primary key default gen_random_uuid(),
+  subject_type public.fraud_subject_type not null,
+  subject_id text not null,
+  reason text not null,
+  severity public.fraud_severity not null default 'medium',
+  status public.fraud_flag_status not null default 'open',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  resolved_by uuid references auth.users (id),
+  resolved_at timestamptz,
+  resolution_notes text
+);
+
+create index fraud_flags_subject_idx on public.fraud_flags (subject_type, subject_id);
+create index fraud_flags_open_idx on public.fraud_flags (status) where status in ('open', 'reviewing');
+
+create table public.rate_limit_counters (
+  key text not null,
+  window_start timestamptz not null,
+  count integer not null default 1,
+  primary key (key, window_start)
+);
+
+-- ========================================================================
+-- TRANSVERSE
+-- ========================================================================
 
 create table public.notifications (
   id uuid primary key default gen_random_uuid(),
@@ -310,7 +485,7 @@ grant usage on schema private to authenticated, anon;
 grant execute on function private.has_admin_role(public.admin_role[]) to authenticated, anon;
 
 -- ========================================================================
--- TRIGGER : profil + rôle passager créés à l'inscription
+-- TRIGGER : profil + rôle passager + fiche passager créés à l'inscription
 -- ========================================================================
 
 create or replace function public.handle_new_user()
@@ -322,6 +497,7 @@ as $$
 begin
   insert into public.profiles (id, phone) values (new.id, new.phone);
   insert into public.user_roles (user_id, role) values (new.id, 'passenger');
+  insert into public.passengers (id) values (new.id);
   return new;
 end;
 $$;
@@ -330,6 +506,28 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Génère un code de parrainage court et lisible à la création de la fiche
+-- passager — jamais fourni par le client (colonne non accordée en écriture,
+-- voir grants ci-dessous).
+create or replace function public.generate_referral_code()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if new.referral_code is null then
+    new.referral_code := upper(regexp_replace(encode(extensions.gen_random_bytes(6), 'base64'), '[^a-zA-Z0-9]', '', 'g'));
+    new.referral_code := left(new.referral_code, 6);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger passengers_referral_code
+  before insert on public.passengers
+  for each row execute function public.generate_referral_code();
+
 -- ========================================================================
 -- RLS
 -- ========================================================================
@@ -337,6 +535,7 @@ create trigger on_auth_user_created
 alter table public.profiles enable row level security;
 alter table public.user_roles enable row level security;
 alter table public.admin_roles enable row level security;
+alter table public.passengers enable row level security;
 alter table public.zones enable row level security;
 alter table public.drivers enable row level security;
 alter table public.driver_documents enable row level security;
@@ -344,14 +543,22 @@ alter table public.vehicles enable row level security;
 alter table public.subscription_plans enable row level security;
 alter table public.payments enable row level security;
 alter table public.payment_webhook_events enable row level security;
-alter table public.driver_subscriptions enable row level security;
+alter table public.subscriptions enable row level security;
+alter table public.promotions enable row level security;
+alter table public.promotion_redemptions enable row level security;
 alter table public.pricing_rules enable row level security;
 alter table public.rides enable row level security;
 alter table public.ride_offers enable row level security;
-alter table public.ride_locations enable row level security;
+alter table public.ride_status_history enable row level security;
+alter table public.driver_locations enable row level security;
 alter table public.ratings enable row level security;
 alter table public.reports enable row level security;
 alter table public.sos_alerts enable row level security;
+alter table public.support_tickets enable row level security;
+alter table public.support_ticket_messages enable row level security;
+alter table public.device_fingerprints enable row level security;
+alter table public.fraud_flags enable row level security;
+alter table public.rate_limit_counters enable row level security;
 alter table public.notifications enable row level security;
 alter table public.audit_logs enable row level security;
 
@@ -384,6 +591,18 @@ create policy admin_roles_all on public.admin_roles for all using (
   private.has_admin_role(array['super_admin']::public.admin_role[])
 );
 
+-- passengers : chacun lit/édite le sien (hors compteurs de réputation et
+-- code de parrainage, réservés au trigger/RPC) ; jamais visible par un
+-- chauffeur ou un autre passager.
+revoke all on public.passengers from authenticated, anon;
+grant select on public.passengers to authenticated;
+grant update (preferred_payment_method) on public.passengers to authenticated;
+
+create policy passengers_select on public.passengers for select using (
+  auth.uid() = id or private.has_admin_role(array['super_admin', 'admin', 'support', 'finance']::public.admin_role[])
+);
+create policy passengers_update_own on public.passengers for update using (auth.uid() = id);
+
 -- zones : lecture publique (nécessaire à l'estimation de prix), écriture
 -- admin directe (table de configuration, pas un flux financier).
 revoke all on public.zones from authenticated, anon;
@@ -399,10 +618,10 @@ create policy zones_update_admin on public.zones for update using (
 );
 
 -- drivers : jamais visible par un passager (voir docs/11-securite.md — les
--- infos publiques passeront par une fonction dédiée, Phase 4). Le chauffeur
--- ne peut modifier que sa disponibilité et sa position ; `status` et les
--- compteurs de réputation ne sont modifiables que par les futures RPC/Edge
--- Functions (clé de service), jamais en direct.
+-- infos publiques passeront par une fonction dédiée). Le chauffeur ne peut
+-- modifier que sa disponibilité et sa position ; `status` et les compteurs
+-- de réputation ne sont modifiables que par les RPC/Edge Functions (clé de
+-- service), jamais en direct.
 revoke all on public.drivers from authenticated, anon;
 grant select on public.drivers to authenticated;
 grant insert (id, city) on public.drivers to authenticated;
@@ -416,7 +635,7 @@ create policy drivers_update_own on public.drivers for update using (auth.uid() 
 
 -- driver_documents : le chauffeur soumet (statut toujours 'pending' par
 -- défaut, colonnes de décision non accordées) ; la décision d'approbation/
--- rejet est réservée à la future RPC admin (trace d'audit obligatoire).
+-- rejet est réservée à la RPC admin (trace d'audit obligatoire).
 revoke all on public.driver_documents from authenticated, anon;
 grant select on public.driver_documents to authenticated;
 grant insert (driver_id, doc_type, file_path) on public.driver_documents to authenticated;
@@ -450,8 +669,8 @@ create policy subscription_plans_update_admin on public.subscription_plans for u
   private.has_admin_role(array['super_admin', 'admin']::public.admin_role[])
 );
 
--- payments, payment_webhook_events, driver_subscriptions : lecture seule
--- côté client — toute écriture passe par les Edge Functions (clé de
+-- payments, payment_webhook_events, subscriptions : lecture seule côté
+-- client — toute écriture passe par les RPC/Edge Functions (clé de
 -- service), voir docs/10-paiements.md et docs/09-abonnement.md.
 revoke all on public.payments from authenticated, anon;
 grant select on public.payments to authenticated;
@@ -467,11 +686,34 @@ create policy payment_webhook_events_select_admin on public.payment_webhook_even
   private.has_admin_role(array['super_admin', 'finance']::public.admin_role[])
 );
 
-revoke all on public.driver_subscriptions from authenticated, anon;
-grant select on public.driver_subscriptions to authenticated;
+revoke all on public.subscriptions from authenticated, anon;
+grant select on public.subscriptions to authenticated;
 
-create policy driver_subscriptions_select on public.driver_subscriptions for select using (
+create policy subscriptions_select on public.subscriptions for select using (
   driver_id = auth.uid() or private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[])
+);
+
+-- promotions : jamais listées en clair au client (éviterait l'énumération
+-- des codes) — la validation d'un code saisi passe par une RPC dédiée qui
+-- ne renvoie que le résultat, voir migration 2.
+revoke all on public.promotions from authenticated, anon;
+grant select, insert, update on public.promotions to authenticated;
+
+create policy promotions_select_admin on public.promotions for select using (
+  private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[])
+);
+create policy promotions_write_admin on public.promotions for insert with check (
+  private.has_admin_role(array['super_admin', 'admin']::public.admin_role[])
+);
+create policy promotions_update_admin on public.promotions for update using (
+  private.has_admin_role(array['super_admin', 'admin']::public.admin_role[])
+);
+
+revoke all on public.promotion_redemptions from authenticated, anon;
+grant select on public.promotion_redemptions to authenticated;
+
+create policy promotion_redemptions_select on public.promotion_redemptions for select using (
+  user_id = auth.uid() or private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[])
 );
 
 -- pricing_rules : lecture publique (estimation de prix), écriture admin en
@@ -486,11 +728,9 @@ create policy pricing_rules_insert_admin on public.pricing_rules for insert with
   private.has_admin_role(array['super_admin', 'admin']::public.admin_role[])
 );
 
--- rides, ride_offers, ride_locations(écriture) : aucune écriture cliente
--- directe pour rides/ride_offers — passe par create_ride_request,
--- respond_to_ride_offer, etc. (RPC SECURITY DEFINER, Phase 4 de la
--- roadmap). ride_locations accepte l'insertion directe du chauffeur assigné
--- (simple flux de position, pas de règle métier à protéger).
+-- rides, ride_offers, ride_status_history : aucune écriture cliente directe
+-- — passe par create_ride_request, respond_to_ride_offer, etc. (RPC
+-- SECURITY DEFINER, migration 2).
 revoke all on public.rides from authenticated, anon;
 grant select on public.rides to authenticated;
 
@@ -506,15 +746,29 @@ create policy ride_offers_select_own on public.ride_offers for select using (
   driver_id = auth.uid() or private.has_admin_role(array['super_admin', 'admin']::public.admin_role[])
 );
 
-revoke all on public.ride_locations from authenticated, anon;
-grant select, insert on public.ride_locations to authenticated;
+revoke all on public.ride_status_history from authenticated, anon;
+grant select on public.ride_status_history to authenticated;
 
-create policy ride_locations_select on public.ride_locations for select using (
-  driver_id = auth.uid()
-  or exists (select 1 from public.rides r where r.id = ride_id and r.passenger_id = auth.uid())
+create policy ride_status_history_select on public.ride_status_history for select using (
+  exists (
+    select 1 from public.rides r
+    where r.id = ride_id and (r.passenger_id = auth.uid() or r.driver_id = auth.uid())
+  )
   or private.has_admin_role(array['super_admin', 'admin', 'support']::public.admin_role[])
 );
-create policy ride_locations_insert_driver on public.ride_locations for insert with check (driver_id = auth.uid());
+
+-- driver_locations : écriture directe par le chauffeur assigné (simple
+-- flux de position, la vérification d'anomalie GPS se fait après coup en
+-- tâche planifiée — voir migration 2).
+revoke all on public.driver_locations from authenticated, anon;
+grant select, insert on public.driver_locations to authenticated;
+
+create policy driver_locations_select on public.driver_locations for select using (
+  driver_id = auth.uid()
+  or (ride_id is not null and exists (select 1 from public.rides r where r.id = ride_id and r.passenger_id = auth.uid()))
+  or private.has_admin_role(array['super_admin', 'admin', 'support']::public.admin_role[])
+);
+create policy driver_locations_insert_own on public.driver_locations for insert with check (driver_id = auth.uid());
 
 -- ratings : un avis par sens et par course, uniquement sur une course
 -- terminée dont l'auteur est réellement partie prenante.
@@ -538,7 +792,7 @@ create policy ratings_insert_own on public.ratings for insert with check (
 );
 
 -- reports, sos_alerts : création libre par la victime/témoin ; la
--- résolution est réservée à la future RPC admin (trace d'audit).
+-- résolution est réservée à la RPC admin (trace d'audit).
 revoke all on public.reports from authenticated, anon;
 grant select, insert on public.reports to authenticated;
 
@@ -554,6 +808,53 @@ create policy sos_alerts_select on public.sos_alerts for select using (
   triggered_by = auth.uid() or private.has_admin_role(array['super_admin', 'admin', 'support']::public.admin_role[])
 );
 create policy sos_alerts_insert_own on public.sos_alerts for insert with check (triggered_by = auth.uid());
+
+-- support_tickets/messages : chacun crée et suit les siens ; le staff
+-- support voit tout. La résolution/l'affectation passe par la RPC admin.
+revoke all on public.support_tickets from authenticated, anon;
+grant select, insert on public.support_tickets to authenticated;
+
+create policy support_tickets_select on public.support_tickets for select using (
+  user_id = auth.uid() or private.has_admin_role(array['super_admin', 'admin', 'support']::public.admin_role[])
+);
+create policy support_tickets_insert_own on public.support_tickets for insert with check (user_id = auth.uid());
+
+revoke all on public.support_ticket_messages from authenticated, anon;
+grant select, insert on public.support_ticket_messages to authenticated;
+
+create policy support_ticket_messages_select on public.support_ticket_messages for select using (
+  exists (select 1 from public.support_tickets t where t.id = ticket_id and t.user_id = auth.uid())
+  or private.has_admin_role(array['super_admin', 'admin', 'support']::public.admin_role[])
+);
+create policy support_ticket_messages_insert on public.support_ticket_messages for insert with check (
+  sender_id = auth.uid()
+  and (
+    (sender_type = 'user' and exists (select 1 from public.support_tickets t where t.id = ticket_id and t.user_id = auth.uid()))
+    or (sender_type = 'staff' and private.has_admin_role(array['super_admin', 'admin', 'support']::public.admin_role[]))
+  )
+);
+
+-- device_fingerprints : le client déclare ses propres appareils ; seul le
+-- staff admin (anti-fraude) et le système (trigger) lisent l'ensemble.
+revoke all on public.device_fingerprints from authenticated, anon;
+grant select, insert on public.device_fingerprints to authenticated;
+
+create policy device_fingerprints_select on public.device_fingerprints for select using (
+  user_id = auth.uid() or private.has_admin_role(array['super_admin', 'admin']::public.admin_role[])
+);
+create policy device_fingerprints_insert_own on public.device_fingerprints for insert with check (user_id = auth.uid());
+
+-- fraud_flags, rate_limit_counters : aucun accès client, ni en lecture ni
+-- en écriture pour rate_limit_counters (purement interne) ; lecture admin
+-- seule pour fraud_flags, écriture réservée aux fonctions serveur.
+revoke all on public.fraud_flags from authenticated, anon;
+grant select on public.fraud_flags to authenticated;
+
+create policy fraud_flags_select_admin on public.fraud_flags for select using (
+  private.has_admin_role(array['super_admin', 'admin']::public.admin_role[])
+);
+
+revoke all on public.rate_limit_counters from authenticated, anon;
 
 -- notifications : chacun lit les siennes et peut seulement marquer comme lu.
 revoke all on public.notifications from authenticated, anon;
