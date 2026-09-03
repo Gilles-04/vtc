@@ -2,9 +2,11 @@
 
 ## Authentification
 
-- **OTP par téléphone** (eSMS Verify), même mécanisme éprouvé que MBONPLAN.
-  Compte et clé API **distincts** de ceux de MBONPLAN (deux produits, deux
-  comptes fournisseur).
+- **Code à usage unique par email** (Supabase Auth natif,
+  `signInWithOtp`), révisé le 3 septembre 2026 — eSMS Africa abandonné
+  (changement de société côté porteur du projet). Le circuit SMS
+  (`phone_verifications`, Edge Functions dédiées) reste en réserve, non
+  appelé, pour un futur fournisseur.
 - **Staff admin** : email + mot de passe (pas de compte auto-créé — un
   `super_admin` crée les comptes staff manuellement, jamais d'auto-inscription
   admin).

@@ -162,7 +162,9 @@ Passager                Plateforme                  Chauffeur
 **Fait** (détail écran par écran en [05-ecrans.md](05-ecrans.md) — **à
 mettre à jour** pour le choix de catégorie et les nouveaux écrans de
 facturation/frais, voir [docs/STATUS.md](STATUS.md)) : inscription
-passager/chauffeur par téléphone + OTP, choix voiture/moto, commande de
+passager/chauffeur par email + code (révisé le 3 septembre 2026, voir
+[02-architecture-technique.md](02-architecture-technique.md) §Révision
+authentification — plus de SMS OTP), choix voiture/moto, commande de
 course avec estimation de prix par catégorie, matching automatique
 séquentiel filtré par catégorie, suivi temps réel, paiement cash et
 Mobile Money (chauffeur↔passager, hors plateforme) + paiement Mobile

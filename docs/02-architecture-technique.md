@@ -4,13 +4,13 @@
 
 | Couche | Choix | Pourquoi |
 |---|---|---|
-| Données/Auth/Realtime/Storage | **Supabase** (Postgres + PostGIS) — projet dédié, séparé de celui de MBONPLAN | Auth OTP téléphone native, RLS pour l'isolation passager/chauffeur/admin, Realtime pour la position live et le dispatch de course, Storage pour les documents KYC, Edge Functions pour la logique serveur sensible (matching, paiements). Réduit drastiquement le temps de mise sur le marché du MVP. Reste du Postgres standard — pas d'enfermement propriétaire si une migration devient nécessaire plus tard. |
+| Données/Auth/Realtime/Storage | **Supabase** (Postgres + PostGIS) — projet dédié, séparé de celui de MBONPLAN | Auth par code à usage unique (email natif Supabase, téléphone en option — voir §Révision authentification ci-dessous), RLS pour l'isolation passager/chauffeur/admin, Realtime pour la position live et le dispatch de course, Storage pour les documents KYC, Edge Functions pour la logique serveur sensible (matching, paiements). Réduit drastiquement le temps de mise sur le marché du MVP. Reste du Postgres standard — pas d'enfermement propriétaire si une migration devient nécessaire plus tard. |
 | App mobile (Android/iOS) | **React Native (Expo)**, un seul binaire pour les deux rôles (passager et chauffeur, bascule de mode dans l'app — révisé le 3 septembre 2026, voir §Révision ci-dessous) | Un seul code pour Android/iOS, écosystème mature, cible explicite « Android d'entrée/milieu de gamme » (§11 du cadrage) — Expo permet des builds légers et des mises à jour OTA sans repasser par le store pour les correctifs non natifs. |
 | App Web (`apps/web`) | **React 19 + Vite + TanStack Router**, mêmes rôles que le mobile (passager et chauffeur) | Ajoutée le 3 septembre 2026 à la demande du porteur du projet : permet de commander une course sans smartphone (cybercafé, ordinateur partagé) — un vrai besoin au Togo, pas un simple confort. Même stack que le dashboard admin, code réutilisable (composants, client Supabase). |
 | Dashboard admin | **React 19 + Vite + TanStack Router**, app web | Cohérent avec l'expérience déjà en place sur MBONPLAN, pas de besoin mobile pour l'admin. |
 | Cartographie | **Google Maps Platform** (Maps SDK mobile, Places Autocomplete, Directions API, Geocoding) — voir alternative ci-dessous | Meilleure couverture d'adresses et de POI à Lomé qu'une alternative gratuite au lancement. Architecture conçue pour rester swappable (couche d'abstraction `lib/maps/`) — Mapbox reste l'option de repli si le coût par requête devient un problème à l'échelle. **Décision à confirmer avec vous** : nécessite une clé API facturée à l'usage. |
 | Paiement Mobile Money | **Abstraction multi-fournisseur**, aucun fournisseur câblé au jour 1 | Aucun prestataire n'est encore choisi (Flooz/TMoney en direct, ou agrégateur type Semoa/CinetPay/PayGate). Voir [10-paiements.md](10-paiements.md) — le circuit `pending → success/failed` fonctionne dès le MVP en mode manuel/admin, comme MBONPLAN l'a fait pour son propre paiement. |
-| SMS / OTP | **eSMS Africa (Verify API)** | Déjà en usage éprouvé en production togolaise sur MBONPLAN (délivrabilité correcte via l'API Verify dédiée, contrairement à l'envoi générique). Nécessite un compte/API key **distinct** de celui de MBONPLAN. |
+| SMS / OTP | **Abandonné** (révisé le 3 septembre 2026) — le porteur du projet change de société et n'utilisera plus eSMS Africa. Voir §Révision authentification : le code de vérification passe par email (Supabase natif) en attendant un nouveau fournisseur SMS. | `phone-verification-start`/`phone-verification-check` (Edge Functions) et `phone_verifications` (table) restent en l'état, non appelées — réactivables sans réécriture le jour où un fournisseur SMS est choisi (voir §Révision). |
 | Notifications push | **Expo Push Notifications** (FCM sous le capot) | Intégré nativement à Expo, pas de configuration Firebase manuelle nécessaire pour démarrer. |
 | Génération de reçus/factures | **jsPDF** | Cohérence avec l'écosystème déjà maîtrisé (MBONPLAN), léger côté client comme serveur. |
 
@@ -34,6 +34,32 @@ développement, seulement deux publications de store distinctes.
 sont donc remplacés par `apps/mobile` avant que du code n'y soit écrit —
 aucune perte, ils ne contenaient qu'un README chacun.
 
+## Révision authentification (3 septembre 2026) : email plutôt que SMS
+
+Le porteur du projet change de société et n'utilisera plus eSMS Africa —
+décision indépendante de la révision d'architecture ci-dessus, mais prise
+le même jour. L'authentification passager/chauffeur passe donc par un
+**code à usage unique envoyé par email** (`supabase.auth.signInWithOtp({
+email })`, natif Supabase, zéro fournisseur externe à intégrer) au lieu
+du SMS prévu au cadrage initial.
+
+Conçu pour accueillir les deux moyens, pas seulement l'email : le futur
+fournisseur SMS n'est pas encore choisi, donc le circuit téléphone reste
+en place côté base (`phone_verifications`, Edge Functions
+`phone-verification-start`/`-check`) sans être appelé par aucune app pour
+l'instant — le jour où un fournisseur est choisi, il se branche à côté du
+circuit email sans réécrire l'existant, exactement le principe déjà
+retenu pour Mobile Money (§Paiement, aucun fournisseur câblé au jour 1).
+Côté UI, seul le parcours email est proposé aux utilisateurs tant que le
+téléphone n'est pas fonctionnel — pas d'option visible mais désactivée,
+qui serait trompeuse.
+
+`profiles.phone` reste disponible pour un numéro de contact
+chauffeur↔passager pendant une course, indépendamment de la méthode
+d'authentification — à collecter dans un futur écran de complétion de
+profil (pas encore construit), puisque l'inscription par email seule ne
+le renseigne pas.
+
 ## Vue d'ensemble
 
 ```
@@ -53,7 +79,9 @@ aucune perte, ils ne contenaient qu'un README chacun.
               ┌──────────────────────────┐
               │        Supabase           │
               │  ── Postgres + PostGIS    │
-              │  ── Auth (OTP téléphone)  │
+              │  ── Auth (code email ;    │
+              │      téléphone possible   │
+              │      plus tard)           │
               │  ── Realtime (channels)   │
               │  ── Storage (KYC, privé)  │
               │  ── Edge Functions (Deno) │
@@ -66,7 +94,8 @@ aucune perte, ils ne contenaient qu'un README chacun.
                  ┌───────────┴───────────┐
                  │  Fournisseurs externes  │
                  │  • Mobile Money (TBD)   │
-                 │  • eSMS Africa (OTP)    │
+                 │  • SMS OTP (abandonné,  │
+                 │    fournisseur à venir) │
                  │  • Expo Push (FCM)      │
                  └────────────────────────┘
 ```

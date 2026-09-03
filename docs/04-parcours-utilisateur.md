@@ -3,9 +3,12 @@
 ## Passager — de l'inscription à la première course
 
 1. Ouvre l'app → écran d'accueil non connecté → « Continuer ».
-2. Saisit son numéro de téléphone (+228 pré-rempli) → reçoit un code par SMS
-   (eSMS Verify) → saisit le code.
-3. Code validé → compte créé → écran profil minimal (nom) → accueil.
+2. Saisit son email → reçoit un code (Supabase Auth natif, révisé le
+   3 septembre 2026 — plus de SMS, voir
+   [02-architecture-technique.md](02-architecture-technique.md) §Révision
+   authentification) → saisit le code.
+3. Code validé → compte créé → écran profil minimal (nom, téléphone de
+   contact optionnel) → accueil.
 4. Sur l'accueil, la carte se centre sur sa position (autorisation
    géolocalisation demandée explicitement, avec explication de son usage).
 5. Choisit sa catégorie — 🚗 Voiture ou 🏍️ Moto-taxi, affichées côte à côte
@@ -46,7 +49,7 @@ resynchronise à la reconnexion, ne perd jamais la course en cours).
 
 ## Chauffeur — de l'inscription à la première course rémunérée
 
-1. Inscription par téléphone/OTP (identique au passager).
+1. Inscription par email/code (identique au passager).
 2. Choisit sa catégorie — 🚗 Voiture ou 🏍️ Moto-taxi — **définitive** : elle
    détermine son abonnement, sa tarification et son pool de matching pour
    toute la suite (changer de catégorie plus tard n'est pas un simple

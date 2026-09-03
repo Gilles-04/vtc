@@ -14,12 +14,16 @@ authenticated` en fin de fichier n'est **pas** un point d'API — appel
 direct par un client authentifié testé et confirmé refusé
 (`permission denied`).
 
-## Auth (Supabase Auth + eSMS Verify, pas de RPC dédiée pour l'inscription)
+## Auth (Supabase Auth, code email — pas de RPC dédiée pour l'inscription)
 
 Le trigger `handle_new_user` crée `profiles` + `user_roles(passenger)` +
 `passengers` à la création de l'`auth.users` (peu importe comment ce
-compte a été créé). Voir §Vérification téléphone ci-dessous pour le flux
-réel (le compte n'existe pas encore au moment de la demande de code).
+compte a été créé). Révisé le 3 septembre 2026 : `supabase.auth.signInWithOtp({
+email })` côté client (envoi + vérification du code, natif Supabase,
+aucune Edge Function requise) — remplace le SMS prévu au cadrage initial,
+eSMS Africa abandonné. Voir §Vérification téléphone ci-dessous : ce
+circuit reste en base, non appelé, réactivable le jour où un fournisseur
+SMS est choisi.
 
 ## RPC — Passager
 
@@ -78,7 +82,13 @@ en ajout seul (jamais de modification d'une règle déjà appliquée).
 | `cleanup_rate_limits()` | `pg_cron`, une fois par jour |
 | `generate_invoice_on_ride_success()` | Trigger `AFTER UPDATE` sur `rides` (pas une fonction appelable) — génère la ligne `invoices` dès `status='completed' AND payment_status='success'`, jamais à la main |
 
-## Vérification téléphone (avant inscription)
+## Vérification téléphone (non utilisée — en réserve, eSMS Africa abandonné)
+
+**Abandonné le 3 septembre 2026** : le porteur du projet n'utilise plus
+eSMS Africa (changement de société). L'inscription passe par le code
+email natif Supabase (§Auth ci-dessus), pas par ce circuit. Conservé tel
+quel en base et en Edge Functions (rien à réécrire) pour le jour où un
+nouveau fournisseur SMS est choisi.
 
 Le compte n'existe pas encore au moment de la demande de code : suivi par
 **numéro** dans `phone_verifications` (table interne), pas par

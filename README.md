@@ -34,10 +34,11 @@ Lancement prévu à Lomé, extension progressive au reste du Togo.
 
 ## Stack (détail et justification en doc 02)
 
-Supabase (Postgres + PostGIS, Auth OTP, Realtime, Storage, Edge Functions) ·
-React Native/Expo (app passager, app chauffeur) · React 19 + Vite (dashboard
-admin) · Google Maps Platform · eSMS Africa (OTP) · Mobile Money (fournisseur
-non encore choisi, voir doc 10).
+Supabase (Postgres + PostGIS, Auth par code email, Realtime, Storage, Edge
+Functions) · React 19 + Vite (web, dashboard admin) · React Native/Expo
+(mobile, passager + chauffeur) · Google Maps Platform · Mobile Money
+(fournisseur non encore choisi, voir doc 10). SMS OTP abandonné (voir doc
+02 §Révision authentification) — fournisseur à choisir si réintroduit.
 
 ## Structure du dépôt
 
@@ -84,9 +85,11 @@ réellement de bout en bout (notification de test → appel HTTP confirmé).
 Le worker de dispatch (`services/matching-worker/`) est écrit, testé pour
 de vrai contre un Postgres local, mais pas encore déployé (VPS + systemd).
 
-Le reste de la stack (apps mobiles, dashboard admin) démarre en Phase 0/1 de
-la [roadmap](docs/12-roadmap.md), une fois les comptes fournisseurs
-restants (Google Maps, eSMS Africa, Expo/EAS) ouverts.
+Le dashboard admin (`apps/admin/`) a 5 écrans construits — voir
+`docs/STATUS.md`. `apps/web/` a sa première page (accueil public). Le
+reste (auth passager, apps mobiles) démarre en Phase 0/1 de la
+[roadmap](docs/12-roadmap.md), une fois les comptes fournisseurs
+restants (Google Maps, Expo/EAS) ouverts.
 
 ## Licence
 

@@ -1,7 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (`apps/web` scaffoldé — page
-d'accueil publique passager/chauffeur, vérifiée dans un vrai navigateur)*
+*Dernière mise à jour : 3 septembre 2026 (eSMS Africa abandonné — auth
+passager/chauffeur par code email, construction en cours dans `apps/web`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -29,9 +29,17 @@ du 3 septembre 2026.
 (deux entrées, passager/chauffeur), même stack et même palette que
 `apps/admin`. Vérifié dans un vrai navigateur (Playwright) : rendu
 desktop et mobile, navigation, aucune erreur JS. Les pages `/passager` et
-`/chauffeur` sont des placeholders honnêtes (« bientôt disponible ») —
-l'auth passager et la demande de course dépendent de décisions pas
-encore prises (méthode OTP, compte eSMS Africa, cartographie).
+`/chauffeur` restent des placeholders (« bientôt disponible ») le temps
+de construire l'auth (voir juste en dessous) et la demande de course
+(dépend encore de la cartographie, non tranchée).
+
+**eSMS Africa abandonné** : le porteur du projet change de société.
+L'authentification passager/chauffeur passe par un **code à usage
+unique envoyé par email** (Supabase Auth natif, aucun fournisseur
+externe) au lieu du SMS prévu au cadrage — conçu pour accueillir les
+deux moyens plus tard (le circuit téléphone reste en base, non appelé,
+en attente d'un futur fournisseur SMS). Détail :
+`docs/02-architecture-technique.md` §Révision authentification.
 
 Un serveur **MCP Supabase** est connecté à cette session (accès direct au
 projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
@@ -58,6 +66,8 @@ hérités.
 `push-notifications-dispatch`) — URLs vérifiées. `push-notifications-dispatch`
 tourne réellement de bout en bout via un trigger `pg_net` fait main
 (Database Webhook natif cassé sur ce projet, contourné en migration 5).
+`phone-verification-start`/`-check` non appelées depuis l'abandon d'eSMS
+Africa (voir §1) — conservées, pas supprimées.
 
 **Design** : 37 écrans (canvas Claude Design) — antérieur à la révision
 du modèle économique du 3 septembre ET à celle de l'architecture (même
@@ -69,8 +79,9 @@ regroupement passager+chauffeur par plateforme.
 - **`apps/web`, `apps/mobile`, worker de dispatch, reste du dashboard
   admin non construits/déployés.**
 - **Secrets Edge Functions pas tous configurés** : `PAYMENT_WEBHOOK_SECRET`
-  (aucune dépendance externe) ; `ESMS_AFRICA_API_KEY`/`GOOGLE_MAPS_API_KEY`
-  en attente des décisions fournisseurs (§7).
+  (aucune dépendance externe) ; `GOOGLE_MAPS_API_KEY` en attente de la
+  décision cartographie (§7). `ESMS_AFRICA_API_KEY` n'est plus à l'ordre
+  du jour (abandonné, voir §1).
 - **Aucun compte staff admin n'existe encore** — le premier `super_admin`
   doit être créé à la main en SQL une fois le compte Auth créé via le
   dashboard (voir `apps/admin/README.md` §Bootstrap) : impossible
@@ -81,8 +92,9 @@ regroupement passager+chauffeur par plateforme.
   rencontrera la même anomalie.
 - **Custody des fonds Mobile Money d'une course, non tranchée** (§3
   détaillé : [10-paiements.md](10-paiements.md) §Paiement de la course).
-- **`phone-verification-check` jamais testée en conditions réelles** —
-  nécessite un compte eSMS Africa.
+- **`phone-verification-check` non testée, et ne le sera pas dans
+  l'immédiat** — eSMS Africa abandonné, circuit en réserve pour un futur
+  fournisseur SMS.
 - **Rendu PDF de la facture non construit.**
 - **Décisions fournisseurs non prises** : Google Maps vs Mapbox, Mobile
   Money (§7) — non bloquant, backend en mode manuel/admin.
@@ -113,25 +125,19 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-Pour avancer sur `apps/web` au-delà de la page d'accueil, une décision
-est nécessaire : **méthode d'authentification passager** — OTP téléphone
-(prévu au cadrage, nécessite le compte eSMS Africa pas encore créé) ou
-email/mot de passe en intérimaire (comme l'admin, testable dès
-maintenant, à remplacer plus tard). Sans réponse, je pars sur
-email/mot de passe par défaut pour ne pas bloquer.
+En cours : auth passager par code email dans `apps/web`
+(`signInWithOtp`/`verifyOtp`, natif Supabase) — écran `/passager` :
+saisie email → code → compte créé.
 
-Sinon, sans priorité indiquée : reprendre le dashboard admin
-(paiements/abonnements). En parallèle, reste ouvert quand vous voulez :
-créer le secret `PAYMENT_WEBHOOK_SECRET`, tester `phone-verification-check`
-(compte eSMS Africa requis). Worker de dispatch et décisions fournisseurs
-(§7) non bloquants.
+Ensuite, sans priorité indiquée : demande de course (dépend de la
+décision cartographie, §7) ou reprendre le dashboard admin
+(paiements/abonnements). Worker de dispatch, `PAYMENT_WEBHOOK_SECRET` et
+autres décisions fournisseurs (§7) non bloquants, en parallèle.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
 - **Compte admin** : créez votre compte (Dashboard → Authentication →
   Users → Add user), donnez-moi l'UUID pour le rôle `super_admin`.
-- **Compte eSMS Africa** : à créer (distinct de votre autre projet) —
-  nécessaire pour tester `phone-verification-start`/`-check` réellement.
 - **Cartographie** : Google Maps Platform (recommandé) ou Mapbox.
 - **Mobile Money** : Flooz, TMoney (direct) ou Semoa Togo (agrégateur) —
   non bloquant. Détermine aussi la réponse à la question de custody des

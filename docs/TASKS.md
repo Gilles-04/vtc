@@ -456,6 +456,34 @@ libre).
 
 ---
 
+## TASK-014 — Abandon d'eSMS Africa, auth par code email
+
+- **Objectif** : le porteur du projet change de société et n'utilisera
+  plus eSMS Africa — répercuter la décision partout où le SMS OTP était
+  documenté comme méthode d'authentification, sans supprimer le circuit
+  téléphone déjà construit en base (juste le mettre en réserve).
+- **Statut** : Documentation terminée (3 septembre 2026) ; construction
+  de l'auth email en cours (voir TASK-015).
+- **Fait** : mis à jour partout où le SMS OTP était mentionné comme
+  méthode d'auth — `docs/01-architecture-fonctionnelle.md`,
+  `docs/02-architecture-technique.md` (nouvelle section « Révision
+  authentification », tableau de stack, diagramme), `docs/04-parcours-utilisateur.md`
+  (parcours passager et chauffeur), `docs/07-api.md` (section Auth +
+  section vérification téléphone marquée « non utilisée, en réserve »),
+  `docs/11-securite.md`, `docs/12-roadmap.md` (Phase 0), `README.md`
+  (stack + structure), `docs/STATUS.md` (§1/§2/§3/§6/§7).
+- **Décision notée** : conçu pour accueillir les deux moyens
+  (email et téléphone), pas seulement l'email — `phone_verifications` et
+  les Edge Functions `phone-verification-start`/`-check` restent en
+  place, non appelées, réactivables sans réécriture le jour où un
+  nouveau fournisseur SMS est choisi. Côté UI, seul l'email est proposé
+  tant que le téléphone n'est pas fonctionnel (pas d'option visible mais
+  désactivée, qui serait trompeuse pour un utilisateur réel).
+- **Résultat** : voir TASK-015 pour la construction de l'écran
+  `/passager` (`apps/web`) avec `signInWithOtp`/`verifyOtp`.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

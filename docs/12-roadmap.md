@@ -8,12 +8,13 @@ de passer à la suivante.
 
 - Projet Supabase dédié créé, schéma initial appliqué (migration —
   [06-schema-base-donnees.md](06-schema-base-donnees.md)).
-- Comptes fournisseurs ouverts : eSMS Africa (compte distinct de MBONPLAN),
-  Google Maps Platform (ou Mapbox si ce choix est fait à ce stade),
-  Expo/EAS pour les builds mobiles.
-- Squelettes des trois applications (Expo passager, Expo chauffeur, admin
-  web) qui compilent et se connectent à Supabase — écran vide, pas de
-  fonctionnalité.
+- Comptes fournisseurs ouverts : Google Maps Platform (ou Mapbox si ce
+  choix est fait à ce stade), Expo/EAS pour les builds mobiles. (eSMS
+  Africa retiré de cette liste le 3 septembre 2026 — abandonné, plus de
+  SMS OTP, voir [02-architecture-technique.md](02-architecture-technique.md)
+  §Révision authentification.)
+- Squelettes des quatre livrables (web, mobile Expo, admin — déjà commencés,
+  voir [STATUS.md](STATUS.md)) qui compilent et se connectent à Supabase.
 - **Décision requise de votre part avant cette phase** : confirmer le choix
   Google Maps vs Mapbox (impact coût), et si possible pré-sélectionner un
   fournisseur Mobile Money à évaluer en premier (voir
