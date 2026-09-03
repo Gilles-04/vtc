@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { to: '/abonnements', label: 'Abonnements' },
   { to: '/reglements', label: 'Règlements' },
   { to: '/zones', label: 'Zones' },
+  { to: '/tarification', label: 'Tarification' },
 ] as const
 
 export function Shell({ children }: { children: ReactNode }) {

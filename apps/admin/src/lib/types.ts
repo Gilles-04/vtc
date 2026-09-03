@@ -200,6 +200,19 @@ export interface VehicleListRow {
   drivers: { id: string; category: DriverCategory; profiles: { phone: string | null; full_name: string | null } | null } | null
 }
 
+export interface PricingRule {
+  id: string
+  category: DriverCategory
+  zone_id: string | null
+  base_fare_fcfa: number
+  price_per_km_fcfa: number
+  price_per_min_fcfa: number
+  minimum_fare_fcfa: number
+  night_multiplier_percent: number
+  effective_from: string
+  zones: { name: string; city: string } | null
+}
+
 export interface AdminStatsOverview {
   rides_today: number
   rides_today_car: number
