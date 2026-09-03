@@ -179,3 +179,47 @@ const reportStatusLabel: Record<string, string> = {
 export function ReportStatusBadge({ status }: { status: string }) {
   return <Badge tone={reportStatusTone[status] ?? 'default'}>{reportStatusLabel[status] ?? status}</Badge>
 }
+
+const fraudFlagStatusTone: Record<string, BadgeProps['tone']> = {
+  open: 'gold',
+  reviewing: 'navy',
+  confirmed: 'red',
+  dismissed: 'default',
+}
+
+const fraudFlagStatusLabel: Record<string, string> = {
+  open: 'Ouvert',
+  reviewing: 'En revue',
+  confirmed: 'Confirmé',
+  dismissed: 'Rejeté',
+}
+
+export function FraudFlagStatusBadge({ status }: { status: string }) {
+  return <Badge tone={fraudFlagStatusTone[status] ?? 'default'}>{fraudFlagStatusLabel[status] ?? status}</Badge>
+}
+
+const fraudSeverityTone: Record<string, BadgeProps['tone']> = {
+  low: 'default',
+  medium: 'gold',
+  high: 'red',
+}
+
+const fraudSeverityLabel: Record<string, string> = {
+  low: 'Faible',
+  medium: 'Moyenne',
+  high: 'Élevée',
+}
+
+export function FraudSeverityBadge({ severity }: { severity: string }) {
+  return <Badge tone={fraudSeverityTone[severity] ?? 'default'}>{fraudSeverityLabel[severity] ?? severity}</Badge>
+}
+
+const fraudSubjectTypeLabel: Record<string, string> = {
+  user: 'Utilisateur',
+  driver: 'Chauffeur',
+  device: 'Appareil',
+}
+
+export function fraudSubjectTypeName(type: string): string {
+  return fraudSubjectTypeLabel[type] ?? type
+}

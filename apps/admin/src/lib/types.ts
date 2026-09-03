@@ -215,6 +215,9 @@ export interface PricingRule {
 
 export type ReportStatus = 'open' | 'investigating' | 'resolved' | 'dismissed'
 export type SosStatus = 'open' | 'acknowledged' | 'resolved'
+export type FraudSubjectType = 'user' | 'driver' | 'device'
+export type FraudFlagStatus = 'open' | 'reviewing' | 'confirmed' | 'dismissed'
+export type FraudSeverity = 'low' | 'medium' | 'high'
 
 export interface SosAlertRow {
   id: string
@@ -236,6 +239,18 @@ export interface ReportRow {
   resolution_notes: string | null
   reporter: { phone: string | null; full_name: string | null } | null
   reported: { phone: string | null; full_name: string | null } | null
+}
+
+export interface FraudFlagRow {
+  id: string
+  subject_type: FraudSubjectType
+  subject_id: string
+  reason: string
+  severity: FraudSeverity
+  status: FraudFlagStatus
+  created_at: string
+  resolved_at: string | null
+  resolution_notes: string | null
 }
 
 export interface AdminStatsOverview {

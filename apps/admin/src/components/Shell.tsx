@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/zones', label: 'Zones' },
   { to: '/tarification', label: 'Tarification' },
   { to: '/reclamations', label: 'Réclamations & SOS' },
+  { to: '/fraude', label: 'Fraude' },
 ] as const
 
 export function Shell({ children }: { children: ReactNode }) {
