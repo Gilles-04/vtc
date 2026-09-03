@@ -120,3 +120,19 @@ const paymentProviderLabel: Record<string, string> = {
 export function paymentProviderName(provider: string): string {
   return paymentProviderLabel[provider] ?? provider
 }
+
+const subscriptionStatusTone: Record<string, BadgeProps['tone']> = {
+  active: 'green',
+  expired: 'default',
+  cancelled: 'red',
+}
+
+const subscriptionStatusLabel: Record<string, string> = {
+  active: 'Actif',
+  expired: 'Expiré',
+  cancelled: 'Annulé',
+}
+
+export function SubscriptionStatusBadge({ status }: { status: string }) {
+  return <Badge tone={subscriptionStatusTone[status] ?? 'default'}>{subscriptionStatusLabel[status] ?? status}</Badge>
+}

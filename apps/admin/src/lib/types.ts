@@ -17,6 +17,7 @@ export type PaymentMethodType = 'cash' | 'mobile_money'
 export type PaymentStatus = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded'
 export type PaymentPurpose = 'driver_subscription' | 'ride_fare'
 export type PaymentProvider = 'flooz' | 'tmoney' | 'manual'
+export type SubscriptionStatus = 'active' | 'expired' | 'cancelled'
 
 export interface DriverListRow {
   id: string
@@ -111,6 +112,26 @@ export interface InvoiceListRow {
   issued_at: string
   profiles: { phone: string | null; full_name: string | null } | null
   drivers: { profiles: { phone: string | null; full_name: string | null } | null } | null
+}
+
+export interface SubscriptionPlan {
+  id: string
+  code: string
+  name: string
+  category: DriverCategory
+  duration_hours: number
+  price_fcfa: number | null
+  is_active: boolean
+  sort_order: number
+}
+
+export interface SubscriptionListRow {
+  id: string
+  status: SubscriptionStatus
+  started_at: string
+  expires_at: string
+  drivers: { category: DriverCategory; profiles: { phone: string | null; full_name: string | null } | null } | null
+  subscription_plans: { name: string; duration_hours: number; price_fcfa: number | null } | null
 }
 
 export interface AdminStatsOverview {
