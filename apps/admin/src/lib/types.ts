@@ -186,6 +186,16 @@ export interface UserRideHistoryRow {
   requested_at: string
 }
 
+export interface VehicleListRow {
+  id: string
+  brand: string
+  model: string
+  color: string
+  plate_number: string
+  year: number | null
+  drivers: { id: string; category: DriverCategory; profiles: { phone: string | null; full_name: string | null } | null } | null
+}
+
 export interface AdminStatsOverview {
   rides_today: number
   rides_today_car: number

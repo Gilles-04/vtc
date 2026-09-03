@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { to: '/', label: "Vue d'ensemble" },
   { to: '/utilisateurs', label: 'Utilisateurs' },
   { to: '/chauffeurs', label: 'Chauffeurs' },
+  { to: '/vehicules', label: 'Véhicules' },
   { to: '/courses', label: 'Courses' },
   { to: '/paiements', label: 'Paiements' },
   { to: '/facturation', label: 'Facturation' },

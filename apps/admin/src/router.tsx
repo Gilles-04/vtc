@@ -13,6 +13,7 @@ import { SubscriptionPlans } from './pages/SubscriptionPlans'
 import { Settlements } from './pages/Settlements'
 import { Users } from './pages/Users'
 import { UserDetail } from './pages/UserDetail'
+import { Vehicles } from './pages/Vehicles'
 import { Shell } from './components/Shell'
 
 const rootRoute = createRootRoute({
@@ -158,6 +159,17 @@ const userDetailRoute = createRoute({
   ),
 })
 
+const vehiclesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/vehicules',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <Vehicles />
+    </Shell>
+  ),
+})
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
@@ -183,6 +195,7 @@ const routeTree = rootRoute.addChildren([
   settlementsRoute,
   usersRoute,
   userDetailRoute,
+  vehiclesRoute,
   loginRoute,
 ])
 
