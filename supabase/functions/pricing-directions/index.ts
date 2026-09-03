@@ -63,9 +63,13 @@ Deno.serve(async (req: Request) => {
   const pickup = parseLatLng(body?.pickup);
   const dropoff = parseLatLng(body?.dropoff);
   const zoneId = typeof body?.zone_id === "string" ? body.zone_id : null;
+  const category = body?.category === "car" || body?.category === "moto" ? body.category : null;
 
   if (!pickup || !dropoff) {
     return jsonResponse({ error: "invalid_coordinates" }, 400);
+  }
+  if (!category) {
+    return jsonResponse({ error: "invalid_category" }, 400);
   }
 
   let directions: DirectionsResult;
@@ -81,6 +85,7 @@ Deno.serve(async (req: Request) => {
     .rpc("estimate_ride_fare", {
       _distance_km: directions.distance_km,
       _duration_min: directions.duration_min,
+      _category: category,
       _zone_id: zoneId,
     })
     .single();

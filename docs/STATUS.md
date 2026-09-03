@@ -94,9 +94,6 @@ documente ~58 écrans désormais, canvas toujours à ~50.
   Supabase, à tester en priorité absolue dès qu'un projet est disponible.
 - **Canvas de design non mis à jour** pour la révision du 3 septembre —
   passe à prévoir séparément.
-- **Edge Function `pricing-directions`** ne transmet pas encore `category`
-  à `estimate_ride_fare` — sans impact aujourd'hui (aucune app ne l'appelle
-  encore), à corriger au moment de construire l'app passager.
 - **Rendu PDF de la facture non construit** — seule la ligne de données
   `invoices` est produite.
 - **Aucune application (mobile ou admin) initialisée** — seuls des dossiers
