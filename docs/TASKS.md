@@ -331,6 +331,62 @@ libre).
 
 ---
 
+## TASK-011 — MCP Supabase connecté + durcissement des grants EXECUTE internes
+
+- **Objectif** : le porteur du projet a connecté un serveur MCP Supabase à
+  cette session (accès réel et direct au projet, plus besoin du
+  copier-coller SQL Editor). Première action : `get_advisors` (recommandé
+  après tout changement DDL) pour vérifier l'état de sécurité réel du
+  projet.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - Confirmé un seul projet visible côté MCP (`elrsjctwrvzglwogmmpq`, VTC
+    Togo) — aucun risque de confusion avec l'autre projet Supabase.
+  - `get_advisors` (sécurité) a trouvé 13 fonctions internes
+    (`handle_new_user`, `generate_referral_code`,
+    `log_ride_status_change`, `apply_rating_to_aggregate`,
+    `increment_promotion_redemptions`, `flag_device_duplicate`,
+    `notify_admins_on_sos`, `generate_invoice_on_ride_success`,
+    `dispatch_push_notification` — toutes des fonctions trigger — plus
+    `expire_subscriptions`/`cleanup_rate_limits` (`pg_cron`) et
+    `dispatch_next_offer`/`expire_ride_offers_and_dispatch` (worker de
+    dispatch, `service_role`)) exécutables en RPC direct
+    (`/rest/v1/rpc/...`) par n'importe quel compte `authenticated`, et
+    `dispatch_push_notification` même par `anon`. Cause racine : sur ce
+    projet, `authenticated`/`anon` reçoivent EXECUTE de façon directe à la
+    création de toute fonction `public` (privilège par défaut du projet,
+    pas le mécanisme générique `PUBLIC` de Postgres) — migration 2 avait
+    bien révoqué `anon` en bloc une fois, migration 3 avait correctement
+    révoqué les deux pour ses fonctions internes, mais les fonctions
+    trigger/cron de migration 2 elle-même et `dispatch_push_notification`
+    (migration 5, créée après coup) avaient été oubliées.
+  - Migration 8 (`00000000000008_revoke_internal_function_grants.sql`) :
+    révoque EXECUTE sur ces 13 fonctions pour `public, anon, authenticated`
+    — sans toucher aux grants `service_role` existants (worker) ni aux
+    ~30 RPC client/admin légitimement `authenticated`-accessibles.
+- **Vérifié** :
+  - Une première version (revoke `from public` seulement) s'est révélée
+    sans effet réel sur `authenticated` une fois appliquée au projet réel
+    — repéré en revérifiant avec `has_function_privilege` plutôt que de
+    faire confiance au `{"success":true}` de l'outil. Corrigée (`from
+    public, anon, authenticated`), réappliquée, revérifiée : les 13
+    fonctions passent bien à `false` pour `anon`/`authenticated`, restent
+    `true` pour `service_role` là où c'est prévu (worker).
+  - Les 6 migrations + la 7 + la 8 s'appliquent proprement en séquence
+    contre un Postgres 16 + PostGIS local reconstruit (schémas
+    `auth`/`net`/`storage` stub).
+  - `admin_stats_overview`, `create_ride_request`, `submit_driver_application`
+    restent bien `authenticated`-accessibles (non touchés).
+  - `get_advisors` réexécuté : les 13 entrées ont disparu ; restent
+    uniquement les warnings attendus (RPC client/admin intentionnels) et
+    un `auth_leaked_password_protection` (réglage dashboard, pas une
+    migration — voir `docs/STATUS.md` §3).
+- **Résultat** : appliqué directement sur le projet réel via
+  `apply_migration` (MCP) — plus besoin de demander au porteur du projet
+  de coller quoi que ce soit pour ce type de changement désormais.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

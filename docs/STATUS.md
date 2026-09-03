@@ -1,7 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (écran courses — liste + détail
-— du dashboard admin construit et vérifié)*
+*Dernière mise à jour : 3 septembre 2026 (MCP Supabase connecté — accès
+réel au projet ; durcissement de sécurité trouvé et corrigé)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -32,16 +32,34 @@ Le bucket Storage privé `driver-documents` (migration 6) et les FK
 d'embedding PostgREST trouvé et jamais détecté auparavant) sont tous deux
 déployés sur le projet réel.
 
+**Nouveau** : un serveur MCP Supabase est maintenant connecté à cette
+session, avec accès réel et direct au projet (lecture de données,
+application de migrations, avis de sécurité/performance). Ça change le
+mode opératoire pour la suite : plus besoin de découper les migrations en
+morceaux à coller à la main dans le SQL Editor — j'applique directement et
+je vérifie avec de vraies requêtes contre le projet réel. Première
+utilisation concluante : `get_advisors` a révélé que 13 fonctions internes
+(déclenchées uniquement par trigger, `pg_cron`, ou le worker de dispatch)
+étaient techniquement appelables en RPC direct par n'importe quel compte
+authentifié — jamais détecté avant (aucune de ces fonctions ne fait de
+dégât si un utilisateur authentifié les appelle directement — la plupart
+sont des fonctions trigger que Postgres bloque nativement hors contexte de
+trigger — mais `cleanup_rate_limits`/`expire_subscriptions`/
+`dispatch_next_offer`/`expire_ride_offers_and_dispatch` auraient permis de
+contourner le rate-limiting ou d'interférer avec le dispatch). Corrigé et
+vérifié (migration 8, voir `docs/TASKS.md` TASK-011).
+
 Reste à construire : les ~20 autres écrans admin, les 2 apps mobiles
 (passager/chauffeur), le worker de dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (7 migrations), vérifiée de bout en bout contre
+**Base de données** (8 migrations), vérifiée de bout en bout contre
 Postgres 16 + PostGIS local, **et déployée** sur le projet réel (32
 tables, 49 fonctions, 51 policies RLS, 6 plans, bucket Storage
 `driver-documents` avec ses 4 policies, FK `profiles` sur
-`drivers`/`rides.passenger_id` — comptage confirmé identique) :
+`drivers`/`rides.passenger_id`, grants internes durcis — comptage confirmé
+identique) :
 - Cycle complet d'une course par catégorie (voiture/moto), matching filtré
   par catégorie, cash ou Mobile Money.
 - Frais de service (2,5 %) calculés une fois à la confirmation du
@@ -111,6 +129,10 @@ facturation/règlement/fraude documentés en [05-ecrans.md](05-ecrans.md)
 - **Décisions fournisseurs non prises** : Google Maps vs Mapbox, Mobile
   Money (§7) — non bloquant, backend en mode manuel/admin.
 - **Critère de fiabilité du matching non implémenté** (doc 08).
+- **Protection mots de passe compromis (HaveIBeenPwned) désactivée** —
+  trouvé via `get_advisors` (MCP Supabase). Pas une migration : un
+  interrupteur dans le dashboard, **Authentication → Policies/Auth
+  settings → Password protection**. Deux minutes, quand vous voulez.
 
 Rien en cours — en attente de la prochaine demande.
 
@@ -137,12 +159,25 @@ Rien en cours — en attente de la prochaine demande.
    puis déployé sur le projet réel.
 8. Écran courses (`apps/admin/`) : liste filtrable + détail avec
    chronologie, vérifiés dans un vrai navigateur.
+9. MCP Supabase connecté (accès direct au projet réel) ; `get_advisors` a
+   trouvé 13 fonctions internes exposées en RPC direct à tout compte
+   authentifié — corrigé (migration 8), vérifié en local puis sur le
+   projet réel (avant/après avec de vraies requêtes de privilèges).
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
 UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
+
+Précision utile sur le MCP Supabase : c'est un canal séparé (connecteur
+avec votre autorisation), pas un changement de la politique réseau de
+cette session — confirmé en retestant (bloqué comme avant, `CONNECT
+tunnel failed, 403`). Donc je peux désormais interroger/modifier la base
+directement, mais tester le dashboard admin lui-même dans un vrai
+navigateur nécessite toujours l'une des deux options données précédemment
+(nouvelle session avec accès réseau élargi, ou lancer l'app en local chez
+vous).
 
 Sans priorité indiquée, je poursuis le dashboard admin — écran suivant à
 déterminer (paiements ou abonnements, dépendances externes nulles,
