@@ -875,6 +875,43 @@ libre).
 
 ---
 
+## TASK-026 — Écran admin Statistiques globales (dashboard admin complet)
+
+- **Objectif** : seizième et dernier tronçon du dashboard admin —
+  revenus par jour et rétention chauffeurs. Aucune migration
+  nécessaire.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - `/statistiques` : sélecteur de période (7/30/90 jours) ; revenus
+    par jour — frais de service (`invoices.platform_fee_fcfa`) et
+    abonnements (`payments` où `purpose='driver_subscription'` et
+    `status='success'`), jamais fusionnés, agrégés côté client par jour
+    (aucune RPC de série temporelle n'existe — direct query + `Map`
+    JS, portée délibérément plus modeste que « croissance » au sens
+    analytics complet, mais honnête et exacte) ; rétention chauffeurs
+    par catégorie — part des chauffeurs `approved` ayant un abonnement
+    `active` (`drivers` vs `subscriptions!inner(category)`, même motif
+    d'embed filtré que `Subscriptions.tsx`, TASK-019).
+- **Vérifié** : `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint)
+  propres. Playwright/Chromium réel avec données simulées construites
+  pour piéger un bug d'agrégation (3 factures sur 2 jours distincts,
+  montants non ronds) : regroupement par jour correct (2 lignes),
+  totaux exacts (193/1 500/1 693 FCFA), rétention exacte (50 % voiture,
+  0 % moto) — tout vérifié bout en bout (réseau Supabase simulé).
+- **Résultat** : `docs/05-ecrans.md` écran #24 fait — **les 24 écrans
+  du dashboard admin documentés sont maintenant tous construits**
+  (connexion, vue d'ensemble, utilisateurs, chauffeurs/KYC, véhicules,
+  courses, paiements, facturation, abonnements liste+plans, règlements,
+  zones, tarification, réclamations & SOS, fraude, statistiques —
+  18 écrans réels sur 24 lignes du tableau, certaines lignes du tableau
+  ayant été fusionnées en un seul écran quand le « détail » ne
+  justifiait pas une route séparée : Règlements TASK-020, Réclamations
+  & SOS TASK-024). Reste hors dashboard admin : `apps/web` (demande de
+  course, bloquée sur Google Maps + `pricing_rules`), `apps/mobile`
+  (pas commencé), le worker de dispatch (écrit, pas déployé).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
