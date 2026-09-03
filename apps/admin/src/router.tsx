@@ -4,6 +4,8 @@ import { Login } from './pages/Login'
 import { Overview } from './pages/Overview'
 import { Drivers } from './pages/Drivers'
 import { DriverDetail } from './pages/DriverDetail'
+import { Rides } from './pages/Rides'
+import { RideDetail } from './pages/RideDetail'
 import { Shell } from './components/Shell'
 
 const rootRoute = createRootRoute({
@@ -50,6 +52,28 @@ const driverDetailRoute = createRoute({
   ),
 })
 
+const ridesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/courses',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <Rides />
+    </Shell>
+  ),
+})
+
+const rideDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/courses/$rideId',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <RideDetail />
+    </Shell>
+  ),
+})
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
@@ -62,7 +86,14 @@ const loginRoute = createRoute({
   component: Login,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, driversRoute, driverDetailRoute, loginRoute])
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  driversRoute,
+  driverDetailRoute,
+  ridesRoute,
+  rideDetailRoute,
+  loginRoute,
+])
 
 export const router = createRouter({ routeTree })
 

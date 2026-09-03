@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 const NAV_ITEMS = [
   { to: '/', label: "Vue d'ensemble" },
   { to: '/chauffeurs', label: 'Chauffeurs' },
+  { to: '/courses', label: 'Courses' },
 ] as const
 
 export function Shell({ children }: { children: ReactNode }) {

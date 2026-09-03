@@ -44,3 +44,55 @@ export function DriverStatusBadge({ status }: { status: string }) {
 export function CategoryBadge({ category }: { category: string }) {
   return <Badge tone="navy">{category === 'car' ? '🚗 Voiture' : '🏍️ Moto-taxi'}</Badge>
 }
+
+const rideStatusTone: Record<string, BadgeProps['tone']> = {
+  requested: 'default',
+  searching: 'gold',
+  accepted: 'navy',
+  driver_arriving: 'navy',
+  driver_arrived: 'navy',
+  in_progress: 'navy',
+  completed: 'green',
+  cancelled_by_passenger: 'red',
+  cancelled_by_driver: 'red',
+  cancelled_by_system: 'red',
+}
+
+const rideStatusLabel: Record<string, string> = {
+  requested: 'Demandée',
+  searching: 'Recherche chauffeur',
+  accepted: 'Acceptée',
+  driver_arriving: 'Chauffeur en route',
+  driver_arrived: 'Chauffeur arrivé',
+  in_progress: 'En cours',
+  completed: 'Terminée',
+  cancelled_by_passenger: 'Annulée (passager)',
+  cancelled_by_driver: 'Annulée (chauffeur)',
+  cancelled_by_system: 'Annulée (système)',
+}
+
+export function RideStatusBadge({ status }: { status: string }) {
+  return <Badge tone={rideStatusTone[status] ?? 'default'}>{rideStatusLabel[status] ?? status}</Badge>
+}
+
+const paymentStatusTone: Record<string, BadgeProps['tone']> = {
+  pending: 'default',
+  processing: 'gold',
+  success: 'green',
+  failed: 'red',
+  cancelled: 'default',
+  refunded: 'navy',
+}
+
+const paymentStatusLabel: Record<string, string> = {
+  pending: 'En attente',
+  processing: 'En cours',
+  success: 'Réussi',
+  failed: 'Échoué',
+  cancelled: 'Annulé',
+  refunded: 'Remboursé',
+}
+
+export function PaymentStatusBadge({ status }: { status: string }) {
+  return <Badge tone={paymentStatusTone[status] ?? 'default'}>{paymentStatusLabel[status] ?? status}</Badge>
+}

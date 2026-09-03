@@ -2,6 +2,19 @@ export type DriverCategory = 'car' | 'moto'
 export type DriverStatus = 'pending_documents' | 'pending_review' | 'approved' | 'rejected' | 'suspended'
 export type DocStatus = 'pending' | 'approved' | 'rejected'
 export type DriverDocType = 'piece_identite' | 'permis_conduire' | 'carte_transport' | 'assurance' | 'carte_grise' | 'photo_vehicule'
+export type RideStatus =
+  | 'requested'
+  | 'searching'
+  | 'accepted'
+  | 'driver_arriving'
+  | 'driver_arrived'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled_by_passenger'
+  | 'cancelled_by_driver'
+  | 'cancelled_by_system'
+export type PaymentMethodType = 'cash' | 'mobile_money'
+export type PaymentStatus = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded'
 
 export interface DriverListRow {
   id: string
@@ -47,6 +60,29 @@ export interface DriverDetail {
   profiles: { phone: string | null; full_name: string | null } | null
   vehicles: Vehicle[]
   driver_documents: DriverDocument[]
+}
+
+export interface Zone {
+  id: string
+  name: string
+  city: string
+}
+
+export interface RideListRow {
+  id: string
+  category: DriverCategory
+  status: RideStatus
+  pickup_address: string
+  dropoff_address: string
+  estimated_fare_fcfa: number | null
+  final_fare_fcfa: number | null
+  payment_method: PaymentMethodType
+  payment_status: PaymentStatus
+  zone_id: string | null
+  requested_at: string
+  completed_at: string | null
+  profiles: { phone: string | null; full_name: string | null } | null
+  drivers: { profiles: { phone: string | null; full_name: string | null } | null } | null
 }
 
 export interface AdminStatsOverview {

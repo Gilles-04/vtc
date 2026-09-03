@@ -1,7 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (migration 7 déployée — bug
-d'embedding PostgREST `profiles` corrigé sur le projet réel)*
+*Dernière mise à jour : 3 septembre 2026 (écran courses — liste + détail
+— du dashboard admin construit et vérifié)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -14,30 +14,25 @@ présentes avec les bonnes URLs. `push-notifications-dispatch` tourne déjà
 réellement de bout en bout (contournement `pg_net`, voir §2).
 
 Le **dashboard admin** (`apps/admin/`, React 19 + Vite + TanStack Router) a
-3 écrans — connexion staff, vue d'ensemble (`admin_stats_overview`), et
+5 écrans — connexion staff, vue d'ensemble (`admin_stats_overview`),
 chauffeurs/KYC (liste filtrable + détail avec documents et décision
-`admin_review_driver_document`/`admin_decide_driver_application`). Vérifié
-dans un vrai navigateur (Playwright) : routage protégé confirmé sur les 4
-routes, formulaire de connexion envoie une vraie requête à l'endpoint Auth
-du projet réel, écrans chauffeurs vérifiés sans erreur JS (session simulée
-côté navigateur). La confirmation bout-en-bout (connexion réussie +
-données réelles) n'a pas pu être testée depuis cet environnement (réseau
-vers `*.supabase.co` bloqué côté sandbox) — à faire en lançant l'app en
-local sur votre machine.
+`admin_review_driver_document`/`admin_decide_driver_application`), et
+**nouveau** : courses (liste filtrable statut/catégorie/période/zone +
+détail avec chronologie complète). Vérifié dans un vrai navigateur
+(Playwright) : routage protégé confirmé sur les 6 routes, formulaire de
+connexion envoie une vraie requête à l'endpoint Auth du projet réel, tous
+les écrans protégés vérifiés sans erreur JS (session simulée côté
+navigateur). La confirmation bout-en-bout (connexion réussie + données
+réelles) n'a pas pu être testée depuis cet environnement (réseau vers
+`*.supabase.co` bloqué côté sandbox) — à faire en lançant l'app en local
+sur votre machine.
 
-**Nouveau** : le bucket Storage privé `driver-documents` (migration 6) est
-déployé sur le projet réel — le lien « Voir » d'un document, jusque-là
-inerte, fonctionne désormais.
+Le bucket Storage privé `driver-documents` (migration 6) et les FK
+`profiles` sur `drivers`/`rides.passenger_id` (migration 7, corrige un bug
+d'embedding PostgREST trouvé et jamais détecté auparavant) sont tous deux
+déployés sur le projet réel.
 
-**Bug trouvé et corrigé** : `drivers.id` et `rides.passenger_id`
-référençaient `auth.users` directement, jamais `profiles` — sans FK entre
-les deux tables, PostgREST ne pouvait pas embarquer `profiles(...)`
-(`Could not find a relationship...`), ce qui aurait cassé l'affichage du
-nom/téléphone dans l'écran chauffeurs déjà livré (jamais détecté, jamais
-exercé contre le projet réel avant maintenant). Migration 7
-(`00000000000007_profile_embed_fks.sql`) déployée sur le projet réel.
-
-Reste à construire : les ~22 autres écrans admin, les 2 apps mobiles
+Reste à construire : les ~20 autres écrans admin, les 2 apps mobiles
 (passager/chauffeur), le worker de dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
@@ -140,6 +135,8 @@ Rien en cours — en attente de la prochaine demande.
 7. Bug d'embedding PostgREST `profiles` trouvé (en préparant l'écran
    courses) et corrigé (migration 7, FK manquantes) — vérifié en local
    puis déployé sur le projet réel.
+8. Écran courses (`apps/admin/`) : liste filtrable + détail avec
+   chronologie, vérifiés dans un vrai navigateur.
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -147,10 +144,10 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-Sans priorité indiquée, je poursuis le dashboard admin — écran
-« Liste courses » plutôt que « Carte live » (celle-ci dépend de la
-décision cartographie non encore prise, §7). En parallèle, reste ouvert
-quand vous voulez :
+Sans priorité indiquée, je poursuis le dashboard admin — écran suivant à
+déterminer (paiements ou abonnements, dépendances externes nulles,
+exposent le module financier déjà construit et testé). En parallèle, reste
+ouvert quand vous voulez :
 - **Vérification backend** : créer le secret `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe), puis tester réellement
   `phone-verification-check` (nécessite un compte eSMS Africa, §7).

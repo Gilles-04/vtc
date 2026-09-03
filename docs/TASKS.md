@@ -303,6 +303,34 @@ libre).
 
 ---
 
+## TASK-010 — Écran admin courses (liste + détail)
+
+- **Objectif** : troisième tronçon du dashboard admin — visibilité
+  opérationnelle sur les courses, sans dépendre de la décision
+  cartographie (donc « Liste courses » plutôt que « Carte live »).
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - `/courses` : table filtrable (statut, catégorie, période, zone),
+    passager/chauffeur affichés (identité via l'embed `profiles` remis en
+    état par TASK-009), montant, mode/statut de paiement.
+  - `/courses/$rideId` : trajet, montants (estimé/final), paiement,
+    chronologie complète (`ride_status_history`).
+  - Nouveaux composants `RideStatusBadge`/`PaymentStatusBadge`
+    (`Badge.tsx`), types `RideListRow`/`RideStatus`/`Zone`/etc.
+    (`lib/types.ts`), navigation ajoutée dans `Shell.tsx`.
+- **Vérifié** : `tsc -b`, `vite build`, `oxlint` propres (même
+  avertissement non bloquant déjà présent ailleurs — reset d'état au
+  changement de filtre). Playwright/Chromium réel : les deux nouvelles
+  routes protégées redirigent vers `/login` sans session ; avec une
+  session simulée, les deux écrans se montent sans erreur JS (capture
+  d'écran à l'appui, état d'erreur réseau affiché proprement).
+- **Résultat** : confirmation bout-en-bout (données réelles) non testée
+  depuis cet environnement (réseau vers `*.supabase.co` bloqué côté
+  sandbox). Le filtre zone n'apparaît que si des zones existent en base
+  (table vraisemblablement vide sur le projet réel à ce jour).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
