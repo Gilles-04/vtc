@@ -213,6 +213,31 @@ export interface PricingRule {
   zones: { name: string; city: string } | null
 }
 
+export type ReportStatus = 'open' | 'investigating' | 'resolved' | 'dismissed'
+export type SosStatus = 'open' | 'acknowledged' | 'resolved'
+
+export interface SosAlertRow {
+  id: string
+  status: SosStatus
+  ride_id: string | null
+  created_at: string
+  resolved_at: string | null
+  profiles: { phone: string | null; full_name: string | null } | null
+}
+
+export interface ReportRow {
+  id: string
+  category: string
+  description: string
+  status: ReportStatus
+  ride_id: string | null
+  created_at: string
+  resolved_at: string | null
+  resolution_notes: string | null
+  reporter: { phone: string | null; full_name: string | null } | null
+  reported: { phone: string | null; full_name: string | null } | null
+}
+
 export interface AdminStatsOverview {
   rides_today: number
   rides_today_car: number

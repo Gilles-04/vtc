@@ -145,3 +145,37 @@ const userRoleLabel: Record<string, string> = {
 export function UserRoleBadge({ role }: { role: string }) {
   return <Badge tone={role === 'driver' ? 'navy' : 'default'}>{userRoleLabel[role] ?? role}</Badge>
 }
+
+const sosStatusTone: Record<string, BadgeProps['tone']> = {
+  open: 'red',
+  acknowledged: 'gold',
+  resolved: 'green',
+}
+
+const sosStatusLabel: Record<string, string> = {
+  open: 'Ouverte',
+  acknowledged: 'Prise en compte',
+  resolved: 'Résolue',
+}
+
+export function SosStatusBadge({ status }: { status: string }) {
+  return <Badge tone={sosStatusTone[status] ?? 'default'}>{sosStatusLabel[status] ?? status}</Badge>
+}
+
+const reportStatusTone: Record<string, BadgeProps['tone']> = {
+  open: 'gold',
+  investigating: 'navy',
+  resolved: 'green',
+  dismissed: 'default',
+}
+
+const reportStatusLabel: Record<string, string> = {
+  open: 'Ouvert',
+  investigating: 'En cours',
+  resolved: 'Résolu',
+  dismissed: 'Rejeté',
+}
+
+export function ReportStatusBadge({ status }: { status: string }) {
+  return <Badge tone={reportStatusTone[status] ?? 'default'}>{reportStatusLabel[status] ?? status}</Badge>
+}
