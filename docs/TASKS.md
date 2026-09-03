@@ -767,6 +767,43 @@ libre).
 
 ---
 
+## TASK-023 — Écrans admin Zones + Tarification
+
+- **Objectif** : douzième et treizième tronçons du dashboard admin.
+  Aucune migration nécessaire pour les deux — `zones` est autonome,
+  `pricing_rules.zone_id → zones` référence déjà la bonne table.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - `/zones` : liste + création (nom, ville, horaires de majoration
+    nuit), activer/désactiver. La frontière géographique (`boundary`,
+    colonne PostGIS) n'est pas éditable ici — nécessite une carte,
+    bloquée par la clé Google Maps (limitation affichée dans l'écran
+    lui-même). Écriture directe (RLS admin déjà en place).
+  - `/tarification` : historique des règles de prix par catégorie/zone,
+    badge « Actuelle »/« Historique » calculé côté client avec la même
+    logique que `estimate_ride_fare` (zone spécifique prioritaire sur
+    zone globale, date d'effet la plus récente déjà passée).
+    Formulaire de création — jamais de modification en place par design
+    du schéma (`pricing_rules` n'a pas de policy `UPDATE`, seulement
+    `INSERT`/`SELECT`).
+  - Nouveaux types (`Zone` étendu, `PricingRule`, `lib/types.ts`),
+    navigation ajoutée dans `Shell.tsx` (×2).
+- **Vérifié** : `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint)
+  propres. Playwright/Chromium réel : Zones (état vide, création,
+  activer/désactiver) et Tarification (badge actuelle/historique
+  correct sur deux règles de dates différentes, création d'une nouvelle
+  règle) — tout vérifié bout en bout (réseau Supabase simulé).
+- **Résultat** : `docs/05-ecrans.md` écrans #20-21 faits. **Découverte
+  en construisant l'écran** : `pricing_rules` est vide sur le projet
+  réel — `estimate_ride_fare` échouera pour toute catégorie tant
+  qu'aucune règle n'est créée (`raise exception
+  'no_pricing_rule_configured'`), indépendamment de la clé Google
+  Maps. Un vrai deuxième blocage pour la demande de course, noté dans
+  `docs/STATUS.md` §3 — se résout en 30 secondes une fois l'écran
+  utilisé (créer au moins une règle « toutes zones » par catégorie).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

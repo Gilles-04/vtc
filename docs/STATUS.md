@@ -1,6 +1,8 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (écran admin Liste véhicules)*
+*Dernière mise à jour : 3 septembre 2026 (écrans admin Zones +
+Tarification ; découverte : `pricing_rules` vide bloque aussi la
+demande de course)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -10,15 +12,16 @@ Le backend (schéma, logique métier, module financier complet, deux
 catégories voiture/moto-taxi) est **déployé pour de vrai** sur le projet
 Supabase dédié : 11 migrations + 5 Edge Functions en place et vérifiées
 (32 tables, 49 fonctions, 51 policies RLS, grants internes durcis). Le
-**dashboard admin** (`apps/admin/`) a 13 écrans — connexion, vue
-d'ensemble, utilisateurs, chauffeurs/KYC, **véhicules**, courses,
-paiements, facturation, abonnements (liste + plans), règlements —
-vérifiés dans un vrai navigateur (utilisateurs/chauffeurs/véhicules/
-courses avec de vraies données, dont désormais 2 vrais comptes créés
-par vous en local — voir plus bas ; écran plans avec les 6 vrais plans
-lus sur le projet réel ; paiements/facturation/liste abonnements/
-règlements avec des données et RPC simulées côté réseau, ces tables
-sont vides sur le projet réel pour l'instant).
+**dashboard admin** (`apps/admin/`) a 15 écrans — connexion, vue
+d'ensemble, utilisateurs, chauffeurs/KYC, véhicules, courses, paiements,
+facturation, abonnements (liste + plans), règlements, **zones**,
+**tarification** — vérifiés dans un vrai navigateur (utilisateurs/
+chauffeurs/véhicules/courses avec de vraies données, dont désormais 2
+vrais comptes créés par vous en local — voir plus bas ; écran plans
+avec les 6 vrais plans lus sur le projet réel ; paiements/facturation/
+liste abonnements/règlements/zones/tarification avec des données et
+RPC/écritures simulées côté réseau, ces tables sont vides sur le projet
+réel pour l'instant).
 
 **Auth passager confirmée en conditions réelles** : vous avez lancé
 `apps/web` en local (`npm run dev`) et créé deux comptes via `/passager`
@@ -44,12 +47,15 @@ non appelé). Détail : `docs/02-architecture-technique.md` §Révision
 authentification. `/chauffeur` reste un placeholder.
 
 **Cartographie : Google Maps** (décidé). La demande de course reste
-bloquée en pratique, pas sur le choix mais sur la **clé API** elle-même —
-aucune fournie à ce jour (voir §7). `pricing-directions` (Edge Function)
-attend déjà des coordonnées et appelle Google Directions côté serveur ;
-il manque la clé secrète (`GOOGLE_MAPS_API_KEY`) et une clé restreinte
-côté client (Maps JavaScript + Places Autocomplete) pour saisir une
-adresse.
+bloquée en pratique sur **deux points**, pas sur le choix cartographie :
+1) la **clé API** elle-même, aucune fournie à ce jour (voir §7) —
+`pricing-directions` (Edge Function) attend déjà des coordonnées et
+appelle Google Directions côté serveur ; 2) **`pricing_rules` est vide**
+sur le projet réel (découvert en construisant `/tarification`) —
+`estimate_ride_fare` échoue tant qu'aucune règle n'existe pour une
+catégorie. Le deuxième point se règle en 30 secondes une fois l'écran
+`/tarification` accessible (créer une règle « toutes zones » par
+catégorie), indépendamment de la clé Google Maps.
 
 Un serveur **MCP Supabase** est connecté à cette session (accès direct au
 projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
@@ -59,8 +65,8 @@ directement depuis cet environnement — vérification bout-en-bout à faire
 en local chez vous ou dans une session avec accès réseau élargi.
 
 Reste à construire : la demande de course dans `apps/web` (bloquée sur
-Google Maps), `apps/mobile`, ~9 autres écrans admin, le worker de
-dispatch (écrit, pas déployé).
+Google Maps + `pricing_rules` vide), `apps/mobile`, ~7 autres écrans
+admin, le worker de dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
 
@@ -108,7 +114,11 @@ regroupement passager+chauffeur par plateforme.
   fournisseur SMS.
 - **Rendu PDF de la facture non construit.**
 - **Clé API Google Maps manquante** (fournisseur décidé, voir §1/§7) —
-  bloque la demande de course côté passager, rien d'autre.
+  bloque la demande de course côté passager.
+- **`pricing_rules` vide sur le projet réel** (voir §1) — bloque aussi
+  la demande de course, indépendamment de Google Maps. Se résout via
+  `/tarification` (dashboard admin) : créer une règle « toutes zones »
+  par catégorie (voiture, moto-taxi).
 - **Mobile Money** : fournisseur non choisi (§7) — non bloquant, backend
   en mode manuel/admin.
 - **Critère de fiabilité du matching non implémenté** (doc 08).
@@ -121,20 +131,20 @@ Rien en cours — en attente de la prochaine demande.
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** — détail complet de chaque point dans
-`docs/TASKS.md` (TASK-004 à TASK-022, une entrée par point) :
+`docs/TASKS.md` (TASK-004 à TASK-023, une entrée par point) :
 révision du modèle économique (catégories, frais de service) ; module
 paiement/abonnement/facturation ; déploiement réel du schéma (11
 migrations) et des 5 Edge Functions ; contournement `pg_net` pour les
 push ; dashboard admin (login, vue d'ensemble, utilisateurs,
-chauffeurs/KYC, **véhicules**, courses, paiements, facturation,
-abonnements liste + plans, règlements) ; bucket Storage
-`driver-documents` ; correction d'un
-bug d'embedding PostgREST (FK manquantes, drivers/rides, payments,
-invoices et **user_roles**) ; MCP Supabase connecté + durcissement de 13
-grants internes ; données de démo + vérification à 5 écrans ; révision
-d'architecture (4 plateformes) ; `apps/web` scaffoldé (accueil) ; eSMS
-Africa abandonné (documentation) ; auth passager par code email
-construite et **confirmée en conditions réelles par vous, en local**.
+chauffeurs/KYC, véhicules, courses, paiements, facturation, abonnements
+liste + plans, règlements, **zones**, **tarification**) ; bucket
+Storage `driver-documents` ; correction d'un bug d'embedding PostgREST
+(FK manquantes, drivers/rides, payments, invoices et user_roles) ; MCP
+Supabase connecté + durcissement de 13 grants internes ; données de
+démo + vérification à 5 écrans ; révision d'architecture (4
+plateformes) ; `apps/web` scaffoldé (accueil) ; eSMS Africa abandonné
+(documentation) ; auth passager par code email construite et confirmée
+en conditions réelles par vous, en local.
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -142,13 +152,13 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-La demande de course côté passager reste bloquée sur la clé Google Maps
-(§7, pas sur le choix du fournisseur — déjà tranché). Volet financier,
-utilisateurs et véhicules admin faits ; reste ~9 écrans admin (voir
-`docs/05-ecrans.md` pour la liste — candidats naturels suivants :
-Tarification, Zones, Réclamations & SOS). Worker de dispatch,
-`PAYMENT_WEBHOOK_SECRET` et autres décisions fournisseurs (§7) non
-bloquants, en parallèle.
+La demande de course côté passager reste bloquée sur deux points (§1/
+§3/§7) : clé Google Maps et `pricing_rules` vide. Volet financier,
+utilisateurs, véhicules, zones et tarification admin faits ; reste ~7
+écrans admin (voir `docs/05-ecrans.md` pour la liste — candidats
+naturels suivants : Réclamations & SOS, Fraude, Statistiques globales).
+Worker de dispatch, `PAYMENT_WEBHOOK_SECRET` et autres décisions
+fournisseurs (§7) non bloquants, en parallèle.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
