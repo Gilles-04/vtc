@@ -1,7 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (auth passager par code email
-construite et vérifiée dans `apps/web`)*
+*Dernière mise à jour : 3 septembre 2026 (écran admin Paiements construit
+et vérifié, migration 9)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -9,12 +9,13 @@ construite et vérifiée dans `apps/web`)*
 
 Le backend (schéma, logique métier, module financier complet, deux
 catégories voiture/moto-taxi) est **déployé pour de vrai** sur le projet
-Supabase dédié : 8 migrations + 5 Edge Functions en place et vérifiées
+Supabase dédié : 9 migrations + 5 Edge Functions en place et vérifiées
 (32 tables, 49 fonctions, 51 policies RLS, grants internes durcis). Le
-**dashboard admin** (`apps/admin/`) a 5 écrans — connexion, vue
-d'ensemble, chauffeurs/KYC, courses — vérifiés dans un vrai navigateur
-avec de vraies données (démo insérée sur le projet réel pour la
-démonstration, id `d0000000-...`).
+**dashboard admin** (`apps/admin/`) a 6 écrans — connexion, vue
+d'ensemble, chauffeurs/KYC, courses, **paiements** — vérifiés dans un
+vrai navigateur (chauffeurs/courses avec de vraies données, démo insérée
+sur le projet réel, id `d0000000-...` ; paiements avec des données
+simulées côté réseau, la table est vide sur le projet réel pour l'instant).
 
 **Révision d'architecture (3 septembre 2026)** : le porteur du projet a
 demandé une app web en plus des apps mobiles (commander sans smartphone —
@@ -51,17 +52,18 @@ directement depuis cet environnement — vérification bout-en-bout à faire
 en local chez vous ou dans une session avec accès réseau élargi.
 
 Reste à construire : le reste de `apps/web` (auth, demande de course),
-`apps/mobile`, ~20 autres écrans admin, le worker de dispatch (écrit, pas
+`apps/mobile`, ~19 autres écrans admin, le worker de dispatch (écrit, pas
 déployé).
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (8 migrations, vérifiées en local puis déployées,
+**Base de données** (9 migrations, vérifiées en local puis déployées,
 comptage confirmé identique) : cycle complet d'une course par catégorie
 (matching, cash/Mobile Money), frais de service 2,5 % jamais mélangés à
 l'abonnement, facturation/règlement/remboursement automatiques, reporting
 financier complet (`admin_stats_overview`), KYC/anti-fraude/support
-hérités.
+hérités. Migration 9 : `payments.user_id → profiles.id`, même correctif
+d'embedding PostgREST que la migration 7 (drivers/rides).
 
 **5 Edge Functions déployées** (`payment-webhook-momo`,
 `phone-verification-start`/`-check`, `pricing-directions`,
@@ -112,17 +114,17 @@ Rien en cours — en attente de la prochaine demande.
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** — détail complet de chaque point dans
-`docs/TASKS.md` (TASK-004 à TASK-015, une entrée par point) :
+`docs/TASKS.md` (TASK-004 à TASK-017, une entrée par point) :
 révision du modèle économique (catégories, frais de service) ; module
-paiement/abonnement/facturation ; déploiement réel du schéma (8
+paiement/abonnement/facturation ; déploiement réel du schéma (9
 migrations) et des 5 Edge Functions ; contournement `pg_net` pour les
-push ; dashboard admin (login, vue d'ensemble, chauffeurs/KYC, courses) ;
-bucket Storage `driver-documents` ; correction d'un bug d'embedding
-PostgREST (FK manquantes) ; MCP Supabase connecté + durcissement de 13
-grants internes ; données de démo + vérification à 5 écrans ; révision
-d'architecture (4 plateformes) ; `apps/web` scaffoldé (accueil) ; eSMS
-Africa abandonné (documentation) ; auth passager par code email
-construite et vérifiée.
+push ; dashboard admin (login, vue d'ensemble, chauffeurs/KYC, courses,
+**paiements**) ; bucket Storage `driver-documents` ; correction d'un bug
+d'embedding PostgREST (FK manquantes, drivers/rides **et payments**) ;
+MCP Supabase connecté + durcissement de 13 grants internes ; données de
+démo + vérification à 5 écrans ; révision d'architecture (4 plateformes) ;
+`apps/web` scaffoldé (accueil) ; eSMS Africa abandonné (documentation) ;
+auth passager par code email construite et vérifiée.
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -131,10 +133,10 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 ## 6. Prochaine étape
 
 La demande de course côté passager reste bloquée sur la clé Google Maps
-(§7, pas sur le choix du fournisseur — déjà tranché). En attendant, je
-reprends le dashboard admin (écran Paiements). Worker de dispatch,
-`PAYMENT_WEBHOOK_SECRET` et autres décisions fournisseurs (§7) non
-bloquants, en parallèle.
+(§7, pas sur le choix du fournisseur — déjà tranché). L'écran admin
+Paiements est fait ; reste ~19 écrans admin (voir `docs/05-ecrans.md`
+pour la liste). Worker de dispatch, `PAYMENT_WEBHOOK_SECRET` et autres
+décisions fournisseurs (§7) non bloquants, en parallèle.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 

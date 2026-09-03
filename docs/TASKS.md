@@ -535,6 +535,49 @@ libre).
 
 ---
 
+## TASK-017 — FK payments→profiles (migration 9) + écran admin Paiements
+
+- **Objectif** : quatrième tronçon du dashboard admin — visibilité sur les
+  paiements (course + abonnement chauffeur). Repéré en le préparant :
+  `payments.user_id` référence `auth.users` directement (même défaut que
+  `drivers.id`/`rides.passenger_id`, corrigé en TASK-009) — sans FK vers
+  `public.profiles`, PostgREST ne peut pas embarquer l'identité du payeur.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - Migration 9 (`00000000000009_payments_profile_embed_fk.sql`) — ajoute
+    `payments.user_id → profiles.id` (FK additionnelle, aucune retirée),
+    même correctif que la migration 7.
+  - `/paiements` (`apps/admin`) : liste filtrable (statut, type
+    course/abonnement, fournisseur, période), identité du payeur, montant,
+    référence fournisseur, dates de création/confirmation, total des
+    paiements réussis sur la période affichée. Nouveaux types
+    (`PaymentListRow`/`PaymentPurpose`/`PaymentProvider`,
+    `lib/types.ts`), nouveaux badges (`PaymentPurposeBadge`,
+    `paymentProviderName`, `Badge.tsx`), navigation ajoutée dans
+    `Shell.tsx`.
+- **Vérifié** :
+  - Migration rejouée contre un Postgres 16 + PostGIS local reconstruit
+    (schémas `auth`/`net`/`storage` stub) : les 9 migrations s'appliquent
+    en séquence ; `pg_constraint` confirme une seule FK
+    `payments → profiles` en plus de celle vers `auth.users` (pas
+    d'ambiguïté pour PostgREST) — puis appliquée et revérifiée à
+    l'identique sur le projet réel via MCP (`apply_migration` +
+    requête `pg_constraint` directe, pas seulement le `{"success":true}`
+    de l'outil).
+  - `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint) propres
+    (mêmes avertissements non bloquants déjà présents ailleurs — reset
+    d'état au changement de filtre). Playwright/Chromium réel avec
+    session et données `payments` simulées (réseau Supabase toujours
+    bloqué côté sandbox) : filtres, badges de statut/type, identité du
+    payeur et total des paiements réussis tous corrects (capture d'écran
+    à l'appui).
+- **Résultat** : `payments` peut désormais être embarqué avec `profiles`
+  sur tout futur écran (le pattern TASK-009 s'applique maintenant aux
+  trois tables qui en avaient besoin). Confirmation bout-en-bout avec de
+  vraies données non testée depuis cet environnement (réseau sandbox).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
