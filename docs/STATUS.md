@@ -1,8 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (bootstrap du premier compte
-admin — mot de passe probablement à réinitialiser avant de pouvoir
-l'utiliser)*
+*Dernière mise à jour : 3 septembre 2026 (nav admin regroupée par
+domaine, README admin rafraîchi)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -119,19 +118,17 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 - **Protection mots de passe compromis (HaveIBeenPwned) désactivée** —
   interrupteur dashboard (Authentication → Password protection), pas une
   migration. Deux minutes, quand vous voulez.
-- **Barre de nav admin surchargée** (14 entrées, passe sur deux lignes)
-  — un regroupement par menu (Financier, Modération, Configuration)
-  serait utile, pas urgent.
-
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** — détail complet de chaque point dans
-`docs/TASKS.md` (TASK-004 à TASK-027, une entrée par point) : **premier
-compte admin bootstrappé** (`super_admin` inséré pour
-`abotchigilles@yahoo.fr`, mot de passe probablement à réinitialiser —
-voir §3) ; révision
+`docs/TASKS.md` (TASK-004 à TASK-028, une entrée par point) : **nav
+admin regroupée par domaine** (14 liens plats → 6 entrées avec 4 menus
+déroulants) **+ README admin rafraîchi** (était figé depuis TASK-006,
+listait encore 6 routes sur 15) ; **premier compte admin bootstrappé**
+(`super_admin` inséré pour `abotchigilles@yahoo.fr`, mot de passe
+probablement à réinitialiser — voir §3) ; révision
 du modèle économique (catégories, frais de service) ; module paiement/
 abonnement/facturation ; déploiement réel du schéma (12 migrations) et
 des 5 Edge Functions ; contournement `pg_net` pour les push ; **les 24

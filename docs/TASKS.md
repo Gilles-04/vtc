@@ -941,6 +941,33 @@ libre).
 
 ---
 
+## TASK-028 — Nav admin groupée par domaine + README rafraîchi
+
+- **Objectif** : nettoyer la dette d'ergonomie signalée en TASK-025/026
+  (barre de nav à 14 entrées, deux lignes) et corriger
+  `apps/admin/README.md`, resté figé à l'état de TASK-006 (6 routes)
+  malgré 18 tâches d'écrans construites depuis.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - `Shell.tsx` : 14 liens plats → 6 entrées (Vue d'ensemble,
+    Opérations, Financier, Configuration, Modération, Statistiques),
+    les 4 groupes en menu déroulant (fermeture au clic extérieur ou à
+    la navigation, surbrillance du groupe si un de ses écrans est
+    actif).
+  - `apps/admin/README.md` réécrit : tableau des 15 routes réelles,
+    statut de vérification honnête (par écran, pas un blanc-seing),
+    section bootstrap mise à jour (compte `abotchigilles@yahoo.fr`,
+    TASK-027, avec le point d'attention mot de passe).
+- **Vérifié** : `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint)
+  propres. Playwright/Chromium réel : 6 entrées top-level (comptées),
+  menu déroulant s'ouvre/se ferme (clic sur le bouton, navigation vers
+  un lien, clic à l'extérieur — les trois testés séparément),
+  surbrillance du groupe actif confirmée sur `/paiements`.
+- **Résultat** : plus de dette d'ergonomie/documentation ouverte sur le
+  dashboard admin. Pas de blocage nouveau identifié.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
