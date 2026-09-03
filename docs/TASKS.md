@@ -804,6 +804,48 @@ libre).
 
 ---
 
+## TASK-024 — FK reports/sos_alerts→profiles (migration 12) + écran Réclamations & SOS
+
+- **Objectif** : quatorzième tronçon du dashboard admin — file priorisée
+  des alertes SOS et réclamations, avec résolution. Même défaut repéré
+  en le préparant : `reports.reporter_id`/`reports.reported_user_id` et
+  `sos_alerts.triggered_by` référencent `auth.users` directement (comme
+  les migrations 7/9/10/11 avant elle).
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - Migration 12 (`00000000000012_reports_sos_profile_embed_fks.sql`) —
+    3 FK additionnelles vers `public.profiles` (aucune retirée).
+  - `/reclamations` : alertes SOS actives en tête (fond rouge, action
+    « Résoudre » en un clic — `admin_resolve_sos`), réclamations
+    ensuite, ouvertes avant résolues/rejetées (`admin_resolve_report`,
+    notes optionnelles à la résolution/rejet). Un seul écran couvre
+    liste + détail + résolution, comme pour Règlements (TASK-020).
+  - `reports` a deux FK vers `profiles` (reporter et signalé) : embed
+    désambiguïsé par nom de contrainte
+    (`profiles!reports_reporter_id_profiles_fkey` /
+    `!reports_reported_user_id_profiles_fkey`) — sans ce hint, PostgREST
+    ne peut pas savoir laquelle des deux relations utiliser et
+    l'embedding échoue.
+  - Nouveaux types (`SosAlertRow`/`ReportRow`/`ReportStatus`/
+    `SosStatus`, `lib/types.ts`), nouveaux badges (`SosStatusBadge`/
+    `ReportStatusBadge`, `Badge.tsx`), navigation ajoutée dans
+    `Shell.tsx`.
+- **Vérifié** :
+  - Migration rejouée contre un Postgres 16 + PostGIS local reconstruit
+    (12 migrations en séquence) ; `pg_constraint` confirme les 3 FK
+    supplémentaires — puis appliquée et revérifiée à l'identique sur le
+    projet réel via MCP.
+  - `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint) propres.
+    Playwright/Chromium réel avec SOS + réclamation simulées (embed à
+    deux relations inclus) : les deux sections, résolution SOS (l'alerte
+    disparaît du filtre actif), prise en charge d'une réclamation
+    (statut passe à « En cours ») — tout vérifié.
+- **Résultat** : `docs/05-ecrans.md` écran #22 fait. `reports`/
+  `sos_alerts` vides sur le projet réel — confirmation avec de vraies
+  données non testée depuis cet environnement (réseau sandbox).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

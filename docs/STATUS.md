@@ -1,8 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (écrans admin Zones +
-Tarification ; découverte : `pricing_rules` vide bloque aussi la
-demande de course)*
+*Dernière mise à jour : 3 septembre 2026 (écran admin Réclamations &
+SOS, migration 12)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -10,18 +9,17 @@ demande de course)*
 
 Le backend (schéma, logique métier, module financier complet, deux
 catégories voiture/moto-taxi) est **déployé pour de vrai** sur le projet
-Supabase dédié : 11 migrations + 5 Edge Functions en place et vérifiées
+Supabase dédié : 12 migrations + 5 Edge Functions en place et vérifiées
 (32 tables, 49 fonctions, 51 policies RLS, grants internes durcis). Le
-**dashboard admin** (`apps/admin/`) a 15 écrans — connexion, vue
+**dashboard admin** (`apps/admin/`) a 16 écrans — connexion, vue
 d'ensemble, utilisateurs, chauffeurs/KYC, véhicules, courses, paiements,
-facturation, abonnements (liste + plans), règlements, **zones**,
-**tarification** — vérifiés dans un vrai navigateur (utilisateurs/
-chauffeurs/véhicules/courses avec de vraies données, dont désormais 2
-vrais comptes créés par vous en local — voir plus bas ; écran plans
-avec les 6 vrais plans lus sur le projet réel ; paiements/facturation/
-liste abonnements/règlements/zones/tarification avec des données et
-RPC/écritures simulées côté réseau, ces tables sont vides sur le projet
-réel pour l'instant).
+facturation, abonnements (liste + plans), règlements, zones,
+tarification, **réclamations & SOS** — vérifiés dans un vrai navigateur
+(utilisateurs/chauffeurs/véhicules/courses avec de vraies données, dont
+désormais 2 vrais comptes créés par vous en local — voir plus bas ;
+écran plans avec les 6 vrais plans lus sur le projet réel ; le reste
+avec des données et RPC/écritures simulées côté réseau, ces tables sont
+vides sur le projet réel pour l'instant).
 
 **Auth passager confirmée en conditions réelles** : vous avez lancé
 `apps/web` en local (`npm run dev`) et créé deux comptes via `/passager`
@@ -65,20 +63,21 @@ directement depuis cet environnement — vérification bout-en-bout à faire
 en local chez vous ou dans une session avec accès réseau élargi.
 
 Reste à construire : la demande de course dans `apps/web` (bloquée sur
-Google Maps + `pricing_rules` vide), `apps/mobile`, ~7 autres écrans
+Google Maps + `pricing_rules` vide), `apps/mobile`, ~6 autres écrans
 admin, le worker de dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (11 migrations, vérifiées en local puis déployées,
+**Base de données** (12 migrations, vérifiées en local puis déployées,
 comptage confirmé identique) : cycle complet d'une course par catégorie
 (matching, cash/Mobile Money), frais de service 2,5 % jamais mélangés à
 l'abonnement, facturation/règlement/remboursement automatiques, reporting
 financier complet (`admin_stats_overview`), KYC/anti-fraude/support
-hérités. Migrations 9/10/11 : `payments.user_id`/`invoices.passenger_id`/
-`user_roles.user_id` → `profiles.id`, même correctif d'embedding
-PostgREST que la migration 7 (drivers/rides) — les quatre tables qui en
-avaient besoin sont maintenant réglées.
+hérités. Migrations 9/10/11/12 : `payments.user_id`/
+`invoices.passenger_id`/`user_roles.user_id`/`reports.reporter_id`/
+`reports.reported_user_id`/`sos_alerts.triggered_by` → `profiles.id`,
+même correctif d'embedding PostgREST que la migration 7 (drivers/rides)
+— toutes les tables qui en avaient besoin jusqu'ici sont réglées.
 
 **5 Edge Functions déployées** (`payment-webhook-momo`,
 `phone-verification-start`/`-check`, `pricing-directions`,
@@ -131,20 +130,20 @@ Rien en cours — en attente de la prochaine demande.
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** — détail complet de chaque point dans
-`docs/TASKS.md` (TASK-004 à TASK-023, une entrée par point) :
+`docs/TASKS.md` (TASK-004 à TASK-024, une entrée par point) :
 révision du modèle économique (catégories, frais de service) ; module
-paiement/abonnement/facturation ; déploiement réel du schéma (11
+paiement/abonnement/facturation ; déploiement réel du schéma (12
 migrations) et des 5 Edge Functions ; contournement `pg_net` pour les
 push ; dashboard admin (login, vue d'ensemble, utilisateurs,
 chauffeurs/KYC, véhicules, courses, paiements, facturation, abonnements
-liste + plans, règlements, **zones**, **tarification**) ; bucket
-Storage `driver-documents` ; correction d'un bug d'embedding PostgREST
-(FK manquantes, drivers/rides, payments, invoices et user_roles) ; MCP
-Supabase connecté + durcissement de 13 grants internes ; données de
-démo + vérification à 5 écrans ; révision d'architecture (4
-plateformes) ; `apps/web` scaffoldé (accueil) ; eSMS Africa abandonné
-(documentation) ; auth passager par code email construite et confirmée
-en conditions réelles par vous, en local.
+liste + plans, règlements, zones, tarification, **réclamations & SOS**) ;
+bucket Storage `driver-documents` ; correction d'un bug d'embedding
+PostgREST (FK manquantes, drivers/rides, payments, invoices, user_roles
+et reports/sos_alerts) ; MCP Supabase connecté + durcissement de 13
+grants internes ; données de démo + vérification à 5 écrans ; révision
+d'architecture (4 plateformes) ; `apps/web` scaffoldé (accueil) ; eSMS
+Africa abandonné (documentation) ; auth passager par code email
+construite et confirmée en conditions réelles par vous, en local.
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -154,9 +153,9 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 La demande de course côté passager reste bloquée sur deux points (§1/
 §3/§7) : clé Google Maps et `pricing_rules` vide. Volet financier,
-utilisateurs, véhicules, zones et tarification admin faits ; reste ~7
-écrans admin (voir `docs/05-ecrans.md` pour la liste — candidats
-naturels suivants : Réclamations & SOS, Fraude, Statistiques globales).
+utilisateurs, véhicules, zones, tarification et réclamations & SOS
+admin faits ; reste ~6 écrans admin (voir `docs/05-ecrans.md` pour la
+liste — candidats naturels suivants : Fraude, Statistiques globales).
 Worker de dispatch, `PAYMENT_WEBHOOK_SECRET` et autres décisions
 fournisseurs (§7) non bloquants, en parallèle.
 
