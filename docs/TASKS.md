@@ -700,6 +700,54 @@ libre).
 
 ---
 
+## TASK-021 — FK user_roles→profiles (migration 11) + écrans admin Utilisateurs
+
+- **Objectif** : neuvième et dixième tronçons du dashboard admin —
+  visibilité et action sur les comptes (`profiles`). Même défaut repéré
+  en le préparant : `user_roles.user_id` référence `auth.users`
+  directement (comme les migrations 7/9/10 avant elle).
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - Migration 11 (`00000000000011_user_roles_profile_embed_fk.sql`) —
+    ajoute `user_roles.user_id → profiles.id` (FK additionnelle, aucune
+    retirée), même correctif que les migrations 7/9/10.
+  - `/utilisateurs` : liste avec recherche nom/téléphone (debounce
+    300ms), filtre statut actif/suspendu, rôles en badges.
+  - `/utilisateurs/$userId` : profil, historique des courses (en tant
+    que passager, via `rides.passenger_id`), action suspendre/réactiver
+    (RPC `admin_suspend_user`/`admin_unsuspend_user`, motif demandé à la
+    suspension) — même pattern que `DriverDetail.tsx`.
+  - Nouveaux types (`UserListRow`/`UserDetail`/`UserRideHistoryRow`/
+    `AppUserRole`, `lib/types.ts`), nouveau badge (`UserRoleBadge`,
+    `Badge.tsx`), navigation ajoutée dans `Shell.tsx`.
+- **Vérifié** :
+  - Migration rejouée contre un Postgres 16 + PostGIS local reconstruit
+    (11 migrations en séquence) ; `pg_constraint` confirme une seule FK
+    `user_roles → profiles` en plus de celle vers `auth.users` — puis
+    appliquée et revérifiée à l'identique sur le projet réel via MCP.
+  - `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint) propres.
+    Playwright/Chromium réel avec les **6 vrais profils** du projet
+    (lus via MCP juste avant, dont 2 comptes créés en testant l'auth
+    passager en local chez le porteur du projet — voir plus bas) :
+    liste, détail, historique de courses, action suspendre — tous
+    vérifiés.
+  - Un vrai bug trouvé et corrigé **dans le script de vérification
+    lui-même** (pas dans le code applicatif) : le mock réseau renvoyait
+    un tableau pour une requête `.single()`, alors que PostgREST renvoie
+    un objet nu dans ce cas (`Accept:
+    application/vnd.pgrst.object+json`) — `user.id.slice(...)` plantait
+    sur un tableau sans `.id`. Bon rappel que les mocks de vérification
+    doivent reproduire fidèlement le contrat PostgREST, pas juste
+    répondre 200.
+- **Résultat** : `docs/05-ecrans.md` écrans #3-4 faits. Le porteur du
+  projet a lancé `apps/web` en local pendant cette tâche et créé deux
+  comptes réels via `/passager` (email OTP fonctionnel de bout en bout
+  hors sandbox, première confirmation réelle de ce flux) — visibles
+  dans `/utilisateurs` (`e30c474a...`, `594619db...`), sans nom/téléphone
+  puisque l'inscription par email seul ne les renseigne pas.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

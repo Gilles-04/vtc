@@ -1,7 +1,8 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (écran admin Règlements
-construit et vérifié)*
+*Dernière mise à jour : 3 septembre 2026 (écrans admin Utilisateurs +
+première confirmation réelle de l'auth passager par email, testée en
+local par le porteur du projet)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -9,25 +10,30 @@ construit et vérifié)*
 
 Le backend (schéma, logique métier, module financier complet, deux
 catégories voiture/moto-taxi) est **déployé pour de vrai** sur le projet
-Supabase dédié : 10 migrations + 5 Edge Functions en place et vérifiées
+Supabase dédié : 11 migrations + 5 Edge Functions en place et vérifiées
 (32 tables, 49 fonctions, 51 policies RLS, grants internes durcis). Le
-**dashboard admin** (`apps/admin/`) a 10 écrans — connexion, vue
-d'ensemble, chauffeurs/KYC, courses, paiements, facturation,
-abonnements (liste + plans), **règlements** — vérifiés dans un vrai
-navigateur (chauffeurs/courses avec de vraies données, démo insérée sur
-le projet réel, id `d0000000-...` ; écran plans avec les 6 vrais plans
-lus sur le projet réel ; paiements/facturation/liste abonnements/
-règlements avec des données et RPC simulées côté réseau, ces tables
-sont vides sur le projet réel pour l'instant).
+**dashboard admin** (`apps/admin/`) a 12 écrans — connexion, vue
+d'ensemble, **utilisateurs**, chauffeurs/KYC, courses, paiements,
+facturation, abonnements (liste + plans), règlements — vérifiés dans un
+vrai navigateur (utilisateurs/chauffeurs/courses avec de vraies
+données, dont désormais 2 vrais comptes créés par vous en local — voir
+plus bas ; écran plans avec les 6 vrais plans lus sur le projet réel ;
+paiements/facturation/liste abonnements/règlements avec des données et
+RPC simulées côté réseau, ces tables sont vides sur le projet réel pour
+l'instant).
 
-**Révision d'architecture (3 septembre 2026)** : le porteur du projet a
-demandé une app web en plus des apps mobiles (commander sans smartphone —
-cybercafé, ordinateur partagé) et a redéfini la structure en 4
-livrables, chacun couvrant passager **et** chauffeur (sauf l'admin) :
-Web, Android, iOS, Admin. Android/iOS restent un seul code Expo
-(`apps/mobile`) — pas un chantier de plus, deux publications de store.
-Détail et justification : `docs/02-architecture-technique.md` §Révision
-du 3 septembre 2026.
+**Auth passager confirmée en conditions réelles** : vous avez lancé
+`apps/web` en local (`npm run dev`) et créé deux comptes via `/passager`
+— le flux `signInWithOtp`/`verifyOtp` par email fonctionne réellement de
+bout en bout hors sandbox, première confirmation de ce genre sur ce
+projet. Les deux comptes sont visibles dans `/utilisateurs` du dashboard
+admin (sans nom/téléphone, l'inscription par email seul ne les
+renseigne pas — normal, pas un bug).
+
+**4 livrables** (révision du 3 septembre 2026, détail dans
+`docs/02-architecture-technique.md`) : Web, Android, iOS, Admin —
+chacun couvrant passager **et** chauffeur sauf l'admin. Android/iOS
+restent un seul code Expo (`apps/mobile`), pas encore démarré.
 
 **`apps/web`** : page d'accueil publique (deux entrées, passager/
 chauffeur), même stack et palette que `apps/admin`. **Auth passager
@@ -54,21 +60,21 @@ l'app elle-même) ne peut toujours pas contacter `*.supabase.co`
 directement depuis cet environnement — vérification bout-en-bout à faire
 en local chez vous ou dans une session avec accès réseau élargi.
 
-Reste à construire : le reste de `apps/web` (auth, demande de course),
-`apps/mobile`, ~12 autres écrans admin, le worker de dispatch (écrit, pas
-déployé).
+Reste à construire : la demande de course dans `apps/web` (bloquée sur
+Google Maps), `apps/mobile`, ~10 autres écrans admin, le worker de
+dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (10 migrations, vérifiées en local puis déployées,
+**Base de données** (11 migrations, vérifiées en local puis déployées,
 comptage confirmé identique) : cycle complet d'une course par catégorie
 (matching, cash/Mobile Money), frais de service 2,5 % jamais mélangés à
 l'abonnement, facturation/règlement/remboursement automatiques, reporting
 financier complet (`admin_stats_overview`), KYC/anti-fraude/support
-hérités. Migrations 9/10 : `payments.user_id`/`invoices.passenger_id`
-→ `profiles.id`, même correctif d'embedding PostgREST que la migration 7
-(drivers/rides) — les trois tables qui en avaient besoin sont
-maintenant réglées.
+hérités. Migrations 9/10/11 : `payments.user_id`/`invoices.passenger_id`/
+`user_roles.user_id` → `profiles.id`, même correctif d'embedding
+PostgREST que la migration 7 (drivers/rides) — les quatre tables qui en
+avaient besoin sont maintenant réglées.
 
 **5 Edge Functions déployées** (`payment-webhook-momo`,
 `phone-verification-start`/`-check`, `pricing-directions`,
@@ -85,8 +91,6 @@ regroupement passager+chauffeur par plateforme.
 
 ## 3. Ce qui pose problème / limites connues
 
-- **`apps/web`, `apps/mobile`, worker de dispatch, reste du dashboard
-  admin non construits/déployés.**
 - **Secrets Edge Functions pas tous configurés** : `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe) ; `GOOGLE_MAPS_API_KEY` en attente de la
   décision cartographie (§7). `ESMS_AFRICA_API_KEY` n'est plus à l'ordre
@@ -119,18 +123,19 @@ Rien en cours — en attente de la prochaine demande.
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** — détail complet de chaque point dans
-`docs/TASKS.md` (TASK-004 à TASK-020, une entrée par point) :
+`docs/TASKS.md` (TASK-004 à TASK-021, une entrée par point) :
 révision du modèle économique (catégories, frais de service) ; module
-paiement/abonnement/facturation ; déploiement réel du schéma (10
+paiement/abonnement/facturation ; déploiement réel du schéma (11
 migrations) et des 5 Edge Functions ; contournement `pg_net` pour les
-push ; dashboard admin (login, vue d'ensemble, chauffeurs/KYC, courses,
-paiements, facturation, abonnements liste + plans, **règlements**) ;
-bucket Storage `driver-documents` ; correction d'un bug d'embedding
-PostgREST (FK manquantes, drivers/rides, payments et invoices) ; MCP
-Supabase connecté + durcissement de 13 grants internes ; données de
-démo + vérification à 5 écrans ; révision d'architecture (4
-plateformes) ; `apps/web` scaffoldé (accueil) ; eSMS Africa abandonné
-(documentation) ; auth passager par code email construite et vérifiée.
+push ; dashboard admin (login, vue d'ensemble, **utilisateurs**,
+chauffeurs/KYC, courses, paiements, facturation, abonnements liste +
+plans, règlements) ; bucket Storage `driver-documents` ; correction d'un
+bug d'embedding PostgREST (FK manquantes, drivers/rides, payments,
+invoices et **user_roles**) ; MCP Supabase connecté + durcissement de 13
+grants internes ; données de démo + vérification à 5 écrans ; révision
+d'architecture (4 plateformes) ; `apps/web` scaffoldé (accueil) ; eSMS
+Africa abandonné (documentation) ; auth passager par code email
+construite et **confirmée en conditions réelles par vous, en local**.
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -139,13 +144,12 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 ## 6. Prochaine étape
 
 La demande de course côté passager reste bloquée sur la clé Google Maps
-(§7, pas sur le choix du fournisseur — déjà tranché). Tout le volet
-financier admin (paiements, facturation, abonnements, règlements) est
-fait ; reste ~12 écrans admin (voir `docs/05-ecrans.md` pour la liste —
-candidats naturels suivants : Liste/détail utilisateurs, Liste
-véhicules, Tarification, Zones). Worker de dispatch,
-`PAYMENT_WEBHOOK_SECRET` et autres décisions fournisseurs (§7) non
-bloquants, en parallèle.
+(§7, pas sur le choix du fournisseur — déjà tranché). Volet financier
+admin et utilisateurs faits ; reste ~10 écrans admin (voir
+`docs/05-ecrans.md` pour la liste — candidats naturels suivants : Liste
+véhicules, Tarification, Zones, Réclamations & SOS). Worker de
+dispatch, `PAYMENT_WEBHOOK_SECRET` et autres décisions fournisseurs
+(§7) non bloquants, en parallèle.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
