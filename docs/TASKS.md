@@ -484,6 +484,39 @@ libre).
 
 ---
 
+## TASK-015 — Auth passager par code email (`apps/web`)
+
+- **Objectif** : premier flux fonctionnel de `apps/web` — permettre à un
+  passager de créer un compte / se connecter par code email, suite à
+  TASK-014.
+- **Statut** : Terminé (3 septembre 2026) pour l'auth ; la demande de
+  course reste à construire (dépend de la cartographie, non tranchée).
+- **Fait** :
+  - `/passager` : saisie email → `supabase.auth.signInWithOtp({ email,
+    options: { shouldCreateUser: true } })` → saisie du code reçu →
+    `supabase.auth.verifyOtp({ email, token, type: 'email' })` →
+    redirection `/passager/accueil`.
+  - `/passager/accueil` : protégée (`beforeLoad` redirige vers
+    `/passager` sans session), placeholder honnête en attendant la
+    demande de course.
+  - `src/lib/useSession.ts` ajouté (même pattern que `apps/admin`).
+- **Vérifié** :
+  - `tsc -b`, `vite build`, `oxlint` propres.
+  - Playwright/Chromium réel : `/passager/accueil` sans session redirige
+    bien vers `/passager` ; la requête réelle `POST
+    https://<projet>.supabase.co/auth/v1/otp` est interceptée et
+    confirmée correctement formée (`email`, `create_user: true`) — échoue
+    au niveau réseau (`Failed to fetch`, sandbox bloqué comme toujours),
+    error state affiché proprement, formulaire reste utilisable.
+    Deuxième écran (saisie du code) vérifié séparément avec une réponse
+    `/auth/v1/otp` simulée réussie — rendu correct, aucune erreur JS.
+- **Résultat** : la confirmation bout-en-bout (réception réelle du code
+  par email, connexion effective) n'a pas pu être testée depuis cet
+  environnement — à faire en lançant l'app en local chez vous. Prochaine
+  étape naturelle : demande de course, une fois la cartographie décidée.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

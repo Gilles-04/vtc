@@ -1,7 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (eSMS Africa abandonné — auth
-passager/chauffeur par code email, construction en cours dans `apps/web`)*
+*Dernière mise à jour : 3 septembre 2026 (auth passager par code email
+construite et vérifiée dans `apps/web`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -25,21 +25,16 @@ Web, Android, iOS, Admin. Android/iOS restent un seul code Expo
 Détail et justification : `docs/02-architecture-technique.md` §Révision
 du 3 septembre 2026.
 
-**`apps/web` — premier tronçon construit** : page d'accueil publique
-(deux entrées, passager/chauffeur), même stack et même palette que
-`apps/admin`. Vérifié dans un vrai navigateur (Playwright) : rendu
-desktop et mobile, navigation, aucune erreur JS. Les pages `/passager` et
-`/chauffeur` restent des placeholders (« bientôt disponible ») le temps
-de construire l'auth (voir juste en dessous) et la demande de course
-(dépend encore de la cartographie, non tranchée).
-
-**eSMS Africa abandonné** : le porteur du projet change de société.
-L'authentification passager/chauffeur passe par un **code à usage
-unique envoyé par email** (Supabase Auth natif, aucun fournisseur
-externe) au lieu du SMS prévu au cadrage — conçu pour accueillir les
-deux moyens plus tard (le circuit téléphone reste en base, non appelé,
-en attente d'un futur fournisseur SMS). Détail :
-`docs/02-architecture-technique.md` §Révision authentification.
+**`apps/web`** : page d'accueil publique (deux entrées, passager/
+chauffeur), même stack et palette que `apps/admin`. **Auth passager
+construite** : `/passager` (saisie email → code reçu → compte créé,
+`signInWithOtp`/`verifyOtp`, Supabase Auth natif) → `/passager/accueil`
+(protégée). `eSMS Africa abandonné` (le porteur du projet change de
+société) — code par email au lieu du SMS prévu au cadrage, conçu pour
+accueillir les deux moyens plus tard (circuit téléphone en réserve,
+non appelé). Détail : `docs/02-architecture-technique.md` §Révision
+authentification. `/chauffeur` reste un placeholder ; la demande de
+course dépend encore de la cartographie (non tranchée).
 
 Un serveur **MCP Supabase** est connecté à cette session (accès direct au
 projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
@@ -108,7 +103,7 @@ Rien en cours — en attente de la prochaine demande.
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** — détail complet de chaque point dans
-`docs/TASKS.md` (TASK-004 à TASK-011, une entrée par point) :
+`docs/TASKS.md` (TASK-004 à TASK-015, une entrée par point) :
 révision du modèle économique (catégories, frais de service) ; module
 paiement/abonnement/facturation ; déploiement réel du schéma (8
 migrations) et des 5 Edge Functions ; contournement `pg_net` pour les
@@ -116,8 +111,9 @@ push ; dashboard admin (login, vue d'ensemble, chauffeurs/KYC, courses) ;
 bucket Storage `driver-documents` ; correction d'un bug d'embedding
 PostgREST (FK manquantes) ; MCP Supabase connecté + durcissement de 13
 grants internes ; données de démo + vérification à 5 écrans ; révision
-d'architecture (4 plateformes) ; `apps/web` scaffoldé (page d'accueil
-publique passager/chauffeur, vérifiée).
+d'architecture (4 plateformes) ; `apps/web` scaffoldé (accueil) ; eSMS
+Africa abandonné (documentation) ; auth passager par code email
+construite et vérifiée.
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -125,14 +121,11 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-En cours : auth passager par code email dans `apps/web`
-(`signInWithOtp`/`verifyOtp`, natif Supabase) — écran `/passager` :
-saisie email → code → compte créé.
-
-Ensuite, sans priorité indiquée : demande de course (dépend de la
-décision cartographie, §7) ou reprendre le dashboard admin
-(paiements/abonnements). Worker de dispatch, `PAYMENT_WEBHOOK_SECRET` et
-autres décisions fournisseurs (§7) non bloquants, en parallèle.
+Sans priorité indiquée : demande de course côté passager (dépend de la
+décision cartographie, §7 — bloquant pour cet écran précis) ou reprendre
+le dashboard admin (paiements/abonnements). Worker de dispatch,
+`PAYMENT_WEBHOOK_SECRET` et autres décisions fournisseurs (§7) non
+bloquants, en parallèle.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
