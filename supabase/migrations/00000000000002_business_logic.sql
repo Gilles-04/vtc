@@ -197,6 +197,7 @@ create trigger sos_alerts_notify_admins
 -- ========================================================================
 
 create or replace function public.submit_driver_application(
+  _category public.driver_category,
   _city text,
   _vehicle_brand text,
   _vehicle_model text,
@@ -217,7 +218,11 @@ begin
     raise exception 'not_authenticated';
   end if;
 
-  insert into public.drivers (id, city) values (_uid, _city)
+  -- La catégorie choisie à l'inscription est définitive au MVP (changer de
+  -- catégorie voudrait dire un autre véhicule, un autre abonnement, une
+  -- autre tarification — pas prévu comme un simple changement de champ) :
+  -- ignorée sur un conflit, jamais réécrite par une resoumission.
+  insert into public.drivers (id, category, city) values (_uid, _category, _city)
   on conflict (id) do update set city = excluded.city
   where public.drivers.status in ('pending_documents', 'rejected');
 
@@ -397,7 +402,7 @@ $$;
 -- TARIFICATION
 -- ========================================================================
 
-create or replace function public.estimate_ride_fare(_distance_km numeric, _duration_min numeric, _zone_id uuid default null)
+create or replace function public.estimate_ride_fare(_distance_km numeric, _duration_min numeric, _category public.driver_category, _zone_id uuid default null)
 returns table (pricing_rule_id uuid, fare_fcfa integer, is_night boolean)
 language plpgsql
 stable
@@ -411,7 +416,8 @@ declare
 begin
   select * into _rule
   from public.pricing_rules
-  where effective_from <= now()
+  where category = _category
+    and effective_from <= now()
     and (zone_id = _zone_id or zone_id is null)
   order by (zone_id is not null) desc, effective_from desc
   limit 1;
@@ -444,6 +450,7 @@ $$;
 -- ========================================================================
 
 create or replace function public.create_ride_request(
+  _category public.driver_category,
   _pickup_lat double precision, _pickup_lng double precision, _pickup_address text,
   _dropoff_lat double precision, _dropoff_lng double precision, _dropoff_address text,
   _distance_km numeric, _duration_min numeric,
@@ -470,18 +477,18 @@ begin
   if exists (
     select 1 from public.rides
     where passenger_id = _uid
-      and status in ('requested', 'searching', 'accepted', 'driver_arriving', 'arrived', 'in_progress')
+      and status in ('requested', 'searching', 'accepted', 'driver_arriving', 'driver_arrived', 'in_progress')
   ) then
     raise exception 'ride_already_in_progress';
   end if;
 
-  select * into _estimate from public.estimate_ride_fare(_distance_km, _duration_min, _zone_id);
+  select * into _estimate from public.estimate_ride_fare(_distance_km, _duration_min, _category, _zone_id);
 
   insert into public.rides (
-    passenger_id, status, pickup_location, pickup_address, dropoff_location, dropoff_address,
+    passenger_id, category, status, pickup_location, pickup_address, dropoff_location, dropoff_address,
     zone_id, pricing_rule_id, estimated_distance_km, estimated_duration_min, estimated_fare_fcfa, payment_method
   ) values (
-    _uid, 'searching',
+    _uid, _category, 'searching',
     extensions.ST_SetSRID(extensions.ST_MakePoint(_pickup_lng, _pickup_lat), 4326)::extensions.geography, _pickup_address,
     extensions.ST_SetSRID(extensions.ST_MakePoint(_dropoff_lng, _dropoff_lat), 4326)::extensions.geography, _dropoff_address,
     _zone_id, _estimate.pricing_rule_id, _distance_km, _duration_min, _estimate.fare_fcfa, _payment_method
@@ -524,13 +531,14 @@ begin
     select d.id into _candidate_id
     from public.drivers d
     where d.status = 'approved'
+      and d.category = _ride.category
       and d.is_available = true
       and d.last_location_at > now() - interval '2 minutes'
       and (_excluded is null or d.id <> all (_excluded))
       and exists (select 1 from public.subscriptions s where s.driver_id = d.id and s.status = 'active' and s.expires_at > now())
       and not exists (
         select 1 from public.rides r2
-        where r2.driver_id = d.id and r2.status in ('accepted', 'driver_arriving', 'arrived', 'in_progress')
+        where r2.driver_id = d.id and r2.status in ('accepted', 'driver_arriving', 'driver_arrived', 'in_progress')
       )
       and extensions.ST_DWithin(d.current_location, _ride.pickup_location, _radius_m)
     order by extensions.ST_Distance(d.current_location, _ride.pickup_location) asc, d.rating_avg desc, d.last_location_at asc
@@ -540,9 +548,12 @@ begin
   end loop;
 
   if _candidate_id is null then
-    update public.rides set status = 'no_drivers_found' where id = _ride_id;
+    update public.rides
+    set status = 'cancelled_by_system', cancelled_at = now(), cancelled_by = 'system',
+        cancellation_reason = 'no_drivers_available'
+    where id = _ride_id;
     insert into public.notifications (user_id, type, title, body)
-    values (_ride.passenger_id, 'no_drivers_found', 'Aucun chauffeur disponible', 'Aucun chauffeur n''est disponible pour le moment. Réessayez dans quelques instants.');
+    values (_ride.passenger_id, 'ride_cancelled_no_drivers', 'Aucun chauffeur disponible', 'Aucun chauffeur n''est disponible pour le moment. Réessayez dans quelques instants.');
     return false;
   end if;
 
@@ -632,7 +643,7 @@ security definer
 set search_path = public, extensions
 as $$
 begin
-  update public.rides set status = 'arrived', driver_arrived_at = now()
+  update public.rides set status = 'driver_arrived', driver_arrived_at = now()
   where id = _ride_id and driver_id = auth.uid() and status in ('accepted', 'driver_arriving');
   if not found then
     raise exception 'invalid_ride_state';
@@ -652,7 +663,7 @@ set search_path = public, extensions
 as $$
 begin
   update public.rides set status = 'in_progress', started_at = now()
-  where id = _ride_id and driver_id = auth.uid() and status = 'arrived';
+  where id = _ride_id and driver_id = auth.uid() and status = 'driver_arrived';
   if not found then
     raise exception 'invalid_ride_state';
   end if;
@@ -663,7 +674,20 @@ begin
 end;
 $$;
 
-create or replace function public.complete_ride(_ride_id uuid, _final_distance_km numeric, _final_duration_min numeric)
+-- RÈGLE ABSOLUE (voir docs/01-architecture-fonctionnelle.md et CLAUDE.md du
+-- dépôt) : frais de service = 2,5 % du prix final de la course, calculés
+-- une seule fois ici, jamais recalculés ensuite. Le paiement (cash/Mobile
+-- Money) se fait en direct passager -> chauffeur (voir docs/10-paiements.md) ;
+-- `_payment_confirmed` reflète la confirmation du chauffeur à la fin de la
+-- course (même geste que "fin signalée + paiement confirmé" dans le cycle
+-- de vie documenté) — ce n'est pas la plateforme qui encaisse. Facture et
+-- créance de frais de service ne sont générées (trigger ci-dessous) que si
+-- le paiement est confirmé ; sinon la course reste `completed` avec
+-- `payment_status = 'failed'`, à régulariser via le support.
+create or replace function public.complete_ride(
+  _ride_id uuid, _final_distance_km numeric, _final_duration_min numeric,
+  _payment_confirmed boolean default true
+)
 returns integer
 language plpgsql
 security definer
@@ -672,18 +696,27 @@ as $$
 declare
   _ride record;
   _estimate record;
+  _platform_fee integer;
+  _driver_amount integer;
 begin
   select * into _ride from public.rides where id = _ride_id and driver_id = auth.uid() and status = 'in_progress' for update;
   if _ride is null then
     raise exception 'invalid_ride_state';
   end if;
 
-  select * into _estimate from public.estimate_ride_fare(_final_distance_km, _final_duration_min, _ride.zone_id);
+  select * into _estimate from public.estimate_ride_fare(_final_distance_km, _final_duration_min, _ride.category, _ride.zone_id);
+
+  if _payment_confirmed then
+    _platform_fee := round(_estimate.fare_fcfa * 0.025);
+    _driver_amount := _estimate.fare_fcfa - _platform_fee;
+  end if;
 
   update public.rides
   set status = 'completed', completed_at = now(),
       final_distance_km = _final_distance_km, final_duration_min = _final_duration_min,
-      final_fare_fcfa = _estimate.fare_fcfa
+      final_fare_fcfa = _estimate.fare_fcfa,
+      payment_status = case when _payment_confirmed then 'success'::public.payment_status else 'failed'::public.payment_status end,
+      platform_fee_fcfa = _platform_fee, driver_amount_fcfa = _driver_amount
   where id = _ride_id;
 
   update public.drivers set total_rides = total_rides + 1 where id = _ride.driver_id;
@@ -695,6 +728,37 @@ begin
   return _estimate.fare_fcfa;
 end;
 $$;
+
+-- Facturation automatique (docs/01-architecture-fonctionnelle.md §Cycle de
+-- vie) : dès qu'une course passe à la fois par 'completed' et
+-- payment_status = 'success', une facture est émise, jamais à la main.
+-- `on conflict (ride_id) do nothing` protège contre un déclenchement
+-- redondant (ex. une future correction de payment_status qui repasserait
+-- par 'success' sans repasser par 'completed').
+create or replace function public.generate_invoice_on_ride_success()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if new.status = 'completed' and new.payment_status = 'success' and new.driver_id is not null then
+    insert into public.invoices (
+      ride_id, passenger_id, driver_id,
+      transport_amount_fcfa, platform_fee_fcfa, total_fcfa, payment_method
+    ) values (
+      new.id, new.passenger_id, new.driver_id,
+      coalesce(new.driver_amount_fcfa, 0), coalesce(new.platform_fee_fcfa, 0), coalesce(new.final_fare_fcfa, 0), new.payment_method
+    )
+    on conflict (ride_id) do nothing;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger rides_generate_invoice
+  after update on public.rides
+  for each row execute function public.generate_invoice_on_ride_success();
 
 create or replace function public.cancel_ride(_ride_id uuid, _reason text default null)
 returns void
@@ -721,7 +785,7 @@ begin
     raise exception 'not_authorized';
   end if;
 
-  if _ride.status not in ('searching', 'accepted', 'driver_arriving', 'arrived') then
+  if _ride.status not in ('searching', 'accepted', 'driver_arriving', 'driver_arrived') then
     raise exception 'ride_not_cancellable';
   end if;
 
@@ -779,6 +843,7 @@ set search_path = public, extensions
 as $$
 declare
   _uid uuid := auth.uid();
+  _driver_category public.driver_category;
   _plan record;
   _promo record;
   _promo_applied boolean := false;
@@ -786,7 +851,8 @@ declare
   _payment_id uuid;
 begin
   perform private.assert_not_suspended();
-  if _uid is null or not exists (select 1 from public.drivers where id = _uid) then
+  select category into _driver_category from public.drivers where id = _uid;
+  if _uid is null or _driver_category is null then
     raise exception 'not_a_driver';
   end if;
   perform private.enforce_rate_limit('purchase_subscription:' || _uid::text, 10, 3600);
@@ -794,6 +860,12 @@ begin
   select * into _plan from public.subscription_plans where code = _plan_code and is_active = true;
   if _plan is null then
     raise exception 'invalid_plan';
+  end if;
+  -- Un chauffeur voiture ne doit jamais pouvoir payer un plan moto (et
+  -- inversement) — les deux revenus d'abonnement doivent rester séparés par
+  -- construction, pas seulement par convention côté client.
+  if _plan.category <> _driver_category then
+    raise exception 'plan_category_mismatch';
   end if;
 
   _amount := _plan.price_fcfa;
@@ -957,6 +1029,91 @@ begin
   from unnest(_driver_ids) as uid;
 
   return array_length(_driver_ids, 1);
+end;
+$$;
+
+-- ========================================================================
+-- RÈGLEMENT DES FRAIS DE SERVICE (2,5 % / course, docs/01 §Comment les
+-- frais de service sont réellement perçus)
+-- ========================================================================
+-- Le prix de la course est réglé directement passager -> chauffeur ; les
+-- 2,5 % dus par le chauffeur s'accumulent donc sur `rides.platform_fee_fcfa`
+-- (course par course, dès que payment_status = 'success') jusqu'à un
+-- règlement périodique par lot, décidé et tracé par le staff finance.
+
+-- Regroupe toutes les courses réglées avec succès et non encore rattachées
+-- à un règlement, sur la période donnée, en une seule créance à solder.
+-- Idempotent par construction : une course déjà rattachée à un règlement
+-- (`rides.settlement_id is not null`) n'est jamais reprise dans un second.
+create or replace function public.admin_create_settlement(_driver_id uuid, _period_start timestamptz, _period_end timestamptz)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  _settlement_id uuid;
+  _rides_count integer;
+  _gross integer;
+  _fees integer;
+begin
+  if not private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[]) then
+    raise exception 'not_authorized';
+  end if;
+  if _period_end <= _period_start then
+    raise exception 'invalid_period';
+  end if;
+
+  select count(*), coalesce(sum(driver_amount_fcfa), 0), coalesce(sum(platform_fee_fcfa), 0)
+  into _rides_count, _gross, _fees
+  from public.rides
+  where driver_id = _driver_id
+    and payment_status = 'success'
+    and settlement_id is null
+    and completed_at >= _period_start and completed_at < _period_end;
+
+  if _rides_count = 0 then
+    raise exception 'no_unsettled_rides_in_period';
+  end if;
+
+  insert into public.settlements (driver_id, period_start, period_end, rides_count, gross_transport_fcfa, platform_fees_fcfa)
+  values (_driver_id, _period_start, _period_end, _rides_count, _gross, _fees)
+  returning id into _settlement_id;
+
+  update public.rides
+  set settlement_id = _settlement_id
+  where driver_id = _driver_id
+    and payment_status = 'success'
+    and settlement_id is null
+    and completed_at >= _period_start and completed_at < _period_end;
+
+  insert into public.audit_logs (actor_id, action, target_table, target_id, metadata)
+  values (auth.uid(), 'create_settlement', 'settlements', _settlement_id::text, jsonb_build_object('driver_id', _driver_id, 'rides_count', _rides_count, 'platform_fees_fcfa', _fees));
+
+  return _settlement_id;
+end;
+$$;
+
+create or replace function public.admin_mark_settlement_paid(_settlement_id uuid, _settlement_method text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+begin
+  if not private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[]) then
+    raise exception 'not_authorized';
+  end if;
+
+  update public.settlements
+  set status = 'settled', settled_at = now(), settled_by = auth.uid(), settlement_method = _settlement_method
+  where id = _settlement_id and status = 'pending';
+  if not found then
+    raise exception 'settlement_not_found_or_already_settled';
+  end if;
+
+  insert into public.audit_logs (actor_id, action, target_table, target_id, metadata)
+  values (auth.uid(), 'mark_settlement_paid', 'settlements', _settlement_id::text, jsonb_build_object('method', _settlement_method));
 end;
 $$;
 
@@ -1157,14 +1314,28 @@ begin
     raise exception 'not_authorized';
   end if;
 
+  -- Les deux revenus (abonnement, frais de service) restent séparés dans
+  -- chaque bloc ci-dessous — jamais additionnés entre eux — voir CLAUDE.md
+  -- §Règle absolue et docs/01-architecture-fonctionnelle.md.
   select jsonb_build_object(
     'rides_today', (select count(*) from public.rides where requested_at >= date_trunc('day', now())),
+    'rides_today_car', (select count(*) from public.rides where category = 'car' and requested_at >= date_trunc('day', now())),
+    'rides_today_moto', (select count(*) from public.rides where category = 'moto' and requested_at >= date_trunc('day', now())),
     'rides_completed_today', (select count(*) from public.rides where status = 'completed' and completed_at >= date_trunc('day', now())),
-    'active_drivers', (select count(*) from public.drivers where is_available = true and status = 'approved'),
-    'approved_drivers', (select count(*) from public.drivers where status = 'approved'),
+    'active_drivers_car', (select count(*) from public.drivers where is_available = true and status = 'approved' and category = 'car'),
+    'active_drivers_moto', (select count(*) from public.drivers where is_available = true and status = 'approved' and category = 'moto'),
+    'approved_drivers_car', (select count(*) from public.drivers where status = 'approved' and category = 'car'),
+    'approved_drivers_moto', (select count(*) from public.drivers where status = 'approved' and category = 'moto'),
     'pending_kyc', (select count(*) from public.drivers where status = 'pending_review'),
-    'active_subscriptions', (select count(*) from public.subscriptions where status = 'active' and expires_at > now()),
-    'subscription_revenue_today_fcfa', (select coalesce(sum(amount_fcfa), 0) from public.payments where purpose = 'driver_subscription' and status = 'success' and confirmed_at >= date_trunc('day', now())),
+    'active_subscriptions_car', (select count(*) from public.subscriptions s join public.subscription_plans p on p.id = s.plan_id where s.status = 'active' and s.expires_at > now() and p.category = 'car'),
+    'active_subscriptions_moto', (select count(*) from public.subscriptions s join public.subscription_plans p on p.id = s.plan_id where s.status = 'active' and s.expires_at > now() and p.category = 'moto'),
+    'subscription_revenue_today_car_fcfa', (select coalesce(sum(pay.amount_fcfa), 0) from public.payments pay join public.subscription_plans p on p.id = (pay.metadata ->> 'plan_id')::uuid where pay.purpose = 'driver_subscription' and pay.status = 'success' and pay.confirmed_at >= date_trunc('day', now()) and p.category = 'car'),
+    'subscription_revenue_today_moto_fcfa', (select coalesce(sum(pay.amount_fcfa), 0) from public.payments pay join public.subscription_plans p on p.id = (pay.metadata ->> 'plan_id')::uuid where pay.purpose = 'driver_subscription' and pay.status = 'success' and pay.confirmed_at >= date_trunc('day', now()) and p.category = 'moto'),
+    -- Frais de service (2,5 %/course) : jamais mélangés à l'abonnement
+    -- ci-dessus, distincts par catégorie eux aussi.
+    'platform_fees_today_car_fcfa', (select coalesce(sum(platform_fee_fcfa), 0) from public.rides where category = 'car' and payment_status = 'success' and completed_at >= date_trunc('day', now())),
+    'platform_fees_today_moto_fcfa', (select coalesce(sum(platform_fee_fcfa), 0) from public.rides where category = 'moto' and payment_status = 'success' and completed_at >= date_trunc('day', now())),
+    'platform_fees_pending_settlement_fcfa', (select coalesce(sum(platform_fee_fcfa), 0) from public.rides where payment_status = 'success' and settlement_id is null),
     'open_sos', (select count(*) from public.sos_alerts where status = 'open'),
     'open_reports', (select count(*) from public.reports where status = 'open'),
     'open_support_tickets', (select count(*) from public.support_tickets where status in ('open', 'pending')),
@@ -1188,24 +1359,26 @@ revoke execute on all functions in schema private from public, anon, authenticat
 
 grant execute on function private.has_admin_role(public.admin_role[]) to authenticated;
 
-grant execute on function public.submit_driver_application(text, text, text, text, text, integer) to authenticated;
+grant execute on function public.submit_driver_application(public.driver_category, text, text, text, text, text, integer) to authenticated;
 grant execute on function public.admin_review_driver_document(uuid, public.doc_status, text) to authenticated;
 grant execute on function public.admin_decide_driver_application(uuid, public.driver_status, text) to authenticated;
 grant execute on function public.set_driver_availability(boolean) to authenticated;
 grant execute on function public.update_driver_location(double precision, double precision, numeric, uuid) to authenticated;
 
-grant execute on function public.estimate_ride_fare(numeric, numeric, uuid) to authenticated;
-grant execute on function public.create_ride_request(double precision, double precision, text, double precision, double precision, text, numeric, numeric, public.payment_method_type, uuid) to authenticated;
+grant execute on function public.estimate_ride_fare(numeric, numeric, public.driver_category, uuid) to authenticated;
+grant execute on function public.create_ride_request(public.driver_category, double precision, double precision, text, double precision, double precision, text, numeric, numeric, public.payment_method_type, uuid) to authenticated;
 grant execute on function public.respond_to_ride_offer(uuid, boolean) to authenticated;
 grant execute on function public.mark_driver_arrived(uuid) to authenticated;
 grant execute on function public.start_ride(uuid) to authenticated;
-grant execute on function public.complete_ride(uuid, numeric, numeric) to authenticated;
+grant execute on function public.complete_ride(uuid, numeric, numeric, boolean) to authenticated;
 grant execute on function public.cancel_ride(uuid, text) to authenticated;
 
 grant execute on function public.validate_promo_code(text) to authenticated;
 grant execute on function public.purchase_subscription(text, public.payment_provider, text) to authenticated;
 grant execute on function public.admin_manual_payment_confirm(uuid) to authenticated;
 grant execute on function public.admin_mark_payment_failed(uuid, text) to authenticated;
+grant execute on function public.admin_create_settlement(uuid, timestamptz, timestamptz) to authenticated;
+grant execute on function public.admin_mark_settlement_paid(uuid, text) to authenticated;
 
 grant execute on function public.create_support_ticket(public.support_ticket_category, text, text, uuid) to authenticated;
 grant execute on function public.admin_assign_support_ticket(uuid, uuid) to authenticated;

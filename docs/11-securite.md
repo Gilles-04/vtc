@@ -53,6 +53,12 @@ rejetée (`account_suspended`) avant même la moindre écriture.
   serveur (`SECURITY DEFINER` + Edge Functions avec la clé de service),
   jamais en direct depuis le client — **vérifié réellement** : aucune
   policy d'écriture cliente n'existe sur ces deux tables (migration 1).
+- `settlements` : lecture limitée au chauffeur concerné + staff
+  `finance`/`admin`/`super_admin`. `invoices` : lecture limitée au passager
+  et au chauffeur de la course + même staff. Aucune écriture cliente sur
+  les deux — `settlements` n'est créée/modifiée que par
+  `admin_create_settlement`/`admin_mark_settlement_paid`, `invoices`
+  uniquement par le trigger `generate_invoice_on_ride_success`.
 - `admin_roles` : lecture/écriture réservées à `super_admin`.
 - `audit_logs` : écriture uniquement via fonctions serveur, lecture réservée
   au staff admin.

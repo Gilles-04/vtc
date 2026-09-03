@@ -36,18 +36,21 @@ de passer à la suivante.
 
 ## Phase 3 — Abonnement (mode manuel d'abord)
 
-- Achat du Pass Jour en mode paiement manuel/admin (voir
+- Choix de catégorie (voiture/moto-taxi) à l'inscription chauffeur, achat
+  du Pass Jour de la catégorie choisie en mode paiement manuel/admin (voir
   [10-paiements.md](10-paiements.md)) — permet de livrer la fonctionnalité
   sans attendre le choix définitif d'un fournisseur Mobile Money.
 - Affichage statut/temps restant, blocage de la disponibilité sans
-  abonnement actif.
+  abonnement actif de la bonne catégorie.
 - Tâche planifiée d'expiration.
 
 ## Phase 4 — Course : commande, matching, suivi (le cœur du produit)
 
-- Carte, sélection destination, estimation de prix (tarification fixe pour
-  commencer, pas encore configurable en base).
-- Moteur de matching complet ([08-matching.md](08-matching.md)).
+- Carte, choix voiture/moto avant estimation, sélection destination,
+  estimation de prix (tarification fixe pour commencer, pas encore
+  configurable en base).
+- Moteur de matching complet, filtré par catégorie
+  ([08-matching.md](08-matching.md)).
 - Suivi temps réel bidirectionnel, cycle complet arrivée→démarrage→fin.
 - Vérifiable : une course réelle de bout en bout entre un compte passager et
   un compte chauffeur de test, à Lomé, sur réseau mobile réel (pas
@@ -62,10 +65,11 @@ de passer à la suivante.
 
 ## Phase 6 — Admin : dashboard complet
 
-- Les huit domaines du cadrage (§13 Admin) : utilisateurs, chauffeurs,
+- Les domaines du cadrage (§13 Admin) : utilisateurs, chauffeurs,
   documents, courses (dont carte live), abonnements, paiements,
-  statistiques — dans cet ordre de priorité, la carte live et les
-  statistiques avancées pouvant suivre une fois le flux de base opérationnel.
+  **facturation, règlements (frais de service), fraude**, statistiques —
+  dans cet ordre de priorité, la carte live et les statistiques avancées
+  pouvant suivre une fois le flux de base opérationnel.
 
 ## Phase 7 — Sécurité et fiabilité opérationnelle
 
@@ -92,9 +96,15 @@ de passer à la suivante.
 - Abonnements 7 jours / 30 jours (activation de données, pas de migration).
 - Comptes professionnels / flottes de véhicules.
 - Publicité, options de visibilité chauffeur.
-- Livraison de colis, moto-taxi (nouvelle catégorie de véhicule/service —
-  le schéma `rides`/`vehicles` est conçu pour absorber une catégorie
-  supplémentaire).
+- Livraison de colis (nouvelle catégorie de service — voiture et moto-taxi
+  sont deux catégories du MVP depuis la révision du 3 septembre 2026, voir
+  [01-architecture-fonctionnelle.md](01-architecture-fonctionnelle.md) ;
+  la livraison de colis resterait une extension distincte).
+- Encaissement du prix de la course par la plateforme (permettrait un
+  prélèvement des frais de service course par course plutôt qu'un
+  règlement différé par lot, voir [10-paiements.md](10-paiements.md)).
+- Rendu PDF effectif de la facture de course (`invoices` ne produit
+  aujourd'hui que la ligne de données, pas le document).
 - Tarification dynamique (surge).
 - Partage de trajet public (lien externe).
 - Extension à d'autres villes du Togo au-delà de Lomé (`zones` déjà prêt).

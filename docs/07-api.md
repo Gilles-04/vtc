@@ -25,8 +25,8 @@ réel (le compte n'existe pas encore au moment de la demande de code).
 
 | Fonction | Rôle |
 |---|---|
-| `estimate_ride_fare(distance_km, duration_min, zone_id?)` | Calcule le prix à partir d'une distance/durée déjà connues (utilisée en interne par `create_ride_request`/`complete_ride` ; côté client, passe plutôt par l'Edge Function `pricing-directions` qui calcule aussi la distance réelle) |
-| `create_ride_request(pickup, dropoff, adresses, distance_km, duration_min, payment_method, zone_id?)` | Crée la course (`status='searching'`), déclenche `dispatch_next_offer` dans la même transaction |
+| `estimate_ride_fare(distance_km, duration_min, category, zone_id?)` | Calcule le prix à partir d'une distance/durée déjà connues et de la catégorie (`car`\|`moto` — chaque catégorie a sa propre grille de `pricing_rules`) ; utilisée en interne par `create_ride_request`/`complete_ride`, côté client passe plutôt par l'Edge Function `pricing-directions` qui calcule aussi la distance réelle |
+| `create_ride_request(category, pickup, dropoff, adresses, distance_km, duration_min, payment_method, zone_id?)` | Crée la course (`status='searching'`) dans la catégorie choisie, déclenche `dispatch_next_offer` dans la même transaction — le pool de matching est filtré par catégorie, jamais mélangé |
 | `cancel_ride(ride_id, reason?)` | Annule si statut encore annulable ; expire les offres en attente ; notifie l'autre partie |
 | `create_support_ticket(category, subject, message, ride_id?)` | Ouvre un ticket + son premier message |
 | `validate_promo_code(code)` | Vérifie un code (validité, expiration, quota, déjà utilisé) sans jamais lister les codes existants |
@@ -38,12 +38,13 @@ réel (le compte n'existe pas encore au moment de la demande de code).
 
 | Fonction | Rôle |
 |---|---|
-| `submit_driver_application(city, marque, modèle, couleur, plaque, année?)` | Crée/complète `drivers` + `vehicles`, statut → `pending_review` |
-| `set_driver_availability(is_available)` | Refuse si non `approved` ou sans abonnement actif (message explicite ; le matching revérifie de toute façon, double sécurité) |
+| `submit_driver_application(category, city, marque, modèle, couleur, plaque, année?)` | Crée/complète `drivers` + `vehicles`, statut → `pending_review` ; `category` (`car`\|`moto`) est fixée ici, définitivement — jamais réécrite par une resoumission |
+| `set_driver_availability(is_available)` | Refuse si non `approved` ou sans abonnement actif **dans sa catégorie** (message explicite ; le matching revérifie de toute façon, double sécurité) |
 | `update_driver_location(lat, lng, accuracy?, ride_id?)` | Met à jour le cache + journalise dans `driver_locations` ; détecte une anomalie de vitesse GPS |
 | `respond_to_ride_offer(offer_id, accept)` | Accepte (atomique, gère la concurrence) ou refuse (relance `dispatch_next_offer`) |
-| `mark_driver_arrived(ride_id)` / `start_ride(ride_id)` / `complete_ride(ride_id, distance_km, duration_min)` | Transitions de statut, vérifient le chauffeur assigné et l'état précédent |
-| `purchase_subscription(plan_code, provider, promo_code?)` | Crée le paiement (`pending`), applique la réduction si code valide |
+| `mark_driver_arrived(ride_id)` / `start_ride(ride_id)` | Transitions de statut, vérifient le chauffeur assigné et l'état précédent |
+| `complete_ride(ride_id, distance_km, duration_min, payment_confirmed=true)` | Clôt la course, calcule `platform_fee_fcfa = round(prix × 2,5 %)` et `driver_amount_fcfa` une seule fois ; `payment_confirmed=false` → `payment_status='failed'`, aucun frais crédité (à régulariser via le support) |
+| `purchase_subscription(plan_code, provider, promo_code?)` | Crée le paiement (`pending`), applique la réduction si code valide ; refuse (`plan_category_mismatch`) un plan dont la catégorie ne correspond pas à celle du chauffeur |
 | `create_support_ticket(...)` | Identique au passager |
 
 ## RPC — Admin (toutes vérifient `private.has_admin_role()` en première ligne)
@@ -56,7 +57,9 @@ réel (le compte n'existe pas encore au moment de la demande de code).
 | `admin_suspend_user(user_id, reason)` / `admin_unsuspend_user(user_id)` | Bloque l'accès (vérifié : `create_ride_request` etc. refusent ensuite avec `account_suspended`) |
 | `admin_resolve_report(...)` / `admin_resolve_sos(...)` / `admin_resolve_fraud_flag(...)` | Résolution avec trace d'audit systématique |
 | `admin_assign_support_ticket(...)` / `admin_resolve_support_ticket(...)` | Gestion des tickets |
-| `admin_stats_overview()` | Agrégats temps réel (courses du jour, chauffeurs actifs, revenus, files d'attente) |
+| `admin_stats_overview()` | Agrégats temps réel — **les deux revenus restent séparés dans la réponse**, jamais additionnés : courses/chauffeurs actifs/abonnements actifs par catégorie, revenu d'abonnement du jour par catégorie, frais de service du jour par catégorie, frais de service en attente de règlement |
+| `admin_create_settlement(driver_id, period_start, period_end)` | Réservée `finance`/`admin`/`super_admin` : regroupe les courses réglées non rattachées de la période en une créance de frais de service (`settlements`), rattache ces courses ; échoue (`no_unsettled_rides_in_period`) si rien à régler |
+| `admin_mark_settlement_paid(settlement_id, method?)` | Réservée `finance`/`admin`/`super_admin` : clôt un règlement (`status='settled'`) |
 
 Zones/tarifs/plans/promotions : pas de RPC dédiée — `INSERT`/`UPDATE`
 directs, RLS réservée aux rôles admin (voir migration 1) ; `pricing_rules`
@@ -71,6 +74,7 @@ en ajout seul (jamais de modification d'une règle déjà appliquée).
 | `expire_subscriptions()` | `pg_cron`, chaque minute |
 | `confirm_subscription_payment(payment_id, provider_ref)` | `admin_manual_payment_confirm` ou l'Edge Function `payment-webhook-momo` (clé de service) — idempotente |
 | `cleanup_rate_limits()` | `pg_cron`, une fois par jour |
+| `generate_invoice_on_ride_success()` | Trigger `AFTER UPDATE` sur `rides` (pas une fonction appelable) — génère la ligne `invoices` dès `status='completed' AND payment_status='success'`, jamais à la main |
 
 ## Vérification téléphone (avant inscription)
 

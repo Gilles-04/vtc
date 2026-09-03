@@ -86,6 +86,46 @@ libre, le projet n'ayant pas encore de code applicatif).
 
 ---
 
+## TASK-004 — Révision du modèle économique (catégories, facturation, règlement)
+
+- **Objectif** : appliquer la révision du cahier des charges du
+  3 septembre 2026 — deux catégories de conducteurs (voiture/moto-taxi),
+  deux revenus distincts (abonnement 1 000/500 FCFA + frais de service
+  2,5 %/course, jamais mélangés), facturation automatique, règlement
+  différé par lot — de façon cohérente dans le schéma, la logique métier et
+  les 12 livrables.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - `docs/01-architecture-fonctionnelle.md` réécrit (nouveau modèle
+    économique, rôle des parties).
+  - Migration 1 : enums `driver_category`/`settlement_status`, statuts
+    alignés (`driver_arrived`, `cancelled_by_system`), colonne `category`
+    sur 4 tables, nouvelles tables `settlements`/`invoices` + RLS,
+    suppression du chemin d'insertion directe mort sur `drivers`, seed à
+    6 plans par catégorie.
+  - Migration 2 : catégorie propagée dans `submit_driver_application`/
+    `estimate_ride_fare`/`create_ride_request`/`dispatch_next_offer` ;
+    `complete_ride` calcule les frais de service ; trigger
+    `generate_invoice_on_ride_success` ; nouvelles fonctions
+    `admin_create_settlement`/`admin_mark_settlement_paid` ; garde-fou
+    catégorie sur `purchase_subscription` ; `admin_stats_overview` sépare
+    les deux revenus.
+  - Docs 03/04/05/06/07/08/09/10/11 + README + roadmap mis à jour pour
+    rester cohérents (un vrai bug documentaire trouvé et corrigé au
+    passage : la roadmap listait le moto-taxi comme extension post-MVP
+    alors qu'il est désormais dans le MVP).
+- **Vérifié** : migrations 1+2 réappliquées contre un Postgres 16 + PostGIS
+  local, scénario complet rejoué (voiture + moto, abonnements croisés
+  refusés, matching filtré par catégorie, frais de service calculés,
+  facture générée automatiquement, règlement créé/soldé, double règlement
+  rejeté, séparation des deux revenus dans les statistiques admin) — pas
+  seulement relu.
+- **Résultat** : voir `docs/STATUS.md` §3 pour les limites connues
+  (notamment le canvas de design non mis à jour pour cette révision) et §7
+  pour les décisions fournisseurs requises avant la Phase 0 de la roadmap.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

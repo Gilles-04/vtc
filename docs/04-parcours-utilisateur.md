@@ -8,25 +8,33 @@
 3. Code validé → compte créé → écran profil minimal (nom) → accueil.
 4. Sur l'accueil, la carte se centre sur sa position (autorisation
    géolocalisation demandée explicitement, avec explication de son usage).
-5. Tape « Où allez-vous ? » → recherche d'adresse (autocomplete) ou sélection
+5. Choisit sa catégorie — 🚗 Voiture ou 🏍️ Moto-taxi, affichées côte à côte
+   dès l'accueil — **avant** toute estimation de prix (les deux catégories
+   ont des tarifs différents, voir
+   [01-architecture-fonctionnelle.md](01-architecture-fonctionnelle.md)).
+6. Tape « Où allez-vous ? » → recherche d'adresse (autocomplete) ou sélection
    sur la carte → confirme la destination.
-6. Écran d'estimation : distance, durée, prix estimé, choix du mode de
+7. Écran d'estimation : distance, durée, prix estimé pour la catégorie
+   choisie (bien visible, figé dès confirmation), choix du mode de
    paiement (cash par défaut, ou Mobile Money enregistré) → « Commander ».
-7. Écran de recherche : la plateforme cherche un chauffeur (voir
-   [08-matching.md](08-matching.md)) — le passager voit un statut
-   (« Recherche en cours... »), peut annuler à tout moment avant acceptation.
-8. Un chauffeur accepte → écran de suivi : photo, nom, note, véhicule
+8. Écran de recherche : la plateforme cherche un chauffeur de la catégorie
+   choisie (voir [08-matching.md](08-matching.md)) — le passager voit un
+   statut (« Recherche en cours... »), peut annuler à tout moment avant
+   acceptation.
+9. Un chauffeur accepte → écran de suivi : photo, nom, note, véhicule
    (marque/couleur/plaque) du chauffeur, position en approche sur la carte,
    bouton d'appel téléphonique direct, ETA d'arrivée.
-9. Le chauffeur signale son arrivée → notification « Votre chauffeur est
-   arrivé ».
-10. Le chauffeur démarre la course → écran de suivi pendant le trajet,
+10. Le chauffeur signale son arrivée → notification « Votre chauffeur est
+    arrivé ».
+11. Le chauffeur démarre la course → écran de suivi pendant le trajet,
     position mise à jour en continu, ETA vers la destination.
-11. Le chauffeur termine la course → écran de fin : prix final (identique à
+12. Le chauffeur termine la course → écran de fin : prix final (identique à
     l'estimation en l'absence de détour, sinon recalculé sur la distance
     réelle), rappel du mode de paiement choisi, bouton de notation
     (1 à 5 étoiles + commentaire optionnel).
-12. La course apparaît dans l'historique avec un reçu consultable.
+13. La course apparaît dans l'historique ; la facture (transport + frais de
+    service inclus dans le total payé, jamais un supplément) est
+    consultable une fois générée automatiquement.
 
 **Cas d'erreur couverts** : aucun chauffeur disponible après épuisement de la
 liste (message clair + proposition de réessayer) ; annulation par le
@@ -39,34 +47,46 @@ resynchronise à la reconnexion, ne perd jamais la course en cours).
 ## Chauffeur — de l'inscription à la première course rémunérée
 
 1. Inscription par téléphone/OTP (identique au passager).
-2. Formulaire profil : nom, ville de rattachement (Lomé au lancement).
-3. Upload documents obligatoires : pièce d'identité, permis de conduire,
+2. Choisit sa catégorie — 🚗 Voiture ou 🏍️ Moto-taxi — **définitive** : elle
+   détermine son abonnement, sa tarification et son pool de matching pour
+   toute la suite (changer de catégorie plus tard n'est pas un simple
+   changement de champ, voir
+   [01-architecture-fonctionnelle.md](01-architecture-fonctionnelle.md)).
+3. Formulaire profil : nom, ville de rattachement (Lomé au lancement).
+4. Upload documents obligatoires : pièce d'identité, permis de conduire,
    carte de transport (si applicable localement), photo du véhicule, carte
    grise/assurance.
-4. Formulaire véhicule : marque, modèle, couleur, plaque d'immatriculation,
+5. Formulaire véhicule : marque, modèle, couleur, plaque d'immatriculation,
    année.
-5. Soumission → statut `pending_review` → écran d'attente, avec estimation de
+6. Soumission → statut `pending_review` → écran d'attente, avec estimation de
    délai et rappel que le compte reste inactif tant que non validé.
-6. **Décision admin** (voir parcours admin) :
+7. **Décision admin** (voir parcours admin) :
    - Refusé → écran avec motif précis, bouton pour corriger et re-soumettre
      uniquement les documents en cause (pas tout le dossier).
    - Approuvé → notification push + écran d'accueil chauffeur débloqué.
-7. Écran d'accueil : bandeau « Aucun abonnement actif » tant qu'aucun pass
+8. Écran d'accueil : bandeau « Aucun abonnement actif » tant qu'aucun pass
    n'est acheté — bouton disponibilité grisé/inactif jusqu'à l'achat.
-8. Achète le Pass Jour (1 500 FCFA) → paiement Mobile Money → confirmation →
+9. Achète le Pass Jour de sa catégorie (**1 000 FCFA** voiture,
+   **500 FCFA** moto-taxi) → paiement Mobile Money → confirmation →
    abonnement actif affiché avec compte à rebours (temps restant).
-9. Active sa disponibilité → apparaît dans le pool de matching.
-10. Reçoit une demande de course : écran plein écran avec décompte (le
+10. Active sa disponibilité → apparaît dans le pool de matching **de sa
+    catégorie uniquement**.
+11. Reçoit une demande de course : écran plein écran avec décompte (le
     chauffeur doit répondre avant expiration, sinon la demande passe au
     suivant), infos minimales (zone de prise en charge, distance
     approximative, prix estimé) → Accepter/Refuser.
-11. Accepte → navigation guidée vers le point de prise en charge → bouton
+12. Accepte → navigation guidée vers le point de prise en charge → bouton
     « Je suis arrivé » → bouton « Démarrer la course » (activé seulement à
     proximité du point de prise en charge, tolérance GPS) → navigation vers
     la destination → bouton « Terminer la course ».
-12. Écran de fin : montant à percevoir, rappel du mode de paiement choisi par
-    le passager, confirmation de réception (pour le cash notamment).
-13. Le montant s'ajoute à ses revenus du jour, visibles sur `/revenus`.
+13. Écran de fin : montant à percevoir, rappel du mode de paiement choisi par
+    le passager, confirmation de réception (pour le cash notamment) — c'est
+    ce geste qui déclenche le calcul des frais de service (2,5 %) et la
+    facture automatique.
+14. Le montant transport (net des frais de service dus, jamais mélangé à
+    l'abonnement) s'ajoute à ses revenus du jour, visibles sur `/revenus` ;
+    les frais de service dus s'accumulent séparément jusqu'au prochain
+    règlement (voir [10-paiements.md](10-paiements.md)).
 
 **Cas d'erreur couverts** : abonnement qui expire pendant que le chauffeur est
 disponible mais sans course en cours (bascule automatique en indisponible,
@@ -103,7 +123,22 @@ automatiquement jusqu'à régularisation.
 ## Admin — configuration de la tarification
 
 1. `/tarification` : modifie tarif de base, prix/km, prix/min, minimum de
-   course, majoration nuit, par zone.
+   course, majoration nuit, par zone **et par catégorie** (voiture et
+   moto-taxi ont chacune leur propre grille, jamais partagée).
 2. Chaque modification crée une nouvelle version datée (`effective_from`) —
    les courses déjà estimées/en cours gardent le tarif figé au moment de la
    commande, aucune course en cours n'est recalculée rétroactivement.
+
+## Admin — règlement des frais de service
+
+1. `/reglements` : liste des chauffeurs avec des courses payées non encore
+   rattachées à un règlement (créance de 2,5 % accumulée depuis le dernier
+   règlement).
+2. `/reglements/nouveau` : choisit un chauffeur et une période → génère le
+   règlement (`admin_create_settlement`) — regroupe toutes les courses
+   éligibles de la période, les rattache, calcule le total dû.
+3. Une fois le virement/versement effectué hors plateforme, marque le
+   règlement payé (`admin_mark_settlement_paid`) avec la méthode utilisée —
+   trace conservée, jamais un simple statut sans historique.
+4. Le revenu d'abonnement et les frais de service restent deux colonnes
+   séparées partout dans ce parcours, jamais additionnés en un seul total.

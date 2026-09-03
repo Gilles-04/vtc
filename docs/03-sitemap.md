@@ -13,16 +13,16 @@ analytique et les deep links (ex. notification push → écran précis).
 /auth/otp                       saisie code reçu par SMS
 /auth/profil                    nom, langue (première connexion uniquement)
 
-/accueil                        carte + bouton "Où allez-vous ?"
+/accueil                        carte + choix 🚗 Voiture / 🏍️ Moto-taxi + "Où allez-vous ?"
 /commande/destination           recherche/sélection adresse d'arrivée
-/commande/estimation             récap trajet + prix estimé + mode paiement
-/commande/recherche              "Recherche d'un chauffeur..." (matching en cours)
+/commande/estimation             récap trajet + catégorie + prix estimé (figé dès confirmation) + mode paiement
+/commande/recherche              "Recherche d'un chauffeur..." (matching en cours, filtré par catégorie)
 /course/suivi                    chauffeur assigné, carte temps réel, contact
 /course/en-cours                 course démarrée, suivi position + destination
 /course/fin                      récap, paiement, notation
 
 /historique                      liste des courses passées
-/historique/:id                  détail d'une course passée (reçu inclus)
+/historique/:id                  détail d'une course passée (facture incluse une fois générée)
 
 /profil                          infos compte, langue
 /profil/moyens-paiement          Mobile Money enregistrés (numéro, opérateur)
@@ -40,14 +40,15 @@ analytique et les deep links (ex. notification push → écran précis).
 /auth/telephone
 /auth/otp
 
+/inscription/categorie            choix 🚗 Voiture / 🏍️ Moto-taxi — définitif, détermine abonnement/tarif/matching
 /inscription/profil              identité, ville de rattachement
 /inscription/documents           upload pièce identité, permis, carte transport
 /inscription/vehicule             marque, modèle, plaque, année, photo
 /inscription/attente-validation   statut "en cours d'examen"
 /inscription/refuse               motif de refus + possibilité de re-soumettre
 
-/accueil                         statut abonnement + bascule disponibilité
-/abonnement                       plans disponibles, achat, historique
+/accueil                         statut abonnement (catégorie affichée) + bascule disponibilité
+/abonnement                       plans de sa catégorie, achat, historique
 /abonnement/paiement              Mobile Money, confirmation
 
 /course/demande                  nouvelle demande entrante (accepter/refuser, décompte)
@@ -55,7 +56,8 @@ analytique et les deep links (ex. notification push → écran précis).
 /course/en-cours                  itinéraire vers la destination, boutons "Démarrer"/"Terminer"
 /course/fin                       récap course, confirmation paiement reçu
 
-/revenus                         gains du jour/semaine/mois, historique abonnements
+/revenus                         gains transport du jour/semaine/mois (net des frais de service), historique abonnements — les deux jamais mélangés à l'affichage
+/factures                        factures générées, une par course terminée et payée
 /statistiques                     nombre de courses, note moyenne, taux d'acceptation
 
 /profil
@@ -82,21 +84,29 @@ analytique et les deep links (ex. notification push → écran précis).
 /courses/carte-live                suivi temps réel des courses en cours
 /courses/:id                       détail complet d'une course
 
-/abonnements                      liste des abonnements, plans (config)
-/abonnements/plans                 CRUD des plans (prix, durée, actif/inactif)
+/abonnements                      liste des abonnements, plans (config, par catégorie)
+/abonnements/plans                 CRUD des plans (prix, durée, catégorie, actif/inactif)
 
 /paiements                        liste des transactions, filtres statut/fournisseur
 /paiements/:id                     détail, action manuelle si besoin
 
-/tarification                     paramètres du moteur de tarification
+/facturation                      liste des factures générées, filtre passager/chauffeur/période
+/facturation/:id                   détail d'une facture (transport, frais de service, total)
+/reglements                       créances de frais de service par chauffeur, règlements en attente
+/reglements/nouveau                sélection chauffeur + période → création d'un règlement
+/reglements/:id                    détail, marquer payé
+
+/tarification                     paramètres du moteur de tarification, par catégorie
 /zones                            gestion des zones (villes, quartiers, nuit)
 
 /promotions                       codes promo (préparé, non actif au MVP)
 
 /reclamations                     file des signalements et SOS
 /reclamations/:id                  détail, résolution
+/fraude                           file de revue anti-fraude (appareils partagés, anomalies GPS)
+/fraude/:id                        détail, décision (confirmer/écarter)
 
-/statistiques                     revenus, courses, croissance chauffeurs/passagers
+/statistiques                     revenus (abonnement et frais de service séparés, par catégorie), courses, croissance chauffeurs/passagers
 
 /parametres                       équipe admin, rôles
 ```

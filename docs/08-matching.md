@@ -13,15 +13,25 @@ Un chauffeur n'entre dans le pool candidat que s'il remplit **toutes** ces
 conditions simultanément :
 
 1. `drivers.status = 'approved'`
-2. `drivers.is_available = true`
-3. Un abonnement `subscriptions` avec `status='active'` **et**
+2. `drivers.category = rides.category` — **filtrage absolu, pas un critère
+   de classement** : un passager qui commande une voiture ne voit jamais un
+   candidat moto, et inversement (voir
+   [01-architecture-fonctionnelle.md](01-architecture-fonctionnelle.md)
+   §Deux catégories). Vérifié réellement : dans un scénario avec un
+   chauffeur voiture et un chauffeur moto tous deux disponibles à la même
+   position, une course « voiture » n'a jamais produit d'offre vers le
+   chauffeur moto.
+3. `drivers.is_available = true`
+4. Un abonnement `subscriptions` avec `status='active'` **et**
    `expires_at > now()` — vérifié à l'instant du matching, pas mis en cache
-4. `drivers.last_location_at` récent (position fraîche — au-delà d'un seuil,
+   (l'abonnement acheté est déjà celui de la bonne catégorie, imposé à
+   l'achat par `purchase_subscription`, voir [09-abonnement.md](09-abonnement.md))
+5. `drivers.last_location_at` récent (position fraîche — au-delà d'un seuil,
    ex. 2 minutes, le chauffeur est considéré injoignable même s'il se dit
    disponible)
-5. Aucune course déjà `accepted`/`in_progress` en cours pour ce chauffeur
+6. Aucune course déjà `accepted`/`in_progress` en cours pour ce chauffeur
    (un chauffeur ne reçoit jamais deux courses actives simultanément)
-6. Dans un rayon de recherche autour du point de prise en charge (rayon
+7. Dans un rayon de recherche autour du point de prise en charge (rayon
    initial ex. 3 km, extensible par paliers si aucun candidat — voir
    étape 3)
 
@@ -71,7 +81,8 @@ pour chaque candidat Ci dans l'ordre :
         offre → 'rejected' ou 'expired'
         rang += 1, passer au candidat suivant
 si tous les candidats épuisés :
-    ride.status = 'no_drivers_found'
+    ride.status = 'cancelled_by_system', cancelled_by = 'system',
+                  cancellation_reason = 'no_drivers_available'
     notifier le passager (proposer de réessayer)
 ```
 
@@ -88,7 +99,8 @@ mesuré en usage réel).
 
 Si l'étape 0 ne retourne aucun candidat dans le rayon initial : élargir le
 rayon par paliers (3 km → 5 km → 8 km, deux relances maximum) avant de
-déclarer `no_drivers_found`. Chaque palier relance l'étape 1 complète.
+passer la course à `cancelled_by_system`. Chaque palier relance l'étape 1
+complète.
 
 ## Concurrence et atomicité
 

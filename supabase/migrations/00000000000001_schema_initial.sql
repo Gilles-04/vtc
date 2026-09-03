@@ -20,15 +20,23 @@ create schema if not exists private;
 
 create type public.app_user_role as enum ('passenger', 'driver');
 create type public.admin_role as enum ('super_admin', 'admin', 'support', 'finance');
+-- Deux catégories parallèles de conducteurs (§01-architecture-fonctionnelle.md
+-- §Deux catégories) : chacune a son propre abonnement, sa propre
+-- tarification, son propre pool de matching.
+create type public.driver_category as enum ('car', 'moto');
 create type public.driver_status as enum ('pending_documents', 'pending_review', 'approved', 'rejected', 'suspended');
 create type public.driver_doc_type as enum ('piece_identite', 'permis_conduire', 'carte_transport', 'assurance', 'carte_grise', 'photo_vehicule');
 create type public.doc_status as enum ('pending', 'approved', 'rejected');
 create type public.subscription_status as enum ('active', 'expired', 'cancelled');
-create type public.payment_purpose as enum ('driver_subscription');
+-- 'ride_fare' réservé pour une future intermédiation du prix de la course
+-- par la plateforme (voir docs/10-paiements.md) — non utilisé au MVP, le
+-- prix de la course reste réglé directement passager -> chauffeur.
+create type public.payment_purpose as enum ('driver_subscription', 'ride_fare');
 create type public.payment_provider as enum ('flooz', 'tmoney', 'manual');
-create type public.payment_status as enum ('pending', 'success', 'failed', 'refunded');
-create type public.ride_status as enum ('requested', 'searching', 'accepted', 'driver_arriving', 'arrived', 'in_progress', 'completed', 'cancelled_by_passenger', 'cancelled_by_driver', 'no_drivers_found');
+create type public.payment_status as enum ('pending', 'processing', 'success', 'failed', 'cancelled', 'refunded');
+create type public.ride_status as enum ('requested', 'searching', 'accepted', 'driver_arriving', 'driver_arrived', 'in_progress', 'completed', 'cancelled_by_passenger', 'cancelled_by_driver', 'cancelled_by_system');
 create type public.ride_offer_status as enum ('pending', 'accepted', 'rejected', 'expired');
+create type public.settlement_status as enum ('pending', 'settled');
 create type public.cancelled_by_type as enum ('passenger', 'driver', 'system');
 create type public.payment_method_type as enum ('cash', 'mobile_money');
 create type public.rater_role_type as enum ('passenger', 'driver');
@@ -91,6 +99,7 @@ create table public.passengers (
 
 create table public.drivers (
   id uuid primary key references auth.users (id) on delete cascade,
+  category public.driver_category not null,
   status public.driver_status not null default 'pending_documents',
   city text,
   is_available boolean not null default false,
@@ -138,6 +147,7 @@ create table public.subscription_plans (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
   name text not null,
+  category public.driver_category not null,
   duration_hours integer not null,
   price_fcfa integer,
   is_active boolean not null default false,
@@ -207,6 +217,32 @@ create table public.promotion_redemptions (
   unique (promotion_id, user_id)
 );
 
+-- Règlement périodique des frais de service (2,5 % / course, voir
+-- docs/01-architecture-fonctionnelle.md §Comment les frais de service sont
+-- réellement perçus) : le prix de la course reste payé directement
+-- passager -> chauffeur, donc la créance de la plateforme envers le
+-- chauffeur s'accumule course par course (`rides.platform_fee_fcfa`) et se
+-- solde ici par lot, jamais course par course. Écriture réservée aux RPC
+-- admin/finance (migration 2), aucune policy d'écriture cliente.
+create table public.settlements (
+  id uuid primary key default gen_random_uuid(),
+  driver_id uuid not null references public.drivers (id),
+  period_start timestamptz not null,
+  period_end timestamptz not null,
+  rides_count integer not null default 0,
+  gross_transport_fcfa integer not null default 0,
+  platform_fees_fcfa integer not null default 0,
+  status public.settlement_status not null default 'pending',
+  settlement_method text,
+  settled_at timestamptz,
+  settled_by uuid references auth.users (id),
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create index settlements_driver_idx on public.settlements (driver_id, period_start desc);
+create index settlements_pending_idx on public.settlements (status) where status = 'pending';
+
 -- ========================================================================
 -- TARIFICATION & ZONES
 -- ========================================================================
@@ -224,6 +260,7 @@ create table public.zones (
 
 create table public.pricing_rules (
   id uuid primary key default gen_random_uuid(),
+  category public.driver_category not null,
   zone_id uuid references public.zones (id),
   base_fare_fcfa integer not null,
   price_per_km_fcfa integer not null,
@@ -242,6 +279,7 @@ create table public.rides (
   id uuid primary key default gen_random_uuid(),
   passenger_id uuid not null references auth.users (id),
   driver_id uuid references public.drivers (id),
+  category public.driver_category not null,
   status public.ride_status not null default 'requested',
   pickup_location extensions.geography(Point, 4326) not null,
   pickup_address text not null,
@@ -256,6 +294,17 @@ create table public.rides (
   final_duration_min numeric(6, 1),
   final_fare_fcfa integer,
   payment_method public.payment_method_type not null default 'cash',
+  -- Statut du règlement du prix de la course (passager -> chauffeur, hors
+  -- plateforme) : distinct du statut de la course elle-même. La facture et
+  -- le crédit des 2,5 % de frais de service ne sont générés qu'une fois
+  -- 'success' (voir §Cycle de vie en docs/01-architecture-fonctionnelle.md).
+  payment_status public.payment_status not null default 'pending',
+  -- Frais de service (2,5 % du prix final) et part reversée au chauffeur —
+  -- calculés une fois seulement à la complétion (complete_ride, migration 2),
+  -- jamais recalculés ensuite. Nuls tant que la course n'est pas terminée.
+  platform_fee_fcfa integer,
+  driver_amount_fcfa integer,
+  settlement_id uuid references public.settlements (id),
   requested_at timestamptz not null default now(),
   matched_at timestamptz,
   driver_arrived_at timestamptz,
@@ -301,6 +350,30 @@ create table public.ride_status_history (
 );
 
 create index ride_status_history_ride_idx on public.ride_status_history (ride_id, changed_at);
+
+-- Facture générée automatiquement (trigger, migration 2) dès qu'une course
+-- passe à 'completed' avec payment_status = 'success' — jamais à la main.
+-- Une ligne par course (unique (ride_id)) ; le rendu PDF n'existe pas
+-- encore au MVP (voir docs/01-architecture-fonctionnelle.md), seule cette
+-- ligne de facturation est produite pour l'instant.
+create sequence public.invoice_number_seq;
+
+create table public.invoices (
+  id uuid primary key default gen_random_uuid(),
+  invoice_number text not null unique default ('VTC-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('public.invoice_number_seq')::text, 6, '0')),
+  ride_id uuid not null unique references public.rides (id),
+  passenger_id uuid not null references auth.users (id),
+  driver_id uuid not null references public.drivers (id),
+  transport_amount_fcfa integer not null,
+  platform_fee_fcfa integer not null,
+  total_fcfa integer not null,
+  payment_method public.payment_method_type not null,
+  payment_reference text,
+  issued_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+alter sequence public.invoice_number_seq owned by public.invoices.invoice_number;
 
 -- Positions du chauffeur, échantillonnées côté client (~1 point/5-10s).
 -- `ride_id` est renseigné quand le point est capté pendant une course
@@ -546,10 +619,12 @@ alter table public.payment_webhook_events enable row level security;
 alter table public.subscriptions enable row level security;
 alter table public.promotions enable row level security;
 alter table public.promotion_redemptions enable row level security;
+alter table public.settlements enable row level security;
 alter table public.pricing_rules enable row level security;
 alter table public.rides enable row level security;
 alter table public.ride_offers enable row level security;
 alter table public.ride_status_history enable row level security;
+alter table public.invoices enable row level security;
 alter table public.driver_locations enable row level security;
 alter table public.ratings enable row level security;
 alter table public.reports enable row level security;
@@ -618,19 +693,20 @@ create policy zones_update_admin on public.zones for update using (
 );
 
 -- drivers : jamais visible par un passager (voir docs/11-securite.md — les
--- infos publiques passeront par une fonction dédiée). Le chauffeur ne peut
--- modifier que sa disponibilité et sa position ; `status` et les compteurs
--- de réputation ne sont modifiables que par les RPC/Edge Functions (clé de
--- service), jamais en direct.
+-- infos publiques passeront par une fonction dédiée). Aucun accès en
+-- écriture directe sur la création/catégorie : `submit_driver_application`
+-- (SECURITY DEFINER, migration 2) est le seul point d'entrée, elle n'a pas
+-- besoin de grant/policy d'insertion cliente. Le chauffeur ne peut modifier
+-- en direct que sa disponibilité et sa position ; `status`, `category` et
+-- les compteurs de réputation ne sont modifiables que par les RPC/Edge
+-- Functions (clé de service), jamais en direct.
 revoke all on public.drivers from authenticated, anon;
 grant select on public.drivers to authenticated;
-grant insert (id, city) on public.drivers to authenticated;
 grant update (is_available, current_location, last_location_at) on public.drivers to authenticated;
 
 create policy drivers_select on public.drivers for select using (
   auth.uid() = id or private.has_admin_role(array['super_admin', 'admin', 'support']::public.admin_role[])
 );
-create policy drivers_insert_own on public.drivers for insert with check (auth.uid() = id);
 create policy drivers_update_own on public.drivers for update using (auth.uid() = id) with check (auth.uid() = id);
 
 -- driver_documents : le chauffeur soumet (statut toujours 'pending' par
@@ -716,6 +792,15 @@ create policy promotion_redemptions_select on public.promotion_redemptions for s
   user_id = auth.uid() or private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[])
 );
 
+-- settlements : le chauffeur voit ses propres règlements ; aucune écriture
+-- cliente — passe par une RPC admin/finance dédiée (migration 2).
+revoke all on public.settlements from authenticated, anon;
+grant select on public.settlements to authenticated;
+
+create policy settlements_select on public.settlements for select using (
+  driver_id = auth.uid() or private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[])
+);
+
 -- pricing_rules : lecture publique (estimation de prix), écriture admin en
 -- ajout seul (jamais de modification d'une règle déjà appliquée à une
 -- course — voir docs/06-schema-base-donnees.md).
@@ -755,6 +840,17 @@ create policy ride_status_history_select on public.ride_status_history for selec
     where r.id = ride_id and (r.passenger_id = auth.uid() or r.driver_id = auth.uid())
   )
   or private.has_admin_role(array['super_admin', 'admin', 'support']::public.admin_role[])
+);
+
+-- invoices : visible par le passager et le chauffeur concernés ; aucune
+-- écriture cliente — générées uniquement par le trigger de facturation
+-- (migration 2), jamais à la main.
+revoke all on public.invoices from authenticated, anon;
+grant select on public.invoices to authenticated;
+
+create policy invoices_select on public.invoices for select using (
+  passenger_id = auth.uid() or driver_id = auth.uid()
+  or private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[])
 );
 
 -- driver_locations : écriture directe par le chauffeur assigné (simple
@@ -877,7 +973,10 @@ create policy audit_logs_select_admin on public.audit_logs for select using (
 -- SEED : plans d'abonnement (docs/09-abonnement.md)
 -- ========================================================================
 
-insert into public.subscription_plans (code, name, duration_hours, price_fcfa, is_active, sort_order) values
-  ('pass_jour', 'Pass Jour', 24, 1500, true, 1),
-  ('pass_7j', 'Pass 7 jours', 168, null, false, 2),
-  ('pass_30j', 'Pass 30 jours', 720, null, false, 3);
+insert into public.subscription_plans (code, name, category, duration_hours, price_fcfa, is_active, sort_order) values
+  ('pass_jour_car', 'Pass Jour — Voiture', 'car', 24, 1000, true, 1),
+  ('pass_jour_moto', 'Pass Jour — Moto-taxi', 'moto', 24, 500, true, 2),
+  ('pass_7j_car', 'Pass 7 jours — Voiture', 'car', 168, null, false, 3),
+  ('pass_7j_moto', 'Pass 7 jours — Moto-taxi', 'moto', 168, null, false, 4),
+  ('pass_30j_car', 'Pass 30 jours — Voiture', 'car', 720, null, false, 5),
+  ('pass_30j_moto', 'Pass 30 jours — Moto-taxi', 'moto', 720, null, false, 6);

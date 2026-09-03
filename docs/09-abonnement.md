@@ -2,23 +2,40 @@
 
 ## Principe
 
-L'abonnement, pas la commission, est le moteur de revenu de la plateforme.
-Toute la logique doit donc garantir deux choses de façon inattaquable :
-qu'un chauffeur non abonné (ou dont l'abonnement a expiré) ne reçoive
-**jamais** de course, et que l'activation ne dépende jamais de la seule
-confiance dans le client mobile.
+**Révisé le 3 septembre 2026** — l'abonnement n'est plus le seul revenu :
+il coexiste avec les frais de service (2,5 %/course, voir
+[10-paiements.md](10-paiements.md) et
+[01-architecture-fonctionnelle.md](01-architecture-fonctionnelle.md)),
+**deux revenus distincts, jamais mélangés**. Ce document ne couvre que
+l'abonnement. Toute la logique doit garantir deux choses de façon
+inattaquable : qu'un chauffeur non abonné (ou dont l'abonnement a expiré,
+ou dont l'abonnement n'est pas de la bonne catégorie) ne reçoive **jamais**
+de course, et que l'activation ne dépende jamais de la seule confiance dans
+le client mobile.
 
 ## Plans
 
-| Code | Durée | Prix | Actif au MVP |
-|---|---|---|---|
-| `pass_jour` | 24 h | 1 500 FCFA | Oui |
-| `pass_7j` | 7 jours | à définir | Non — ligne présente en base, `is_active=false` |
-| `pass_30j` | 30 jours | à définir | Non — idem |
+Deux catégories parallèles (`car`/`moto`, voir
+[01-architecture-fonctionnelle.md](01-architecture-fonctionnelle.md)
+§Deux catégories), chacune sa propre grille — **règle absolue, ne jamais
+modifier ces deux prix sans instruction explicite** :
+
+| Code | Catégorie | Durée | Prix | Actif au MVP |
+|---|---|---|---|---|
+| `pass_jour_car` | Voiture | 24 h | **1 000 FCFA** | Oui |
+| `pass_jour_moto` | Moto-taxi | 24 h | **500 FCFA** | Oui |
+| `pass_7j_car` | Voiture | 7 jours | à définir | Non — ligne présente en base, `is_active=false` |
+| `pass_7j_moto` | Moto-taxi | 7 jours | à définir | Non — idem |
+| `pass_30j_car` | Voiture | 30 jours | à définir | Non — idem |
+| `pass_30j_moto` | Moto-taxi | 30 jours | à définir | Non — idem |
 
 Les plans 7j/30j existent déjà dans `subscription_plans` dès le MVP
 (`is_active=false`) : les activer plus tard est un changement de donnée
 (`UPDATE ... SET is_active=true` + prix), jamais une migration de schéma.
+`purchase_subscription()` refuse tout plan dont la catégorie ne correspond
+pas à `drivers.category` de l'acheteur (`plan_category_mismatch`, testé
+réellement) — un chauffeur voiture ne peut techniquement pas payer un plan
+moto, ni l'inverse.
 
 ## Cycle de vie d'un abonnement
 
