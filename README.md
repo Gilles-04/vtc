@@ -67,24 +67,26 @@ npx supabase link --project-ref <ref-du-projet-supabase-dedie>
 npx supabase db push
 ```
 
-Les 4 migrations (`supabase/migrations/`) — schéma, logique métier (RPC,
-triggers, `pg_cron`), vérification téléphone, jetons push — ont été
-**réellement testées** en local (Postgres 16 + PostGIS), pas seulement
-relues : cycle complet d'une course (création → matching → acceptation →
-trajet → fin → notation), abonnement (achat → confirmation → expiration
-automatique → blocage du chauffeur), KYC, anti-fraude (appareil partagé,
-anomalie GPS, limitation de débit), suspension de compte, tickets support —
-25 vérifications automatisées, toutes passantes. Le worker de dispatch
-(`services/matching-worker/`) et les 5 Edge Functions
-(`supabase/functions/`) sont écrits et vérifiés avec Deno/Node réels
-(compilation, typage contre les vraies bibliothèques, lint) ; le worker a
-en plus été exécuté pour de vrai contre un Postgres local.
+Les 5 migrations (`supabase/migrations/`) — schéma, logique métier (RPC,
+triggers, `pg_cron`), vérification téléphone, jetons push, contournement
+notifications push (voir `docs/STATUS.md`) — ont été **réellement testées**
+en local (Postgres 16 + PostGIS) puis **déployées sur le vrai projet
+Supabase dédié**, pas seulement relues : cycle complet d'une course
+(création → matching → acceptation → trajet → fin → notation), abonnement
+(achat → confirmation → expiration automatique → blocage du chauffeur),
+KYC, anti-fraude (appareil partagé, anomalie GPS, limitation de débit),
+suspension de compte, tickets support — 25 vérifications automatisées,
+toutes passantes en local. Les 5 Edge Functions (`supabase/functions/`)
+sont écrites, vérifiées avec Deno réel (compilation, typage contre les
+vraies bibliothèques, lint) et **déployées sur le vrai projet** — URLs
+vérifiées une par une. `push-notifications-dispatch` tourne déjà
+réellement de bout en bout (notification de test → appel HTTP confirmé).
+Le worker de dispatch (`services/matching-worker/`) est écrit, testé pour
+de vrai contre un Postgres local, mais pas encore déployé (VPS + systemd).
 
 Le reste de la stack (apps mobiles, dashboard admin) démarre en Phase 0/1 de
 la [roadmap](docs/12-roadmap.md), une fois les comptes fournisseurs
-(Supabase, Google Maps, eSMS Africa, Expo/EAS) ouverts — **aucun élément
-n'a encore tourné contre un vrai projet Supabase déployé**, seulement en
-local.
+restants (Google Maps, eSMS Africa, Expo/EAS) ouverts.
 
 ## Licence
 

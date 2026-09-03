@@ -11,11 +11,12 @@ Après le cadrage (12 livrables) et le design UX/UI (37 écrans + design
 system, canvas publié), le backend (schéma + logique métier + module
 financier complet, deux catégories voiture/moto-taxi) a été écrit et
 vérifié en local, puis **déployé pour de vrai** sur un projet Supabase réel
-dédié à ce produit (distinct de votre autre projet) : les 4 migrations
-(collées dans le SQL Editor) et les 5 Edge Functions (collées dans le
-dashboard, section Edge Functions) sont en place et vérifiées présentes
-avec les bonnes URLs. Reste à déployer : le worker de dispatch, et à
-initialiser les applications (mobile ×2, dashboard admin).
+dédié à ce produit (distinct de votre autre projet) : les 4 migrations +
+une 5ᵉ (contournement notifications push, voir §2) collées dans le SQL
+Editor, et les 5 Edge Functions collées dans le dashboard, sont en place
+et vérifiées présentes avec les bonnes URLs — `push-notifications-dispatch`
+tourne déjà réellement de bout en bout. Reste à déployer : le worker de
+dispatch, et à initialiser les applications (mobile ×2, dashboard admin).
 
 ## 2. Ce qui fonctionne
 
@@ -74,11 +75,26 @@ révision du modèle économique) — corrigé dans le dépôt avant déploiemen
 `confirm_subscription_payment` selon `payments.purpose`. Le worker de
 dispatch n'est pas encore déployé.
 
-**Restent à faire pour que les Edge Functions fonctionnent réellement** :
-`PAYMENT_WEBHOOK_SECRET` (vous pouvez le créer vous-même dès maintenant,
-aucune dépendance externe) et le Database Webhook sur `notifications`
-(INSERT → `push-notifications-dispatch`) — sans lui la fonction est
-déployée mais ne se déclenche jamais toute seule. `ESMS_AFRICA_API_KEY`/
+**`push-notifications-dispatch` se déclenche automatiquement** — pas via
+un Database Webhook dashboard (anomalie du projet, voir ci-dessous) mais
+via un trigger Postgres écrit à la main (`dispatch_push_notification`,
+migration `00000000000005_notifications_push_trigger.sql`) qui appelle
+`pg_net` directement avec exactement le même format de payload qu'un vrai
+Database Webhook. **Vérifié réellement contre le projet déployé** : une
+notification de test insérée a déclenché un appel HTTP réel vers la
+fonction (`net._http_response` : `status_code 200`,
+`{"ok":true,"skipped":"no_push_token"}` — comportement attendu, aucun
+`push_token` enregistré pour l'utilisateur de test).
+
+**Anomalie rencontrée** : la création d'un Database Webhook via le
+dashboard échoue sur ce projet précis
+(`ERROR: 3F000: schema "supabase_functions" does not exist` — ce schéma,
+normalement provisionné par défaut par Supabase, est absent ; `pg_net`
+lui-même est bien présent). Contourné comme décrit ci-dessus plutôt que
+d'attendre une résolution côté Supabase.
+
+**Reste à faire** : `PAYMENT_WEBHOOK_SECRET` (vous pouvez le créer
+vous-même dès maintenant, aucune dépendance externe). `ESMS_AFRICA_API_KEY`/
 `GOOGLE_MAPS_API_KEY` dépendent des décisions fournisseurs en §7.
 
 **Design** : 37 écrans (19 passager + 18 chauffeur) + design system, canvas
@@ -94,11 +110,16 @@ documente ~58 écrans désormais, canvas toujours à ~50.
   Accès réseau direct toujours impossible depuis cet environnement
   sandboxé — toute suite demande soit que vous colliez/déployiez vous-même,
   soit un accès depuis votre propre machine/CLI.
-- **Secrets Edge Functions pas encore configurés** (`PAYMENT_WEBHOOK_SECRET`
+- **Secrets Edge Functions pas encore tous configurés** (`PAYMENT_WEBHOOK_SECRET`
   à créer, `ESMS_AFRICA_API_KEY`/`GOOGLE_MAPS_API_KEY` en attente des
-  décisions fournisseurs) et **Database Webhook `push-notifications-dispatch`
-  pas encore créé** — les fonctions sont déployées mais aucune n'est
-  encore réellement opérationnelle en bout en bout.
+  décisions fournisseurs) — `push-notifications-dispatch` fonctionne déjà
+  réellement (voir §2), les autres fonctions attendent leurs secrets.
+- **Le Database Webhook natif Supabase reste cassé sur ce projet**
+  (`supabase_functions` absent) — contourné pour `push-notifications-dispatch`
+  via un trigger `pg_net` fait main, mais si un futur besoin de Database
+  Webhook natif se présente, la même anomalie se reproduira (à signaler au
+  support Supabase si ça bloque un jour un usage que le contournement ne
+  couvre pas).
 - **Custody des fonds Mobile Money d'une course, non tranchée** : le
   mécanisme de webhook vérifié est construit et testé, mais que les fonds
   transitent réellement par un compte plateforme (API de collecte pour
@@ -126,14 +147,14 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**3 septembre 2026** :
-- **Déploiement réel des 5 Edge Functions** sur le dashboard Supabase,
-  URLs vérifiées une par une — un vrai incident de nommage rencontré et
-  corrigé (4 fonctions créées sans leurs tirets, non récupérable en
-  éditant juste le nom affiché : supprimées et recréées correctement).
-  Bug réel trouvé et corrigé dans `pricing-directions` avant déploiement
-  (`category` non transmis à `estimate_ride_fare`).
-- **Déploiement réel du schéma** : les 4 migrations collées dans le SQL
+**3 septembre 2026** (détail complet en §2/§3) :
+- Déploiement réel des 5 Edge Functions + workaround `pg_net` pour
+  `push-notifications-dispatch` (Database Webhook natif cassé sur ce
+  projet) — les deux vérifiés en conditions réelles, pas seulement écrits.
+  Deux incidents réels rencontrés et corrigés en route : 4 fonctions
+  créées sans leurs tirets (recréées), `pricing-directions` ne transmettait
+  pas `category` à `estimate_ride_fare` (corrigé avant déploiement).
+- Déploiement réel du schéma : les 4 migrations collées dans le SQL
   Editor de votre projet Supabase dédié (37 morceaux, découpage automatique
   respectant les limites de collage et les frontières de fonctions/
   commentaires — un morceau initialement sauté par erreur, rattrapé).
@@ -160,10 +181,8 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 6. Prochaine étape
 
-Trois choses, non bloquantes entre elles : créer le secret
-`PAYMENT_WEBHOOK_SECRET` (aucune dépendance externe) ; créer le Database
-Webhook `notifications` → `push-notifications-dispatch` ; puis tester
-réellement en priorité `phone-verification-check` (le point le plus
+Créer le secret `PAYMENT_WEBHOOK_SECRET` (aucune dépendance externe), puis
+tester réellement en priorité `phone-verification-check` (le point le plus
 incertain du backend, jamais exécuté contre un vrai projet — nécessite un
 compte eSMS Africa, §7). Ensuite : déployer le worker de dispatch (VPS +
 systemd). Décisions fournisseurs (§7) à prendre en parallèle.

@@ -96,7 +96,22 @@ utilisateur. Deux Edge Functions, jamais de RPC exposée côté client (le
 |---|---|---|
 | `payment-webhook-momo` | Webhook du fournisseur Mobile Money | Vérifie la signature HMAC, déduplique (`payment_webhook_events.event_key`), lit `payments.purpose` puis route vers `confirm_ride_payment` (course) ou `confirm_subscription_payment` (abonnement) ; un échec fournisseur synchronise `rides.payment_status='failed'` pour une course — la re-vérification API réelle reste à brancher une fois le fournisseur choisi (marqué `À ADAPTER` dans le code) |
 | `pricing-directions` | Client, avant `create_ride_request` | Google Directions API (clé serveur) + `estimate_ride_fare` en un aller-retour |
-| `push-notifications-dispatch` | Database Webhook Supabase sur `notifications` (INSERT) | Envoie via Expo Push (lit `profiles.push_token`) |
+| `push-notifications-dispatch` | Trigger `notifications_dispatch_push` sur `notifications` (INSERT), via `pg_net` — voir note ci-dessous | Envoie via Expo Push (lit `profiles.push_token`) |
+
+**Déclenchement de `push-notifications-dispatch` — écart au plan initial** :
+un vrai Database Webhook (fonctionnalité dashboard) n'a pas pu être créé
+sur le projet Supabase réel (`ERROR: 3F000: schema "supabase_functions"
+does not exist` — schéma normalement provisionné par défaut, absent sur ce
+projet précis, `pg_net` lui-même bien présent). Contourné par un trigger
+Postgres écrit à la main (`public.dispatch_push_notification()`,
+migration `00000000000005_notifications_push_trigger.sql`) qui appelle
+`net.http_post()` directement avec exactement le même format de payload
+(`{type, table, record}`) qu'un vrai Database Webhook — la fonction
+elle-même n'a donc nécessité aucune modification. **Vérifié réellement**
+contre le projet Supabase déployé : une notification de test insérée a
+bien déclenché un appel HTTP réel (`net._http_response` : `status_code
+200`, réponse `{"ok":true,"skipped":"no_push_token"}` — comportement
+attendu, l'utilisateur de test n'a pas de `push_token`).
 
 ## Worker de dispatch (pas une Edge Function)
 
