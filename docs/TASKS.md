@@ -578,6 +578,42 @@ libre).
 
 ---
 
+## TASK-018 — FK invoices→profiles (migration 10) + écran admin Facturation
+
+- **Objectif** : cinquième tronçon du dashboard admin — visibilité sur les
+  factures générées automatiquement à la complétion d'une course. Même
+  défaut repéré en le préparant : `invoices.passenger_id` référence
+  `auth.users` directement (comme `payments.user_id` en TASK-017).
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - Migration 10 (`00000000000010_invoices_profile_embed_fk.sql`) —
+    ajoute `invoices.passenger_id → profiles.id` (FK additionnelle,
+    aucune retirée), même correctif que les migrations 7 et 9.
+  - `/facturation` (`apps/admin`) : liste filtrable (mode de paiement,
+    période), identité passager+chauffeur (`drivers.id → profiles`,
+    déjà en place depuis TASK-009), montants transport/frais de
+    service/total, numéro de facture, date d'émission, totaux agrégés
+    sur la période affichée. Nouveau type `InvoiceListRow`
+    (`lib/types.ts`), navigation ajoutée dans `Shell.tsx`.
+- **Vérifié** :
+  - Migration rejouée contre un Postgres 16 + PostGIS local reconstruit
+    (10 migrations en séquence) ; `pg_constraint` confirme une seule FK
+    `invoices → profiles` en plus de celle vers `auth.users` — puis
+    appliquée et revérifiée à l'identique sur le projet réel via MCP.
+  - `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint) propres.
+    Playwright/Chromium réel avec session et données `invoices`
+    simulées : filtres, identités, totaux transport/frais de
+    service/global tous corrects (capture d'écran à l'appui).
+- **Résultat** : `docs/05-ecrans.md` écran #15 (Facturation — liste)
+  fait. Table `invoices` vide sur le projet réel à ce jour (aucune
+  course complétée avec paiement réussi depuis un vrai client) —
+  confirmation bout-en-bout avec de vraies données non testée depuis cet
+  environnement (réseau sandbox). Écran #16 (Facturation — détail) pas
+  construit, non nécessaire dans l'immédiat (la liste affiche déjà tous
+  les montants).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
