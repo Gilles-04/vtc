@@ -14,7 +14,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-ink-50">
       <header className="flex items-center justify-between border-b border-ink-100 bg-white px-6 py-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-lg">🚕</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy-600 text-lg">🚕</span>
           <span className="font-display text-sm font-bold text-ink-900">VTC Togo — Admin</span>
         </div>
         <button

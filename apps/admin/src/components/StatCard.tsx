@@ -1,12 +1,12 @@
 interface StatCardProps {
   label: string
   value: string | number
-  tone?: 'default' | 'emerald' | 'gold' | 'red'
+  tone?: 'default' | 'navy' | 'gold' | 'red'
 }
 
 const toneClasses: Record<NonNullable<StatCardProps['tone']>, string> = {
   default: 'text-ink-900',
-  emerald: 'text-emerald-700',
+  navy: 'text-navy-700',
   gold: 'text-gold-600',
   red: 'text-red-600',
 }

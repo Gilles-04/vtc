@@ -67,8 +67,8 @@ export function Overview() {
           Chauffeurs & abonnements
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Actifs — voiture" value={stats.active_drivers_car} tone="emerald" />
-          <StatCard label="Actifs — moto" value={stats.active_drivers_moto} tone="emerald" />
+          <StatCard label="Actifs — voiture" value={stats.active_drivers_car} tone="navy" />
+          <StatCard label="Actifs — moto" value={stats.active_drivers_moto} tone="navy" />
           <StatCard label="Approuvés — voiture" value={stats.approved_drivers_car} />
           <StatCard label="Approuvés — moto" value={stats.approved_drivers_moto} />
           <StatCard label="KYC en attente" value={stats.pending_kyc} tone={stats.pending_kyc > 0 ? 'gold' : 'default'} />
@@ -82,8 +82,8 @@ export function Overview() {
           Revenus du jour — abonnement et frais de service, jamais fusionnés
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Abonnement — voiture" value={fcfa(stats.subscription_revenue_today_car_fcfa)} tone="emerald" />
-          <StatCard label="Abonnement — moto" value={fcfa(stats.subscription_revenue_today_moto_fcfa)} tone="emerald" />
+          <StatCard label="Abonnement — voiture" value={fcfa(stats.subscription_revenue_today_car_fcfa)} tone="navy" />
+          <StatCard label="Abonnement — moto" value={fcfa(stats.subscription_revenue_today_moto_fcfa)} tone="navy" />
           <StatCard label="Frais de service — voiture" value={fcfa(stats.platform_fees_today_car_fcfa)} tone="gold" />
           <StatCard label="Frais de service — moto" value={fcfa(stats.platform_fees_today_moto_fcfa)} tone="gold" />
           <StatCard label="Frais en attente de règlement" value={fcfa(stats.platform_fees_pending_settlement_fcfa)} />
