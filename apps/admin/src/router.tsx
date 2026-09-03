@@ -18,6 +18,7 @@ import { Zones } from './pages/Zones'
 import { Pricing } from './pages/Pricing'
 import { Complaints } from './pages/Complaints'
 import { Fraud } from './pages/Fraud'
+import { GlobalStats } from './pages/GlobalStats'
 import { Shell } from './components/Shell'
 
 const rootRoute = createRootRoute({
@@ -218,6 +219,17 @@ const fraudRoute = createRoute({
   ),
 })
 
+const globalStatsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/statistiques',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <GlobalStats />
+    </Shell>
+  ),
+})
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
@@ -248,6 +260,7 @@ const routeTree = rootRoute.addChildren([
   pricingRoute,
   complaintsRoute,
   fraudRoute,
+  globalStatsRoute,
   loginRoute,
 ])
 

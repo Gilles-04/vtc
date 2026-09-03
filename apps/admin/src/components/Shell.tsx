@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { to: '/tarification', label: 'Tarification' },
   { to: '/reclamations', label: 'Réclamations & SOS' },
   { to: '/fraude', label: 'Fraude' },
+  { to: '/statistiques', label: 'Statistiques' },
 ] as const
 
 export function Shell({ children }: { children: ReactNode }) {
