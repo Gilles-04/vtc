@@ -1,21 +1,24 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (module paiement/abonnement/
-facturation complété, vérifié en local)*
+*Dernière mise à jour : 3 septembre 2026 (schéma complet déployé sur le
+vrai projet Supabase, vérifié en conditions réelles)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
 ## 1. Où en est-on ?
 
 Après le cadrage (12 livrables) et le design UX/UI (37 écrans + design
-system, canvas publié), le backend a été **entièrement revu** pour le
-nouveau modèle économique (deux catégories voiture/moto-taxi, abonnement +
-frais de service de 2,5 %/course) puis **complété** avec le module
-financier détaillé : paiement de course en Mobile Money via webhook
-vérifié (et plus seulement déclaratif), remboursements, reporting
-financier complet. Schéma, logique métier et docs sont à jour et
-**vérifiés en local** (Postgres/PostGIS jetable) — **rien n'est encore
-déployé**, aucun projet Supabase réel n'existe pour ce produit.
+system, canvas publié), le backend (schéma + logique métier + module
+financier complet, deux catégories voiture/moto-taxi) a été écrit et
+vérifié en local, puis **déployé pour de vrai** : les 4 migrations sont
+appliquées sur un projet Supabase réel dédié à ce produit (distinct de
+votre autre projet), collées par vos soins dans le SQL Editor (accès
+réseau direct impossible depuis cet environnement), et **vérifiées
+présentes** (32 tables, 49 fonctions, 13 triggers, 51 policies RLS,
+6 plans d'abonnement — comptage confirmé identique à l'application locale,
+hors triggers internes ajoutés par Supabase lui-même sur `auth.users`).
+Reste à déployer : les 5 Edge Functions, le worker de dispatch, et à
+initialiser les applications (mobile ×2, dashboard admin).
 
 ## 2. Ce qui fonctionne
 
@@ -72,13 +75,13 @@ documente ~58 écrans désormais, canvas toujours à ~50.
 
 ## 3. Ce qui pose problème / limites connues
 
-- **Aucun projet Supabase réel créé** — bloquant pour toute vérification en
-  conditions réelles (Auth, Realtime, Storage, `pg_cron`, webhooks,
-  déploiement des Edge Functions). Confirmé : même l'accès réseau HTTPS
-  vers `*.supabase.co`/`api.supabase.com` est bloqué depuis cet
-  environnement sandboxé — toute vérification réelle demande soit que
-  vous colliez les migrations dans le SQL Editor Supabase vous-même, soit
-  un accès depuis votre propre machine/CLI.
+- **Edge Functions, worker de dispatch et applications pas encore
+  déployés** — le schéma est en place mais rien ne l'utilise encore
+  réellement (Auth, Realtime, Storage, `pg_cron`, webhooks pas encore
+  exercés en conditions réelles). Accès réseau direct toujours impossible
+  depuis cet environnement sandboxé — toute suite (Edge Functions
+  comprises) demande soit que vous colliez le code dans le dashboard
+  Supabase vous-même, soit un accès depuis votre propre machine/CLI.
 - **Custody des fonds Mobile Money d'une course, non tranchée** : le
   mécanisme de webhook vérifié est construit et testé, mais que les fonds
   transitent réellement par un compte plateforme (API de collecte pour
@@ -110,6 +113,13 @@ Rien en cours — en attente de la prochaine demande.
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** :
+- **Déploiement réel du schéma** : les 4 migrations collées dans le SQL
+  Editor de votre projet Supabase dédié (37 morceaux, découpage automatique
+  respectant les limites de collage et les frontières de fonctions/
+  commentaires — un morceau initialement sauté par erreur, rattrapé).
+  Compté et confirmé identique à l'application locale (32 tables,
+  49 fonctions, 13 triggers dont 5 internes Supabase, 51 policies RLS,
+  6 plans).
 - **Révision du modèle économique** : deux catégories voiture/moto-taxi,
   abonnement 1 000/500 FCFA, frais de service 2,5 %/course, facturation
   automatique, règlement différé par lot — schéma, logique métier
@@ -130,26 +140,26 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 6. Prochaine étape
 
-Décisions fournisseurs (§7) puis Phase 0 de
-[`12-roadmap.md`](12-roadmap.md) : création du vrai projet Supabase,
-application des 4 migrations, déploiement des Edge Functions (en
-transmettant `category` depuis `pricing-directions`), test réel en
-priorité de `phone-verification-check`, déploiement du worker de dispatch.
-Une passe de mise à jour du canvas de design reste à planifier séparément.
+Suite de la Phase 0 de [`12-roadmap.md`](12-roadmap.md) : déployer les
+5 Edge Functions (même méthode que les migrations — collées dans le
+dashboard Supabase, section Edge Functions, secrets renseignés au passage :
+`ESMS_AFRICA_API_KEY`, `PAYMENT_WEBHOOK_SECRET`, etc.), tester réellement
+en priorité `phone-verification-check` (le point le plus incertain du
+backend, jamais exécuté contre un vrai projet), puis déployer le worker de
+dispatch (VPS + systemd). Décisions fournisseurs (§7) à prendre en
+parallèle, non bloquantes pour ces étapes.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
+- **Compte eSMS Africa** : à créer (distinct de celui de votre autre
+  projet) — nécessaire pour que `phone-verification-start`/`-check`
+  fonctionnent réellement une fois déployées.
 - **Cartographie** : Google Maps Platform (recommandé, facturé à l'usage)
   ou Mapbox.
 - **Mobile Money** : ordre de préférence entre Flooz (direct), TMoney
   (direct), Semoa Togo (agrégateur) — non bloquant, le backend fonctionne
   déjà en mode paiement manuel/admin. Le choix détermine aussi la réponse
   à la question de custody des fonds notée en §3.
-- **Compte Supabase** : à créer (ou fournir l'accès) pour ouvrir le projet
-  dédié à ce produit — première étape qui débloque toute vérification en
-  conditions réelles. Un accès direct depuis cet environnement n'est pas
-  possible (réseau bloqué) : soit vous appliquez les migrations vous-même
-  via le SQL Editor Supabase, soit l'accès se fait depuis votre machine/CLI.
 - **Comptes développeur mobile** : Expo/EAS, Google Play Console, Apple
   Developer — non bloquant avant la Phase 9.
 - **Régime fiscal togolais applicable à la facturation pour compte du
