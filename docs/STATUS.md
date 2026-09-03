@@ -1,7 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (écran chauffeurs/KYC du dashboard
-admin construit et vérifié dans un vrai navigateur)*
+*Dernière mise à jour : 3 septembre 2026 (bucket Storage `driver-documents`
+déployé sur le projet réel)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -13,27 +13,31 @@ Supabase dédié : 5 migrations + 5 Edge Functions en place, vérifiées
 présentes avec les bonnes URLs. `push-notifications-dispatch` tourne déjà
 réellement de bout en bout (contournement `pg_net`, voir §2).
 
-**Nouveau** : le **dashboard admin** (`apps/admin/`, React 19 + Vite +
-TanStack Router) a maintenant 3 écrans — connexion staff, vue d'ensemble
-(`admin_stats_overview`), et chauffeurs/KYC (liste filtrable + détail avec
-documents et décision `admin_review_driver_document`/
-`admin_decide_driver_application`). Vérifié dans un vrai navigateur
-(Playwright) : routage protégé confirmé sur les 4 routes, formulaire de
-connexion envoie une vraie requête à l'endpoint Auth du projet réel, écrans
-chauffeurs vérifiés sans erreur JS (session simulée côté navigateur). La
-confirmation bout-en-bout (connexion réussie + données réelles) n'a pas pu
-être testée depuis cet environnement (réseau vers `*.supabase.co` bloqué
-côté sandbox) — à faire en lançant l'app en local sur votre machine.
+Le **dashboard admin** (`apps/admin/`, React 19 + Vite + TanStack Router) a
+3 écrans — connexion staff, vue d'ensemble (`admin_stats_overview`), et
+chauffeurs/KYC (liste filtrable + détail avec documents et décision
+`admin_review_driver_document`/`admin_decide_driver_application`). Vérifié
+dans un vrai navigateur (Playwright) : routage protégé confirmé sur les 4
+routes, formulaire de connexion envoie une vraie requête à l'endpoint Auth
+du projet réel, écrans chauffeurs vérifiés sans erreur JS (session simulée
+côté navigateur). La confirmation bout-en-bout (connexion réussie +
+données réelles) n'a pas pu être testée depuis cet environnement (réseau
+vers `*.supabase.co` bloqué côté sandbox) — à faire en lançant l'app en
+local sur votre machine.
+
+**Nouveau** : le bucket Storage privé `driver-documents` (migration 6) est
+déployé sur le projet réel — le lien « Voir » d'un document, jusque-là
+inerte, fonctionne désormais.
 
 Reste à construire : les ~22 autres écrans admin, les 2 apps mobiles
 (passager/chauffeur), le worker de dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (5 migrations), vérifiée de bout en bout contre
+**Base de données** (6 migrations), vérifiée de bout en bout contre
 Postgres 16 + PostGIS local, **et déployée** sur le projet réel (32
-tables, 49 fonctions, 51 policies RLS, 6 plans — comptage confirmé
-identique) :
+tables, 49 fonctions, 51 policies RLS, 6 plans, bucket Storage
+`driver-documents` avec ses 4 policies — comptage confirmé identique) :
 - Cycle complet d'une course par catégorie (voiture/moto), matching filtré
   par catégorie, cash ou Mobile Money.
 - Frais de service (2,5 %) calculés une fois à la confirmation du
@@ -76,14 +80,8 @@ facturation/règlement/fraude documentés en [05-ecrans.md](05-ecrans.md)
 ## 3. Ce qui pose problème / limites connues
 
 - **Worker de dispatch, apps mobiles, reste du dashboard admin non
-  construits/déployés** — Auth, Realtime, Storage, `pg_cron` pas encore
-  exercés en conditions réelles par une vraie app.
-- **Bucket Storage `driver-documents`** : migration écrite et vérifiée en
-  local (`00000000000006_driver_documents_storage.sql`, voir
-  `docs/TASKS.md` TASK-008) — **reste à coller dans le SQL Editor du
-  projet réel** (un seul morceau, 1,7 Ko). Tant que ce n'est pas fait,
-  l'écran chauffeurs/KYC affiche les documents mais le lien « Voir » (URL
-  signée) reste absent (échec silencieux, pas de crash).
+  construits/déployés** — Auth, Realtime, `pg_cron` pas encore exercés en
+  conditions réelles par une vraie app (Storage l'est désormais, voir §2).
 - **Secrets Edge Functions pas tous configurés** : `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe, à faire quand vous voulez) ;
   `ESMS_AFRICA_API_KEY`/`GOOGLE_MAPS_API_KEY` en attente des décisions
@@ -128,6 +126,8 @@ Rien en cours — en attente de la prochaine demande.
 5. Dashboard admin (`apps/admin/`) : login, vue d'ensemble, et écran
    chauffeurs/KYC (liste + détail + décision), vérifiés dans un vrai
    navigateur.
+6. Bucket Storage `driver-documents` + policies RLS (migration 6),
+   vérifié en local puis déployé sur le projet réel.
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -135,14 +135,9 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-- **Coller la migration 6** (`driver-documents`, bucket + policies) dans
-  le SQL Editor du projet réel — écrite et vérifiée, un seul morceau,
-  aucune dépendance externe. Débloque le lien « Voir » de l'écran
-  chauffeurs/KYC.
-
-Ensuite, deux chantiers indépendants, à choisir selon votre priorité :
-- **Continuer le dashboard admin** : écran suivant le plus utile à
-  déterminer (courses en temps réel, ou tarification/zones).
+Sans priorité indiquée, je poursuis le dashboard admin (écran suivant à
+déterminer — probablement courses en temps réel, plus visible que
+tarification/zones). En parallèle, reste ouvert quand vous voulez :
 - **Vérification backend** : créer le secret `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe), puis tester réellement
   `phone-verification-check` (nécessite un compte eSMS Africa, §7).

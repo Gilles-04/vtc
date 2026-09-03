@@ -245,9 +245,8 @@ libre).
 - **Objectif** : combler le manque identifié par TASK-007 — créer le
   bucket privé + policies permettant à l'écran chauffeurs/KYC d'afficher
   réellement les documents (lien « Voir », URL signée).
-- **Statut** : Écrit et vérifié localement (3 septembre 2026) — **en
-  attente d'être collé dans le SQL Editor du projet réel par le porteur du
-  projet**.
+- **Statut** : Terminé (3 septembre 2026) — écrit, vérifié localement, puis
+  collé et exécuté avec succès sur le projet réel.
 - **Fait** :
   - `supabase/migrations/00000000000006_driver_documents_storage.sql` :
     `insert into storage.buckets` + 4 policies RLS sur `storage.objects`
@@ -267,9 +266,10 @@ libre).
     admin fonctionnel), mais ne peut pas uploader dans un dossier qui
     n'est pas le sien (portée volontairement restreinte, pas de besoin
     identifié pour un upload admin).
-- **Résultat** : migration prête à coller (1,7 Ko, un seul morceau — sous
-  la limite de collage du SQL Editor). Une fois collée et confirmée,
-  mettre à jour `docs/STATUS.md` §2-3 pour retirer la limite connue.
+- **Résultat** : bucket + policies en place sur le projet réel. Le lien
+  « Voir » de l'écran chauffeurs/KYC (`apps/admin/`) est désormais
+  fonctionnel (non re-testé bout-en-bout depuis cet environnement, réseau
+  vers `*.supabase.co` bloqué côté sandbox — voir `docs/STATUS.md`).
 
 ---
 
