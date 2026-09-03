@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Work+Sans:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
+
+  /* Émeraude/or/encre chaude — palette du design system VTC Togo */
+  --color-emerald-50: #ecfdf5;
+  --color-emerald-100: #d1fae5;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-emerald-700: #047857;
+  --color-emerald-900: #064e3b;
+
+  --color-gold-400: #f2c94c;
+  --color-gold-500: #e0ac1f;
+  --color-gold-600: #b8860b;
+
+  --color-ink-50: #faf8f5;
+  --color-ink-100: #f0ebe3;
+  --color-ink-400: #8a7f6f;
+  --color-ink-600: #5c5346;
+  --color-ink-800: #362f26;
+  --color-ink-900: #1f1a14;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--color-ink-50);
+  color: var(--color-ink-900);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+}

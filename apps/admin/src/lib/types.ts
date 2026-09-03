@@ -1,0 +1,31 @@
+export interface AdminStatsOverview {
+  rides_today: number
+  rides_today_car: number
+  rides_today_moto: number
+  rides_completed_today: number
+  active_drivers_car: number
+  active_drivers_moto: number
+  approved_drivers_car: number
+  approved_drivers_moto: number
+  pending_kyc: number
+  active_subscriptions_car: number
+  active_subscriptions_moto: number
+  subscription_revenue_today_car_fcfa: number
+  subscription_revenue_today_moto_fcfa: number
+  platform_fees_today_car_fcfa: number
+  platform_fees_today_moto_fcfa: number
+  platform_fees_pending_settlement_fcfa: number
+  rides_volume_today_fcfa: number
+  payments_cash_today_count: number
+  payments_cash_today_fcfa: number
+  payments_mobile_money_today_count: number
+  payments_mobile_money_today_fcfa: number
+  payments_failed_today_count: number
+  refunds_today_count: number
+  refunds_today_fcfa: number
+  driver_earnings_today_fcfa: number
+  open_sos: number
+  open_reports: number
+  open_support_tickets: number
+  open_fraud_flags: number
+}

@@ -2,7 +2,7 @@
 
 Tâches en cours ou récemment terminées. Idées non démarrées : voir
 [`12-roadmap.md`](12-roadmap.md) (structuré en phases plutôt qu'en backlog
-libre, le projet n'ayant pas encore de code applicatif).
+libre).
 
 ---
 
@@ -162,6 +162,48 @@ libre, le projet n'ayant pas encore de code applicatif).
 - **Résultat** : voir `docs/STATUS.md` §3 pour la limite ouverte la plus
   significative (custody des fonds Mobile Money d'une course, dépend du
   fournisseur retenu, à trancher avec le porteur du projet).
+
+---
+
+## TASK-006 — Déploiement réel (schéma, Edge Functions) + premier écran admin
+
+- **Objectif** : sortir du "tout en local" — déployer le backend sur le
+  vrai projet Supabase dédié, puis construire et vérifier un premier
+  tronçon d'application réelle (le porteur du projet a demandé à voir un
+  visuel de l'application, pas seulement des maquettes).
+- **Statut** : Terminé (3 septembre 2026) pour la partie déploiement +
+  premier écran ; le reste du dashboard et les apps mobiles restent à
+  construire (voir `docs/STATUS.md` §6).
+- **Fait** :
+  - 5 migrations SQL appliquées sur le projet Supabase réel (37 morceaux
+    découpés automatiquement pour la limite de collage du SQL Editor,
+    frontières de fonctions/commentaires respectées).
+  - 5 Edge Functions déployées via le dashboard.
+  - Migration 5 (`00000000000005_notifications_push_trigger.sql`) : trigger
+    `pg_net` fait main contournant l'échec du Database Webhook natif
+    (`supabase_functions` absent sur ce projet).
+  - `apps/admin/` scaffoldé (React 19 + Vite + TanStack Router + Tailwind
+    v4 + Supabase JS) : page de connexion staff, vue d'ensemble
+    (`admin_stats_overview`), garde de route.
+- **Vérifié** :
+  - Comptage post-déploiement identique à l'application locale (32
+    tables, 49 fonctions, 51 policies RLS, 6 plans).
+  - `push-notifications-dispatch` : notification de test → appel HTTP réel
+    confirmé dans `net._http_response`.
+  - Dashboard admin : `tsc -b`, `vite build`, `oxlint` propres ; rendu
+    réel vérifié avec Playwright/Chromium (capture d'écran) — routage
+    protégé confirmé (redirection vers `/login`), formulaire de connexion
+    envoie une vraie requête à l'endpoint Auth du projet réel. La
+    confirmation bout-en-bout (connexion + données réelles) n'a pas pu
+    être testée depuis cet environnement (réseau vers `*.supabase.co`
+    bloqué côté sandbox).
+  - Deux incidents réels rencontrés et corrigés en route pendant le
+    déploiement : 4 Edge Functions créées sans leurs tirets dans l'URL
+    (recréées), `pricing-directions` ne transmettait pas `category` à
+    `estimate_ride_fare` (corrigé avant déploiement).
+- **Résultat** : voir `docs/STATUS.md` §1-3 pour l'état détaillé et les
+  limites (notamment : aucun compte staff admin n'existe encore, à créer
+  à la main en SQL — voir `apps/admin/README.md` §Bootstrap).
 
 ---
 
