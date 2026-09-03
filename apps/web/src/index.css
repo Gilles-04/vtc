@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Work+Sans:wght@400;500;600&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
+
+  /* Bleu nuit/or — même palette que apps/admin, cohérence de marque */
+  --color-navy-50: #eef2f9;
+  --color-navy-100: #d7e0ef;
+  --color-navy-500: #2c4870;
+  --color-navy-600: #1e3a5f;
+  --color-navy-700: #14213d;
+  --color-navy-900: #0b1729;
+
+  --color-gold-400: #f2c94c;
+  --color-gold-500: #e0ac1f;
+  --color-gold-600: #b8860b;
+
+  --color-ink-50: #f7f8fa;
+  --color-ink-100: #e7eaf0;
+  --color-ink-400: #6b7686;
+  --color-ink-600: #3f4b5e;
+  --color-ink-800: #202a3b;
+  --color-ink-900: #0f1622;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--color-ink-50);
+  color: var(--color-ink-900);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+}
