@@ -101,6 +101,18 @@ export interface PaymentListRow {
   profiles: { phone: string | null; full_name: string | null } | null
 }
 
+export interface InvoiceListRow {
+  id: string
+  invoice_number: string
+  transport_amount_fcfa: number
+  platform_fee_fcfa: number
+  total_fcfa: number
+  payment_method: PaymentMethodType
+  issued_at: string
+  profiles: { phone: string | null; full_name: string | null } | null
+  drivers: { profiles: { phone: string | null; full_name: string | null } | null } | null
+}
+
 export interface AdminStatsOverview {
   rides_today: number
   rides_today_car: number

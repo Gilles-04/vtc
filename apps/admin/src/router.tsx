@@ -7,6 +7,7 @@ import { DriverDetail } from './pages/DriverDetail'
 import { Rides } from './pages/Rides'
 import { RideDetail } from './pages/RideDetail'
 import { Payments } from './pages/Payments'
+import { Invoices } from './pages/Invoices'
 import { Shell } from './components/Shell'
 
 const rootRoute = createRootRoute({
@@ -86,6 +87,17 @@ const paymentsRoute = createRoute({
   ),
 })
 
+const invoicesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/facturation',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <Invoices />
+    </Shell>
+  ),
+})
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
@@ -105,6 +117,7 @@ const routeTree = rootRoute.addChildren([
   ridesRoute,
   rideDetailRoute,
   paymentsRoute,
+  invoicesRoute,
   loginRoute,
 ])
 
