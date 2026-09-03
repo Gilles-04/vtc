@@ -1,8 +1,6 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (écrans admin Utilisateurs +
-première confirmation réelle de l'auth passager par email, testée en
-local par le porteur du projet)*
+*Dernière mise à jour : 3 septembre 2026 (écran admin Liste véhicules)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -12,15 +10,15 @@ Le backend (schéma, logique métier, module financier complet, deux
 catégories voiture/moto-taxi) est **déployé pour de vrai** sur le projet
 Supabase dédié : 11 migrations + 5 Edge Functions en place et vérifiées
 (32 tables, 49 fonctions, 51 policies RLS, grants internes durcis). Le
-**dashboard admin** (`apps/admin/`) a 12 écrans — connexion, vue
-d'ensemble, **utilisateurs**, chauffeurs/KYC, courses, paiements,
-facturation, abonnements (liste + plans), règlements — vérifiés dans un
-vrai navigateur (utilisateurs/chauffeurs/courses avec de vraies
-données, dont désormais 2 vrais comptes créés par vous en local — voir
-plus bas ; écran plans avec les 6 vrais plans lus sur le projet réel ;
-paiements/facturation/liste abonnements/règlements avec des données et
-RPC simulées côté réseau, ces tables sont vides sur le projet réel pour
-l'instant).
+**dashboard admin** (`apps/admin/`) a 13 écrans — connexion, vue
+d'ensemble, utilisateurs, chauffeurs/KYC, **véhicules**, courses,
+paiements, facturation, abonnements (liste + plans), règlements —
+vérifiés dans un vrai navigateur (utilisateurs/chauffeurs/véhicules/
+courses avec de vraies données, dont désormais 2 vrais comptes créés
+par vous en local — voir plus bas ; écran plans avec les 6 vrais plans
+lus sur le projet réel ; paiements/facturation/liste abonnements/
+règlements avec des données et RPC simulées côté réseau, ces tables
+sont vides sur le projet réel pour l'instant).
 
 **Auth passager confirmée en conditions réelles** : vous avez lancé
 `apps/web` en local (`npm run dev`) et créé deux comptes via `/passager`
@@ -61,7 +59,7 @@ directement depuis cet environnement — vérification bout-en-bout à faire
 en local chez vous ou dans une session avec accès réseau élargi.
 
 Reste à construire : la demande de course dans `apps/web` (bloquée sur
-Google Maps), `apps/mobile`, ~10 autres écrans admin, le worker de
+Google Maps), `apps/mobile`, ~9 autres écrans admin, le worker de
 dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
@@ -123,13 +121,14 @@ Rien en cours — en attente de la prochaine demande.
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** — détail complet de chaque point dans
-`docs/TASKS.md` (TASK-004 à TASK-021, une entrée par point) :
+`docs/TASKS.md` (TASK-004 à TASK-022, une entrée par point) :
 révision du modèle économique (catégories, frais de service) ; module
 paiement/abonnement/facturation ; déploiement réel du schéma (11
 migrations) et des 5 Edge Functions ; contournement `pg_net` pour les
-push ; dashboard admin (login, vue d'ensemble, **utilisateurs**,
-chauffeurs/KYC, courses, paiements, facturation, abonnements liste +
-plans, règlements) ; bucket Storage `driver-documents` ; correction d'un
+push ; dashboard admin (login, vue d'ensemble, utilisateurs,
+chauffeurs/KYC, **véhicules**, courses, paiements, facturation,
+abonnements liste + plans, règlements) ; bucket Storage
+`driver-documents` ; correction d'un
 bug d'embedding PostgREST (FK manquantes, drivers/rides, payments,
 invoices et **user_roles**) ; MCP Supabase connecté + durcissement de 13
 grants internes ; données de démo + vérification à 5 écrans ; révision
@@ -144,12 +143,12 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 ## 6. Prochaine étape
 
 La demande de course côté passager reste bloquée sur la clé Google Maps
-(§7, pas sur le choix du fournisseur — déjà tranché). Volet financier
-admin et utilisateurs faits ; reste ~10 écrans admin (voir
-`docs/05-ecrans.md` pour la liste — candidats naturels suivants : Liste
-véhicules, Tarification, Zones, Réclamations & SOS). Worker de
-dispatch, `PAYMENT_WEBHOOK_SECRET` et autres décisions fournisseurs
-(§7) non bloquants, en parallèle.
+(§7, pas sur le choix du fournisseur — déjà tranché). Volet financier,
+utilisateurs et véhicules admin faits ; reste ~9 écrans admin (voir
+`docs/05-ecrans.md` pour la liste — candidats naturels suivants :
+Tarification, Zones, Réclamations & SOS). Worker de dispatch,
+`PAYMENT_WEBHOOK_SECRET` et autres décisions fournisseurs (§7) non
+bloquants, en parallèle.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 

@@ -748,6 +748,25 @@ libre).
 
 ---
 
+## TASK-022 — Écran admin Liste véhicules
+
+- **Objectif** : onzième tronçon du dashboard admin — recherche de
+  véhicules par plaque. Contrairement aux écrans précédents, aucune
+  migration nécessaire : `vehicles.driver_id → drivers.id → profiles.id`
+  était déjà réglé par la migration 7.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** : `/vehicules` — recherche par plaque (debounce 300ms),
+  catégorie du chauffeur (badge), lien vers `/chauffeurs/$driverId`.
+  Nouveau type `VehicleListRow` (`lib/types.ts`), navigation ajoutée
+  dans `Shell.tsx`.
+- **Vérifié** : `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint)
+  propres. Playwright/Chromium réel avec les **3 vrais véhicules** du
+  projet (lus via MCP juste avant) : liste et recherche par plaque
+  toutes deux correctes.
+- **Résultat** : `docs/05-ecrans.md` écran #8 fait.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
