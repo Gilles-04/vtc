@@ -10,6 +10,7 @@ import { Payments } from './pages/Payments'
 import { Invoices } from './pages/Invoices'
 import { Subscriptions } from './pages/Subscriptions'
 import { SubscriptionPlans } from './pages/SubscriptionPlans'
+import { Settlements } from './pages/Settlements'
 import { Shell } from './components/Shell'
 
 const rootRoute = createRootRoute({
@@ -122,6 +123,17 @@ const subscriptionPlansRoute = createRoute({
   ),
 })
 
+const settlementsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reglements',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <Settlements />
+    </Shell>
+  ),
+})
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
@@ -144,6 +156,7 @@ const routeTree = rootRoute.addChildren([
   invoicesRoute,
   subscriptionsRoute,
   subscriptionPlansRoute,
+  settlementsRoute,
   loginRoute,
 ])
 

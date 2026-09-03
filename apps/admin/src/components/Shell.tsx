@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: '/paiements', label: 'Paiements' },
   { to: '/facturation', label: 'Facturation' },
   { to: '/abonnements', label: 'Abonnements' },
+  { to: '/reglements', label: 'Règlements' },
 ] as const
 
 export function Shell({ children }: { children: ReactNode }) {
