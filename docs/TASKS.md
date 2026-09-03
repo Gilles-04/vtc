@@ -846,6 +846,35 @@ libre).
 
 ---
 
+## TASK-025 — Écran admin Fraude
+
+- **Objectif** : quinzième tronçon du dashboard admin — file de revue
+  des signalements anti-fraude (`fraud_flags`). Aucune migration
+  nécessaire : `subject_id` est volontairement polymorphe
+  (user/driver/device, texte) par design du schéma initial, pas de FK à
+  ajouter.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** : `/fraude` — filtres statut (ouvert par défaut) et sévérité,
+  type + id du sujet signalé, raison, décision (mettre en revue/
+  confirmer/rejeter) via `admin_resolve_fraud_flag`, notes optionnelles
+  à la décision. Nouveaux types (`FraudFlagRow`/`FraudSubjectType`/
+  `FraudFlagStatus`/`FraudSeverity`, `lib/types.ts`), nouveaux badges
+  (`FraudFlagStatusBadge`/`FraudSeverityBadge`, `Badge.tsx`), navigation
+  ajoutée dans `Shell.tsx`.
+- **Vérifié** : `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint)
+  propres. Playwright/Chromium réel : filtres, badges sévérité/statut,
+  action confirmer (le signalement disparaît du filtre « Ouvert ») —
+  vérifiés bout en bout (réseau Supabase simulé).
+- **Résultat** : `docs/05-ecrans.md` écran #23 fait. `fraud_flags` vide
+  sur le projet réel — confirmation avec de vraies données non testée
+  depuis cet environnement (réseau sandbox). **Note d'ergonomie** : la
+  barre de navigation admin compte maintenant 13 entrées et passe sur
+  deux lignes en desktop standard — un futur regroupement (menu
+  déroulant par domaine : Financier, Modération, Configuration) serait
+  utile une fois tous les écrans posés, pas urgent.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

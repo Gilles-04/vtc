@@ -1,7 +1,6 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (écran admin Réclamations &
-SOS, migration 12)*
+*Dernière mise à jour : 3 septembre 2026 (écran admin Fraude)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -11,10 +10,11 @@ Le backend (schéma, logique métier, module financier complet, deux
 catégories voiture/moto-taxi) est **déployé pour de vrai** sur le projet
 Supabase dédié : 12 migrations + 5 Edge Functions en place et vérifiées
 (32 tables, 49 fonctions, 51 policies RLS, grants internes durcis). Le
-**dashboard admin** (`apps/admin/`) a 16 écrans — connexion, vue
+**dashboard admin** (`apps/admin/`) a 17 écrans — connexion, vue
 d'ensemble, utilisateurs, chauffeurs/KYC, véhicules, courses, paiements,
 facturation, abonnements (liste + plans), règlements, zones,
-tarification, **réclamations & SOS** — vérifiés dans un vrai navigateur
+tarification, réclamations & SOS, **fraude** — vérifiés dans un vrai
+navigateur
 (utilisateurs/chauffeurs/véhicules/courses avec de vraies données, dont
 désormais 2 vrais comptes créés par vous en local — voir plus bas ;
 écran plans avec les 6 vrais plans lus sur le projet réel ; le reste
@@ -63,7 +63,7 @@ directement depuis cet environnement — vérification bout-en-bout à faire
 en local chez vous ou dans une session avec accès réseau élargi.
 
 Reste à construire : la demande de course dans `apps/web` (bloquée sur
-Google Maps + `pricing_rules` vide), `apps/mobile`, ~6 autres écrans
+Google Maps + `pricing_rules` vide), `apps/mobile`, ~5 autres écrans
 admin, le worker de dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
@@ -124,23 +124,27 @@ regroupement passager+chauffeur par plateforme.
 - **Protection mots de passe compromis (HaveIBeenPwned) désactivée** —
   interrupteur dashboard (Authentication → Password protection), pas une
   migration. Deux minutes, quand vous voulez.
+- **Barre de nav admin surchargée** (13 entrées, passe sur deux lignes)
+  — un regroupement par domaine (menu déroulant) serait utile une fois
+  tous les écrans posés, pas urgent.
 
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** — détail complet de chaque point dans
-`docs/TASKS.md` (TASK-004 à TASK-024, une entrée par point) :
+`docs/TASKS.md` (TASK-004 à TASK-025, une entrée par point) :
 révision du modèle économique (catégories, frais de service) ; module
 paiement/abonnement/facturation ; déploiement réel du schéma (12
 migrations) et des 5 Edge Functions ; contournement `pg_net` pour les
 push ; dashboard admin (login, vue d'ensemble, utilisateurs,
 chauffeurs/KYC, véhicules, courses, paiements, facturation, abonnements
-liste + plans, règlements, zones, tarification, **réclamations & SOS**) ;
-bucket Storage `driver-documents` ; correction d'un bug d'embedding
-PostgREST (FK manquantes, drivers/rides, payments, invoices, user_roles
-et reports/sos_alerts) ; MCP Supabase connecté + durcissement de 13
-grants internes ; données de démo + vérification à 5 écrans ; révision
+liste + plans, règlements, zones, tarification, réclamations & SOS,
+**fraude**) ; bucket Storage `driver-documents` ; correction d'un bug
+d'embedding PostgREST (FK manquantes, drivers/rides, payments,
+invoices, user_roles et reports/sos_alerts) ; MCP Supabase connecté +
+durcissement de 13 grants internes ; données de démo + vérification à
+5 écrans ; révision
 d'architecture (4 plateformes) ; `apps/web` scaffoldé (accueil) ; eSMS
 Africa abandonné (documentation) ; auth passager par code email
 construite et confirmée en conditions réelles par vous, en local.
@@ -153,9 +157,9 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 La demande de course côté passager reste bloquée sur deux points (§1/
 §3/§7) : clé Google Maps et `pricing_rules` vide. Volet financier,
-utilisateurs, véhicules, zones, tarification et réclamations & SOS
-admin faits ; reste ~6 écrans admin (voir `docs/05-ecrans.md` pour la
-liste — candidats naturels suivants : Fraude, Statistiques globales).
+utilisateurs, véhicules, zones, tarification, réclamations & SOS et
+fraude admin faits ; reste ~5 écrans admin (voir `docs/05-ecrans.md`
+pour la liste — candidat naturel suivant : Statistiques globales).
 Worker de dispatch, `PAYMENT_WEBHOOK_SECRET` et autres décisions
 fournisseurs (§7) non bloquants, en parallèle.
 
