@@ -1,7 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (schéma complet déployé sur le
-vrai projet Supabase, vérifié en conditions réelles)*
+*Dernière mise à jour : 3 septembre 2026 (schéma + 5 Edge Functions
+déployés sur le vrai projet Supabase, vérifiés en conditions réelles)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -10,14 +10,11 @@ vrai projet Supabase, vérifié en conditions réelles)*
 Après le cadrage (12 livrables) et le design UX/UI (37 écrans + design
 system, canvas publié), le backend (schéma + logique métier + module
 financier complet, deux catégories voiture/moto-taxi) a été écrit et
-vérifié en local, puis **déployé pour de vrai** : les 4 migrations sont
-appliquées sur un projet Supabase réel dédié à ce produit (distinct de
-votre autre projet), collées par vos soins dans le SQL Editor (accès
-réseau direct impossible depuis cet environnement), et **vérifiées
-présentes** (32 tables, 49 fonctions, 13 triggers, 51 policies RLS,
-6 plans d'abonnement — comptage confirmé identique à l'application locale,
-hors triggers internes ajoutés par Supabase lui-même sur `auth.users`).
-Reste à déployer : les 5 Edge Functions, le worker de dispatch, et à
+vérifié en local, puis **déployé pour de vrai** sur un projet Supabase réel
+dédié à ce produit (distinct de votre autre projet) : les 4 migrations
+(collées dans le SQL Editor) et les 5 Edge Functions (collées dans le
+dashboard, section Edge Functions) sont en place et vérifiées présentes
+avec les bonnes URLs. Reste à déployer : le worker de dispatch, et à
 initialiser les applications (mobile ×2, dashboard admin).
 
 ## 2. Ce qui fonctionne
@@ -61,11 +58,28 @@ pas seulement relue :
 - Le reste (KYC, anti-fraude, suspension de compte, support) : hérité des
   versions précédentes, non retesté ici car non touché par ce module.
 
-**Edge Function `payment-webhook-momo`** : mise à jour pour router vers
-`confirm_ride_payment` ou `confirm_subscription_payment` selon
-`payments.purpose` — `deno check`/`deno lint` propres contre les vrais
-types, jamais déployée faute de projet Supabase réel. Les 4 autres Edge
-Functions et le worker de dispatch : non modifiés par ce module.
+**Les 5 Edge Functions sont déployées** sur le projet réel
+(`payment-webhook-momo`, `phone-verification-start`, `phone-verification-check`,
+`pricing-directions`, `push-notifications-dispatch`) — URLs vérifiées une
+par une (`https://<projet>.supabase.co/functions/v1/<nom-exact-avec-tirets>`).
+Un vrai piège rencontré et corrigé pendant le déploiement : le champ nom du
+dashboard a d'abord laissé passer 4 fonctions sans leurs tirets
+(`phoneverificationcheck` au lieu de `phone-verification-check`) — l'URL
+réelle ne change pas si on ne corrige que le nom affiché après coup, il a
+fallu supprimer et recréer les 4 avec le nom correct dès la création.
+Bug réel trouvé et corrigé au passage : `pricing-directions` ne transmettait
+pas encore `category` à `estimate_ride_fare` (RPC qui l'exige depuis la
+révision du modèle économique) — corrigé dans le dépôt avant déploiement.
+`payment-webhook-momo` route désormais vers `confirm_ride_payment` ou
+`confirm_subscription_payment` selon `payments.purpose`. Le worker de
+dispatch n'est pas encore déployé.
+
+**Restent à faire pour que les Edge Functions fonctionnent réellement** :
+`PAYMENT_WEBHOOK_SECRET` (vous pouvez le créer vous-même dès maintenant,
+aucune dépendance externe) et le Database Webhook sur `notifications`
+(INSERT → `push-notifications-dispatch`) — sans lui la fonction est
+déployée mais ne se déclenche jamais toute seule. `ESMS_AFRICA_API_KEY`/
+`GOOGLE_MAPS_API_KEY` dépendent des décisions fournisseurs en §7.
 
 **Design** : 37 écrans (19 passager + 18 chauffeur) + design system, canvas
 publié — **antérieur à la révision du modèle économique du 3 septembre**,
@@ -75,13 +89,16 @@ documente ~58 écrans désormais, canvas toujours à ~50.
 
 ## 3. Ce qui pose problème / limites connues
 
-- **Edge Functions, worker de dispatch et applications pas encore
-  déployés** — le schéma est en place mais rien ne l'utilise encore
-  réellement (Auth, Realtime, Storage, `pg_cron`, webhooks pas encore
-  exercés en conditions réelles). Accès réseau direct toujours impossible
-  depuis cet environnement sandboxé — toute suite (Edge Functions
-  comprises) demande soit que vous colliez le code dans le dashboard
-  Supabase vous-même, soit un accès depuis votre propre machine/CLI.
+- **Worker de dispatch et applications pas encore déployés** — Auth,
+  Realtime, Storage, `pg_cron` pas encore exercés en conditions réelles.
+  Accès réseau direct toujours impossible depuis cet environnement
+  sandboxé — toute suite demande soit que vous colliez/déployiez vous-même,
+  soit un accès depuis votre propre machine/CLI.
+- **Secrets Edge Functions pas encore configurés** (`PAYMENT_WEBHOOK_SECRET`
+  à créer, `ESMS_AFRICA_API_KEY`/`GOOGLE_MAPS_API_KEY` en attente des
+  décisions fournisseurs) et **Database Webhook `push-notifications-dispatch`
+  pas encore créé** — les fonctions sont déployées mais aucune n'est
+  encore réellement opérationnelle en bout en bout.
 - **Custody des fonds Mobile Money d'une course, non tranchée** : le
   mécanisme de webhook vérifié est construit et testé, mais que les fonds
   transitent réellement par un compte plateforme (API de collecte pour
@@ -110,6 +127,12 @@ Rien en cours — en attente de la prochaine demande.
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** :
+- **Déploiement réel des 5 Edge Functions** sur le dashboard Supabase,
+  URLs vérifiées une par une — un vrai incident de nommage rencontré et
+  corrigé (4 fonctions créées sans leurs tirets, non récupérable en
+  éditant juste le nom affiché : supprimées et recréées correctement).
+  Bug réel trouvé et corrigé dans `pricing-directions` avant déploiement
+  (`category` non transmis à `estimate_ride_fare`).
 - **Déploiement réel du schéma** : les 4 migrations collées dans le SQL
   Editor de votre projet Supabase dédié (37 morceaux, découpage automatique
   respectant les limites de collage et les frontières de fonctions/
@@ -137,14 +160,13 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 6. Prochaine étape
 
-Suite de la Phase 0 de [`12-roadmap.md`](12-roadmap.md) : déployer les
-5 Edge Functions (même méthode que les migrations — collées dans le
-dashboard Supabase, section Edge Functions, secrets renseignés au passage :
-`ESMS_AFRICA_API_KEY`, `PAYMENT_WEBHOOK_SECRET`, etc.), tester réellement
-en priorité `phone-verification-check` (le point le plus incertain du
-backend, jamais exécuté contre un vrai projet), puis déployer le worker de
-dispatch (VPS + systemd). Décisions fournisseurs (§7) à prendre en
-parallèle, non bloquantes pour ces étapes.
+Trois choses, non bloquantes entre elles : créer le secret
+`PAYMENT_WEBHOOK_SECRET` (aucune dépendance externe) ; créer le Database
+Webhook `notifications` → `push-notifications-dispatch` ; puis tester
+réellement en priorité `phone-verification-check` (le point le plus
+incertain du backend, jamais exécuté contre un vrai projet — nécessite un
+compte eSMS Africa, §7). Ensuite : déployer le worker de dispatch (VPS +
+systemd). Décisions fournisseurs (§7) à prendre en parallèle.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
