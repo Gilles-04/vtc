@@ -74,8 +74,17 @@ rejetée (`account_suspended`) avant même la moindre écriture.
 
 - Bucket Storage **privé** (`driver-documents`), jamais d'URL publique —
   accès exclusivement par URL signée à durée limitée, générée à la demande
-  (même principe que le bucket `hr-files` de MBONPLAN).
-- Un chauffeur ne peut voir/remplacer que ses propres documents.
+  (même principe que le bucket `hr-files` de MBONPLAN). Créé par
+  `supabase/migrations/00000000000006_driver_documents_storage.sql`.
+- **Convention de chemin obligatoire** (imposée par les policies RLS, pas
+  seulement une convention documentaire) : `<driver_id>/<nom_de_fichier>` —
+  le premier segment doit être l'UUID auth du chauffeur. Toute app qui
+  uploade (future app chauffeur) doit s'y conformer.
+- Un chauffeur ne peut voir/remplacer que ses propres documents (policies
+  RLS `storage.objects`, vérifiées : upload/lecture/modification hors de
+  son propre dossier rejetés). Le staff admin (`super_admin`/`admin`) peut
+  tout lire, mais ne peut pas uploader dans un dossier qui n'est pas le
+  sien (aucun besoin identifié à ce jour).
 - Toute décision (approbation/rejet) est tracée dans `audit_logs` avec
   l'identité du staff, l'horodatage et le motif.
 

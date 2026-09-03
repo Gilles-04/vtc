@@ -78,12 +78,12 @@ facturation/règlement/fraude documentés en [05-ecrans.md](05-ecrans.md)
 - **Worker de dispatch, apps mobiles, reste du dashboard admin non
   construits/déployés** — Auth, Realtime, Storage, `pg_cron` pas encore
   exercés en conditions réelles par une vraie app.
-- **Bucket Storage `driver-documents` jamais créé** (ni migration, ni
-  trace dashboard) — l'écran chauffeurs/KYC affiche les documents mais le
-  lien « Voir » (URL signée) restera absent tant qu'il n'existe pas
-  (échec silencieux, pas de crash). À créer : bucket privé + policy
-  lecture pour le staff admin, lecture/écriture pour le chauffeur sur ses
-  propres fichiers.
+- **Bucket Storage `driver-documents`** : migration écrite et vérifiée en
+  local (`00000000000006_driver_documents_storage.sql`, voir
+  `docs/TASKS.md` TASK-008) — **reste à coller dans le SQL Editor du
+  projet réel** (un seul morceau, 1,7 Ko). Tant que ce n'est pas fait,
+  l'écran chauffeurs/KYC affiche les documents mais le lien « Voir » (URL
+  signée) reste absent (échec silencieux, pas de crash).
 - **Secrets Edge Functions pas tous configurés** : `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe, à faire quand vous voulez) ;
   `ESMS_AFRICA_API_KEY`/`GOOGLE_MAPS_API_KEY` en attente des décisions
@@ -135,10 +135,12 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-Trois chantiers indépendants, à choisir selon votre priorité :
-- **Créer le bucket Storage `driver-documents`** : nécessaire pour que le
-  lien « Voir » fonctionne sur l'écran chauffeurs/KYC déjà construit —
-  petite migration SQL (bucket + policies), aucune dépendance externe.
+- **Coller la migration 6** (`driver-documents`, bucket + policies) dans
+  le SQL Editor du projet réel — écrite et vérifiée, un seul morceau,
+  aucune dépendance externe. Débloque le lien « Voir » de l'écran
+  chauffeurs/KYC.
+
+Ensuite, deux chantiers indépendants, à choisir selon votre priorité :
 - **Continuer le dashboard admin** : écran suivant le plus utile à
   déterminer (courses en temps réel, ou tarification/zones).
 - **Vérification backend** : créer le secret `PAYMENT_WEBHOOK_SECRET`

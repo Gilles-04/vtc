@@ -240,6 +240,39 @@ libre).
 
 ---
 
+## TASK-008 — Bucket Storage `driver-documents` + policies RLS
+
+- **Objectif** : combler le manque identifié par TASK-007 — créer le
+  bucket privé + policies permettant à l'écran chauffeurs/KYC d'afficher
+  réellement les documents (lien « Voir », URL signée).
+- **Statut** : Écrit et vérifié localement (3 septembre 2026) — **en
+  attente d'être collé dans le SQL Editor du projet réel par le porteur du
+  projet**.
+- **Fait** :
+  - `supabase/migrations/00000000000006_driver_documents_storage.sql` :
+    `insert into storage.buckets` + 4 policies RLS sur `storage.objects`
+    (select/insert/update/delete). Convention de chemin imposée par les
+    policies : `<driver_id>/<fichier>`, premier segment = UUID auth du
+    chauffeur.
+  - `docs/11-securite.md` §Documents KYC mis à jour (convention de chemin,
+    portée exacte des policies).
+- **Vérifié** — contre un Postgres 16 + PostGIS local (schémas `auth`,
+  `net`, `storage` reconstruits à la main, absents d'un Postgres nu) :
+  - Les 6 migrations s'appliquent proprement en séquence.
+  - Chauffeur A peut uploader/lire/modifier dans son propre dossier ;
+    upload dans le dossier du chauffeur B rejeté par RLS ; modification
+    d'un fichier du chauffeur B : 0 ligne affectée.
+  - Chauffeur A en `SELECT` ne voit que son propre fichier.
+  - Un compte `super_admin` voit les fichiers des deux chauffeurs (accès
+    admin fonctionnel), mais ne peut pas uploader dans un dossier qui
+    n'est pas le sien (portée volontairement restreinte, pas de besoin
+    identifié pour un upload admin).
+- **Résultat** : migration prête à coller (1,7 Ko, un seul morceau — sous
+  la limite de collage du SQL Editor). Une fois collée et confirmée,
+  mettre à jour `docs/STATUS.md` §2-3 pour retirer la limite connue.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
