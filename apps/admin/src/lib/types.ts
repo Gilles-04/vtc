@@ -71,6 +71,10 @@ export interface Zone {
   id: string
   name: string
   city: string
+  night_start_time: string
+  night_end_time: string
+  is_active: boolean
+  created_at: string
 }
 
 export interface RideListRow {
