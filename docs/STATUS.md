@@ -49,6 +49,18 @@ trigger — mais `cleanup_rate_limits`/`expire_subscriptions`/
 contourner le rate-limiting ou d'interférer avec le dispatch). Corrigé et
 vérifié (migration 8, voir `docs/TASKS.md` TASK-011).
 
+**Données de démo insérées** sur le projet réel (3 chauffeurs — voiture
+approuvé, moto approuvé, voiture en attente KYC avec 2 documents — 1
+abonnement actif, 2 courses) pour pouvoir visualiser le dashboard rempli.
+Tous les id commencent par `d0000000-...`, faciles à identifier/supprimer
+(requête de nettoyage en commentaire dans l'historique de conversation —
+demandez si besoin de la retrouver). Les 5 écrans (vue d'ensemble,
+chauffeurs liste + détail/KYC, courses liste + détail) ont été vérifiés
+avec ces vraies données via interception réseau côté navigateur (le
+navigateur ne peut toujours pas contacter Supabase directement depuis ce
+sandbox) — un bug d'interception dans mon propre script de test a été
+trouvé et corrigé au passage (pas un bug de l'application).
+
 Reste à construire : les ~20 autres écrans admin, les 2 apps mobiles
 (passager/chauffeur), le worker de dispatch (écrit, pas déployé).
 
@@ -163,6 +175,8 @@ Rien en cours — en attente de la prochaine demande.
    trouvé 13 fonctions internes exposées en RPC direct à tout compte
    authentifié — corrigé (migration 8), vérifié en local puis sur le
    projet réel (avant/après avec de vraies requêtes de privilèges).
+10. Données de démo insérées sur le projet réel ; les 5 écrans du
+    dashboard admin vérifiés avec ces vraies données (captures d'écran).
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
