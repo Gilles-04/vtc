@@ -657,6 +657,49 @@ libre).
 
 ---
 
+## TASK-020 — Écran admin Règlements (liste + génération + marquage payé)
+
+- **Objectif** : huitième tronçon du dashboard admin — visibilité et
+  action sur les créances de frais de service par chauffeur
+  (`settlements`). Aucune dépendance externe ni nouvelle FK nécessaire
+  (`settlements.driver_id → drivers.id` a déjà son embed `profiles`
+  réglé depuis TASK-009 ; les écritures passent entièrement par RPC,
+  déjà construites en migration 2).
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - `/reglements` : un seul écran couvrant les 3 maquettés dans
+    `docs/05-ecrans.md` (#17 liste, #18 nouveau, #19 détail) — le
+    « détail » se limite à l'action « marquer payé », inutile d'ouvrir
+    une route séparée pour ça (choix délibéré, pas un oubli).
+  - Liste filtrable par statut (en attente/réglé), affiche chauffeur,
+    catégorie, période, nombre de courses, brut transport, frais de
+    service, statut, date/méthode de règlement.
+  - Formulaire « Nouveau règlement » (panneau dépliable) : sélection
+    chauffeur (approuvés uniquement) + période (dates) → RPC
+    `admin_create_settlement`.
+  - Action « Marquer payé » par ligne : méthode demandée
+    (`window.prompt`), confirmation, RPC `admin_mark_settlement_paid` —
+    même pattern que `DriverDetail.tsx` (busy state, erreur inline).
+  - Nouveaux types (`SettlementListRow`/`SettlementStatus`/
+    `DriverForSettlement`, `lib/types.ts`), navigation ajoutée dans
+    `Shell.tsx`.
+- **Vérifié** :
+  - `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint) propres
+    (un avertissement `react(purity)` réel trouvé et corrigé au passage
+    — `Date.now()` appelé directement dans un argument `useState`,
+    corrigé en initialiseur paresseux `useState(() => ...)`).
+  - Playwright/Chromium réel avec RPC `admin_create_settlement`/
+    `admin_mark_settlement_paid` simulées côté réseau : génération d'un
+    règlement (formulaire → nouvelle ligne visible), marquage payé
+    (ligne disparaît du filtre « en attente »), les deux vérifiés
+    bout en bout au niveau du flux applicatif (réseau Supabase réel
+    toujours hors de portée du sandbox).
+- **Résultat** : `docs/05-ecrans.md` écrans #17-19 faits. Confirmation
+  avec de vraies requêtes RPC contre le projet réel non testée depuis
+  cet environnement (réseau sandbox).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
