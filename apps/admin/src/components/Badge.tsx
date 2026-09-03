@@ -96,3 +96,27 @@ const paymentStatusLabel: Record<string, string> = {
 export function PaymentStatusBadge({ status }: { status: string }) {
   return <Badge tone={paymentStatusTone[status] ?? 'default'}>{paymentStatusLabel[status] ?? status}</Badge>
 }
+
+const paymentPurposeTone: Record<string, BadgeProps['tone']> = {
+  driver_subscription: 'gold',
+  ride_fare: 'navy',
+}
+
+const paymentPurposeLabel: Record<string, string> = {
+  driver_subscription: 'Abonnement chauffeur',
+  ride_fare: 'Course',
+}
+
+export function PaymentPurposeBadge({ purpose }: { purpose: string }) {
+  return <Badge tone={paymentPurposeTone[purpose] ?? 'default'}>{paymentPurposeLabel[purpose] ?? purpose}</Badge>
+}
+
+const paymentProviderLabel: Record<string, string> = {
+  flooz: 'Flooz',
+  tmoney: 'T-Money',
+  manual: 'Manuel',
+}
+
+export function paymentProviderName(provider: string): string {
+  return paymentProviderLabel[provider] ?? provider
+}

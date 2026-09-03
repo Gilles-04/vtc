@@ -6,6 +6,7 @@ import { Drivers } from './pages/Drivers'
 import { DriverDetail } from './pages/DriverDetail'
 import { Rides } from './pages/Rides'
 import { RideDetail } from './pages/RideDetail'
+import { Payments } from './pages/Payments'
 import { Shell } from './components/Shell'
 
 const rootRoute = createRootRoute({
@@ -74,6 +75,17 @@ const rideDetailRoute = createRoute({
   ),
 })
 
+const paymentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/paiements',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <Payments />
+    </Shell>
+  ),
+})
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
@@ -92,6 +104,7 @@ const routeTree = rootRoute.addChildren([
   driverDetailRoute,
   ridesRoute,
   rideDetailRoute,
+  paymentsRoute,
   loginRoute,
 ])
 

@@ -15,6 +15,8 @@ export type RideStatus =
   | 'cancelled_by_system'
 export type PaymentMethodType = 'cash' | 'mobile_money'
 export type PaymentStatus = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled' | 'refunded'
+export type PaymentPurpose = 'driver_subscription' | 'ride_fare'
+export type PaymentProvider = 'flooz' | 'tmoney' | 'manual'
 
 export interface DriverListRow {
   id: string
@@ -83,6 +85,20 @@ export interface RideListRow {
   completed_at: string | null
   profiles: { phone: string | null; full_name: string | null } | null
   drivers: { profiles: { phone: string | null; full_name: string | null } | null } | null
+}
+
+export interface PaymentListRow {
+  id: string
+  user_id: string
+  purpose: PaymentPurpose
+  amount_fcfa: number
+  provider: PaymentProvider
+  provider_ref: string | null
+  status: PaymentStatus
+  created_at: string
+  confirmed_at: string | null
+  ride_id: string | null
+  profiles: { phone: string | null; full_name: string | null } | null
 }
 
 export interface AdminStatsOverview {
