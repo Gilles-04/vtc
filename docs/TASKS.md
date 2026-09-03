@@ -297,7 +297,7 @@ libre).
   d'ambiguïté pour PostgREST) ; une jointure `rides → profiles` (passager)
   et `rides → drivers → profiles` (chauffeur) sur des données réelles
   insérées localement retourne les bons `phone`/`full_name`.
-- **Résultat** : migration prête à coller (< 1 Ko, un seul morceau).
+- **Résultat** : collée et exécutée avec succès sur le projet réel.
   Débloque pour de bon l'identité passager/chauffeur sur tout futur écran
   (liste courses, paiements, etc.) sans requête manuelle supplémentaire.
 
