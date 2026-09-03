@@ -614,6 +614,49 @@ libre).
 
 ---
 
+## TASK-019 — Écrans admin Abonnements (liste + plans)
+
+- **Objectif** : sixième et septième tronçons du dashboard admin —
+  visibilité sur les abonnements souscrits et gestion des plans
+  (prix, actif/inactif). Aucune dépendance externe ni nouvelle FK
+  nécessaire (`subscriptions.driver_id → drivers.id` a déjà son embed
+  `profiles` réglé depuis TASK-009 ; `subscription_plans` est
+  autonome).
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - `/abonnements` : liste filtrable (statut, catégorie), chauffeur,
+    plan, prix, dates de début/expiration. Le filtre catégorie utilise
+    `drivers!inner(...)` plutôt qu'un simple `drivers(...)` — sans le
+    modificateur `!inner`, PostgREST ne filtre que le contenu de l'embed,
+    pas les lignes `subscriptions` elles-mêmes (piège documenté, évité
+    avant d'écrire le code plutôt que découvert en le testant).
+  - `/abonnements/plans` : les 6 plans (voiture/moto-taxi × jour/7j/30j),
+    modification du prix (`window.prompt`, validation entier positif) et
+    bascule actif/inactif — écriture directe sur `subscription_plans`
+    (RLS admin déjà en place depuis le schéma initial, aucune RPC à
+    écrire). Garde-fou UI : activation refusée si le plan n'a pas de
+    prix (reflète la contrainte SQL `subscription_plans_active_price_chk`
+    plutôt que de laisser l'utilisateur découvrir l'erreur serveur).
+  - Nouveaux types (`SubscriptionListRow`/`SubscriptionPlan`/
+    `SubscriptionStatus`, `lib/types.ts`), nouveau badge
+    (`SubscriptionStatusBadge`, `Badge.tsx`), navigation ajoutée dans
+    `Shell.tsx`.
+- **Vérifié** :
+  - `tsc --noEmit`, `npm run build`, `npm run lint` (oxlint) propres.
+  - Playwright/Chromium réel : `/abonnements` avec données simulées (2
+    abonnements, statuts/catégories/prix corrects) ; `/abonnements/plans`
+    avec les 6 **vrais** plans du projet réel (lus via MCP juste avant,
+    prix/statuts exacts reproduits) — les deux écrans et la navigation
+    entre eux (lien « Gérer les plans » / « Retour ») rendus sans erreur
+    JS, capture d'écran à l'appui pour chacun.
+- **Résultat** : `docs/05-ecrans.md` écrans #12 et #13 faits. Actions
+  d'écriture (prix, actif/inactif) non testées bout-en-bout avec de
+  vraies requêtes réseau depuis cet environnement (réseau sandbox) — le
+  code suit exactement le pattern déjà vérifié en conditions réelles
+  ailleurs (écriture directe filtrée par RLS, comme `DriverDetail.tsx`).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
