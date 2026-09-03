@@ -2,6 +2,8 @@ import { createRootRoute, createRoute, createRouter, Outlet, redirect } from '@t
 import { supabase } from './lib/supabase'
 import { Login } from './pages/Login'
 import { Overview } from './pages/Overview'
+import { Drivers } from './pages/Drivers'
+import { DriverDetail } from './pages/DriverDetail'
 import { Shell } from './components/Shell'
 
 const rootRoute = createRootRoute({
@@ -26,6 +28,28 @@ const indexRoute = createRoute({
   ),
 })
 
+const driversRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chauffeurs',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <Drivers />
+    </Shell>
+  ),
+})
+
+const driverDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chauffeurs/$driverId',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <DriverDetail />
+    </Shell>
+  ),
+})
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
@@ -38,7 +62,7 @@ const loginRoute = createRoute({
   component: Login,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, loginRoute])
+const routeTree = rootRoute.addChildren([indexRoute, driversRoute, driverDetailRoute, loginRoute])
 
 export const router = createRouter({ routeTree })
 

@@ -1,3 +1,54 @@
+export type DriverCategory = 'car' | 'moto'
+export type DriverStatus = 'pending_documents' | 'pending_review' | 'approved' | 'rejected' | 'suspended'
+export type DocStatus = 'pending' | 'approved' | 'rejected'
+export type DriverDocType = 'piece_identite' | 'permis_conduire' | 'carte_transport' | 'assurance' | 'carte_grise' | 'photo_vehicule'
+
+export interface DriverListRow {
+  id: string
+  category: DriverCategory
+  status: DriverStatus
+  city: string | null
+  rating_avg: number
+  rating_count: number
+  total_rides: number
+  created_at: string
+  profiles: { phone: string | null; full_name: string | null } | null
+}
+
+export interface Vehicle {
+  id: string
+  brand: string
+  model: string
+  color: string
+  plate_number: string
+  year: number | null
+  photo_path: string | null
+}
+
+export interface DriverDocument {
+  id: string
+  doc_type: DriverDocType
+  file_path: string
+  status: DocStatus
+  rejection_reason: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+
+export interface DriverDetail {
+  id: string
+  category: DriverCategory
+  status: DriverStatus
+  city: string | null
+  rating_avg: number
+  rating_count: number
+  total_rides: number
+  created_at: string
+  profiles: { phone: string | null; full_name: string | null } | null
+  vehicles: Vehicle[]
+  driver_documents: DriverDocument[]
+}
+
 export interface AdminStatsOverview {
   rides_today: number
   rides_today_car: number

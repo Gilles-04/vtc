@@ -207,6 +207,39 @@ libre).
 
 ---
 
+## TASK-007 — Écran admin chauffeurs/KYC (liste + détail + décision)
+
+- **Objectif** : deuxième tronçon du dashboard admin — permettre de
+  valider un dossier chauffeur (documents + décision globale) sans passer
+  par SQL direct.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - `/chauffeurs` : liste filtrable par statut (par défaut « en attente de
+    revue »), catégorie, note, nombre de courses.
+  - `/chauffeurs/$driverId` : profil, véhicule, documents KYC (URL signée
+    Storage), décision par document (`admin_review_driver_document`,
+    motif de rejet demandé) et décision globale du dossier
+    (`admin_decide_driver_application`, confirmation demandée).
+  - Navigation ajoutée dans `Shell.tsx` (lien « Chauffeurs »).
+  - `src/lib/types.ts` étendu (`DriverListRow`, `DriverDetail`, `Vehicle`,
+    `DriverDocument`, etc.), nouveaux composants `Badge`/`DriverStatusBadge`/
+    `CategoryBadge`.
+- **Vérifié** : `tsc -b`, `vite build`, `oxlint` propres (2 avertissements
+  non bloquants, pattern déjà présent dans le code précédent — reset d'état
+  au changement de filtre). Playwright/Chromium réel : les deux nouvelles
+  routes protégées redirigent vers `/login` sans session ; avec une session
+  simulée côté navigateur, les deux écrans se montent sans erreur JS et
+  affichent l'état d'erreur réseau attendu (capture d'écran à l'appui). La
+  confirmation bout-en-bout (données réelles, décision KYC effective) n'a
+  pas pu être testée depuis cet environnement (réseau vers `*.supabase.co`
+  bloqué côté sandbox).
+- **Résultat** : le bucket Storage privé `driver-documents` n'a jamais été
+  créé (ni migration, ni trace dashboard) — le lien « Voir » du document
+  restera absent tant qu'il n'existe pas (échec silencieux de
+  `createSignedUrl`, pas de crash). Voir `docs/STATUS.md` §3.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

@@ -1,6 +1,6 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (premier écran réel du dashboard
+*Dernière mise à jour : 3 septembre 2026 (écran chauffeurs/KYC du dashboard
 admin construit et vérifié dans un vrai navigateur)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
@@ -13,16 +13,19 @@ Supabase dédié : 5 migrations + 5 Edge Functions en place, vérifiées
 présentes avec les bonnes URLs. `push-notifications-dispatch` tourne déjà
 réellement de bout en bout (contournement `pg_net`, voir §2).
 
-**Nouveau** : le premier tronçon du **dashboard admin** (`apps/admin/`,
-React 19 + Vite + TanStack Router) est construit — connexion staff + vue
-d'ensemble (`admin_stats_overview`). Vérifié dans un vrai navigateur
-(Playwright) : routage protégé confirmé, formulaire de connexion envoie
-une vraie requête à l'endpoint Auth du projet réel. La confirmation
-bout-en-bout (connexion réussie + données réelles) n'a pas pu être testée
-depuis cet environnement (réseau vers `*.supabase.co` bloqué côté
-sandbox) — à faire en lançant l'app en local sur votre machine.
+**Nouveau** : le **dashboard admin** (`apps/admin/`, React 19 + Vite +
+TanStack Router) a maintenant 3 écrans — connexion staff, vue d'ensemble
+(`admin_stats_overview`), et chauffeurs/KYC (liste filtrable + détail avec
+documents et décision `admin_review_driver_document`/
+`admin_decide_driver_application`). Vérifié dans un vrai navigateur
+(Playwright) : routage protégé confirmé sur les 4 routes, formulaire de
+connexion envoie une vraie requête à l'endpoint Auth du projet réel, écrans
+chauffeurs vérifiés sans erreur JS (session simulée côté navigateur). La
+confirmation bout-en-bout (connexion réussie + données réelles) n'a pas pu
+être testée depuis cet environnement (réseau vers `*.supabase.co` bloqué
+côté sandbox) — à faire en lançant l'app en local sur votre machine.
 
-Reste à construire : les ~23 autres écrans admin, les 2 apps mobiles
+Reste à construire : les ~22 autres écrans admin, les 2 apps mobiles
 (passager/chauffeur), le worker de dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
@@ -75,6 +78,12 @@ facturation/règlement/fraude documentés en [05-ecrans.md](05-ecrans.md)
 - **Worker de dispatch, apps mobiles, reste du dashboard admin non
   construits/déployés** — Auth, Realtime, Storage, `pg_cron` pas encore
   exercés en conditions réelles par une vraie app.
+- **Bucket Storage `driver-documents` jamais créé** (ni migration, ni
+  trace dashboard) — l'écran chauffeurs/KYC affiche les documents mais le
+  lien « Voir » (URL signée) restera absent tant qu'il n'existe pas
+  (échec silencieux, pas de crash). À créer : bucket privé + policy
+  lecture pour le staff admin, lecture/écriture pour le chauffeur sur ses
+  propres fichiers.
 - **Secrets Edge Functions pas tous configurés** : `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe, à faire quand vous voulez) ;
   `ESMS_AFRICA_API_KEY`/`GOOGLE_MAPS_API_KEY` en attente des décisions
@@ -116,8 +125,9 @@ Rien en cours — en attente de la prochaine demande.
    incidents réels corrigés en route (voir §2).
 4. Contournement `pg_net` pour `push-notifications-dispatch`, vérifié
    réellement contre le projet déployé.
-5. Premier tronçon du dashboard admin (`apps/admin/`) : login + vue
-   d'ensemble, vérifié dans un vrai navigateur.
+5. Dashboard admin (`apps/admin/`) : login, vue d'ensemble, et écran
+   chauffeurs/KYC (liste + détail + décision), vérifiés dans un vrai
+   navigateur.
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -125,10 +135,12 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-Deux chantiers indépendants, à choisir selon votre priorité :
-- **Continuer le dashboard admin** : écran suivant le plus utile
-  (probablement chauffeurs/KYC, pour pouvoir valider des dossiers sans
-  passer par SQL direct).
+Trois chantiers indépendants, à choisir selon votre priorité :
+- **Créer le bucket Storage `driver-documents`** : nécessaire pour que le
+  lien « Voir » fonctionne sur l'écran chauffeurs/KYC déjà construit —
+  petite migration SQL (bucket + policies), aucune dépendance externe.
+- **Continuer le dashboard admin** : écran suivant le plus utile à
+  déterminer (courses en temps réel, ou tarification/zones).
 - **Vérification backend** : créer le secret `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe), puis tester réellement
   `phone-verification-check` (nécessite un compte eSMS Africa, §7).
