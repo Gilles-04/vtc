@@ -425,6 +425,37 @@ libre).
 
 ---
 
+## TASK-013 — Scaffold apps/web (première page publique)
+
+- **Objectif** : premier tronçon de l'app web décidée en TASK-012 —
+  répondre concrètement au besoin de commander sans smartphone.
+- **Statut** : Terminé (3 septembre 2026) pour ce premier tronçon ; auth
+  et demande de course restent à construire (dépendent de décisions pas
+  encore prises — méthode OTP vs email, compte eSMS Africa).
+- **Fait** :
+  - `apps/web/` scaffoldé avec exactement la même stack que
+    `apps/admin/` (React 19.2.8 + Vite 8.2.2 + TanStack Router 1.170 +
+    Tailwind v4 + `@supabase/supabase-js` 2.114, mêmes fichiers de
+    config copiés puis adaptés) et la même palette bleu nuit/or pour la
+    cohérence de marque.
+  - `/` : page d'accueil publique, deux entrées (« Je suis passager » /
+    « Je suis chauffeur »).
+  - `/passager`, `/chauffeur` : pages d'attente honnêtes (« bientôt
+    disponible ») plutôt que des flux d'auth non testables — la
+    méthode d'authentification passager (OTP téléphone via eSMS Africa,
+    compte pas encore créé) et le contenu réel de ces écrans ne sont pas
+    encore décidés.
+- **Vérifié** : `tsc -b`, `vite build`, `oxlint` propres. Playwright/
+  Chromium réel : accueil rendu correctement en desktop et mobile
+  (390×844), navigation `/` → `/passager` par clic et accès direct à
+  `/chauffeur`, aucune erreur JS sur les 3 pages.
+- **Résultat** : première pierre de l'app web posée, vérifiée, poussée.
+  Prochaine étape naturelle : décider la méthode d'auth passager, puis
+  construire le flux de demande de course (dépend aussi de la décision
+  cartographie, §7 de `docs/STATUS.md`, non tranchée).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

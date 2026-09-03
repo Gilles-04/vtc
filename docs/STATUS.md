@@ -1,8 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (révision d'architecture — app
-web ajoutée, passager/chauffeur unifiés par plateforme — construction en
-cours)*
+*Dernière mise à jour : 3 septembre 2026 (`apps/web` scaffoldé — page
+d'accueil publique passager/chauffeur, vérifiée dans un vrai navigateur)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -24,7 +23,15 @@ livrables, chacun couvrant passager **et** chauffeur (sauf l'admin) :
 Web, Android, iOS, Admin. Android/iOS restent un seul code Expo
 (`apps/mobile`) — pas un chantier de plus, deux publications de store.
 Détail et justification : `docs/02-architecture-technique.md` §Révision
-du 3 septembre 2026. `apps/web` en cours de scaffolding.
+du 3 septembre 2026.
+
+**`apps/web` — premier tronçon construit** : page d'accueil publique
+(deux entrées, passager/chauffeur), même stack et même palette que
+`apps/admin`. Vérifié dans un vrai navigateur (Playwright) : rendu
+desktop et mobile, navigation, aucune erreur JS. Les pages `/passager` et
+`/chauffeur` sont des placeholders honnêtes (« bientôt disponible ») —
+l'auth passager et la demande de course dépendent de décisions pas
+encore prises (méthode OTP, compte eSMS Africa, cartographie).
 
 Un serveur **MCP Supabase** est connecté à cette session (accès direct au
 projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
@@ -33,8 +40,9 @@ l'app elle-même) ne peut toujours pas contacter `*.supabase.co`
 directement depuis cet environnement — vérification bout-en-bout à faire
 en local chez vous ou dans une session avec accès réseau élargi.
 
-Reste à construire : `apps/web`, `apps/mobile`, ~20 autres écrans admin,
-le worker de dispatch (écrit, pas déployé).
+Reste à construire : le reste de `apps/web` (auth, demande de course),
+`apps/mobile`, ~20 autres écrans admin, le worker de dispatch (écrit, pas
+déployé).
 
 ## 2. Ce qui fonctionne
 
@@ -96,7 +104,8 @@ push ; dashboard admin (login, vue d'ensemble, chauffeurs/KYC, courses) ;
 bucket Storage `driver-documents` ; correction d'un bug d'embedding
 PostgREST (FK manquantes) ; MCP Supabase connecté + durcissement de 13
 grants internes ; données de démo + vérification à 5 écrans ; révision
-d'architecture (4 plateformes) + `apps/web` en cours.
+d'architecture (4 plateformes) ; `apps/web` scaffoldé (page d'accueil
+publique passager/chauffeur, vérifiée).
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -104,16 +113,18 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-En cours : scaffolding de `apps/web` (React 19 + Vite + TanStack Router +
-Tailwind + Supabase, même stack que l'admin) — premier écran : page
-d'accueil publique avec entrée passager et entrée chauffeur.
+Pour avancer sur `apps/web` au-delà de la page d'accueil, une décision
+est nécessaire : **méthode d'authentification passager** — OTP téléphone
+(prévu au cadrage, nécessite le compte eSMS Africa pas encore créé) ou
+email/mot de passe en intérimaire (comme l'admin, testable dès
+maintenant, à remplacer plus tard). Sans réponse, je pars sur
+email/mot de passe par défaut pour ne pas bloquer.
 
-Ensuite, sans priorité indiquée : continuer `apps/web` (auth passager,
-demande de course) ou reprendre le dashboard admin (paiements/abonnements).
-En parallèle, reste ouvert quand vous voulez : créer le secret
-`PAYMENT_WEBHOOK_SECRET`, tester `phone-verification-check` (compte eSMS
-Africa requis). Worker de dispatch et décisions fournisseurs (§7) non
-bloquants.
+Sinon, sans priorité indiquée : reprendre le dashboard admin
+(paiements/abonnements). En parallèle, reste ouvert quand vous voulez :
+créer le secret `PAYMENT_WEBHOOK_SECRET`, tester `phone-verification-check`
+(compte eSMS Africa requis). Worker de dispatch et décisions fournisseurs
+(§7) non bloquants.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
