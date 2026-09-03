@@ -387,6 +387,44 @@ libre).
 
 ---
 
+## TASK-012 — Révision d'architecture : app web + 4 plateformes unifiées
+
+- **Objectif** : le porteur du projet a demandé une app web en plus des
+  apps mobiles (« pour permettre à ceux qui n'ont pas de téléphone de
+  commander directement sur le web »), et a redéfini la structure des
+  livrables en 4 plateformes, chacune couvrant passager **et**
+  chauffeur (sauf l'admin) : ① Web, ② Android, ③ iOS, ④ Admin.
+- **Statut** : Documentation terminée (3 septembre 2026) ; `apps/web` en
+  cours de scaffolding.
+- **Fait** :
+  - `docs/02-architecture-technique.md` : nouvelle section « Révision du
+    3 septembre 2026 », tableau des choix de stack mis à jour (app
+    mobile unique passager+chauffeur, app web ajoutée), diagramme
+    d'ensemble et arborescence du monorepo mis à jour.
+  - `apps/passenger/README.md` et `apps/driver/README.md` (READMEs
+    seuls, aucun code — rien perdu) remplacés par `apps/mobile/README.md`.
+  - `README.md` racine : arborescence `apps/` mise à jour (`web/`,
+    `mobile/`, `admin/`), description de `apps/admin/` corrigée (elle
+    listait encore « login + vue d'ensemble » seulement, alors que
+    chauffeurs/KYC et courses sont construits depuis — corrigé au
+    passage).
+  - `docs/STATUS.md` réécrit (était monté à 221 lignes) pour refléter la
+    révision sans repartir d'une page blanche — condensé le §5
+    « Dernièrement terminé » en pointant vers le détail déjà présent
+    dans ce fichier plutôt que de le dupliquer.
+- **Décision notée** : ceci **inverse** un choix documenté et justifié
+  lors du cadrage initial (`02-architecture-technique.md` disait
+  explicitement « pas de bascule de mode dans une appli unique, pour
+  garder chaque interface strictement focalisée sur son usage »).
+  Signalé une fois au porteur du projet en conversation ; il a confirmé
+  vouloir la nouvelle structure. Les jeux d'écrans passager/chauffeur
+  documentés en `05-ecrans.md` restent distincts (seule la bascule de
+  mode et le binaire sont désormais partagés) — pas de refonte du
+  sitemap nécessaire.
+- **Résultat** : voir TASK-013 pour `apps/web`.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

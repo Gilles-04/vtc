@@ -43,9 +43,9 @@ non encore choisi, voir doc 10).
 
 ```
 apps/
-  passenger/    # app Expo passager — non initialisée, voir docs/12-roadmap.md
-  driver/       # app Expo chauffeur — non initialisée
-  admin/        # dashboard web — premier tronçon construit (login + vue d'ensemble), voir apps/admin/README.md
+  web/          # app web publique, passager + chauffeur — non initialisée (voir docs/02-architecture-technique.md §Révision du 3 septembre 2026)
+  mobile/       # app Expo (Android + iOS), passager + chauffeur — non initialisée, voir docs/12-roadmap.md
+  admin/        # dashboard web, équipe uniquement — connexion, vue d'ensemble, chauffeurs/KYC, courses construits, voir apps/admin/README.md
 packages/
   shared-types/ # types générés depuis le schéma Supabase
   api-client/   # client Supabase + fonctions typées communes

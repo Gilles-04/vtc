@@ -5,14 +5,34 @@
 | Couche | Choix | Pourquoi |
 |---|---|---|
 | Données/Auth/Realtime/Storage | **Supabase** (Postgres + PostGIS) — projet dédié, séparé de celui de MBONPLAN | Auth OTP téléphone native, RLS pour l'isolation passager/chauffeur/admin, Realtime pour la position live et le dispatch de course, Storage pour les documents KYC, Edge Functions pour la logique serveur sensible (matching, paiements). Réduit drastiquement le temps de mise sur le marché du MVP. Reste du Postgres standard — pas d'enfermement propriétaire si une migration devient nécessaire plus tard. |
-| App passager | **React Native (Expo)** | Un seul code pour Android/iOS, écosystème mature, cible explicite « Android d'entrée/milieu de gamme » (§11 du cadrage) — Expo permet des builds légers et des mises à jour OTA sans repasser par le store pour les correctifs non natifs. |
-| App chauffeur | **React Native (Expo)**, projet séparé du passager | Parcours et permissions radicalement différents (géoloc continue, navigation, revenus) ; deux fiches store, deux cycles de publication indépendants. Code partagé via un package commun (voir monorepo ci-dessous). |
+| App mobile (Android/iOS) | **React Native (Expo)**, un seul binaire pour les deux rôles (passager et chauffeur, bascule de mode dans l'app — révisé le 3 septembre 2026, voir §Révision ci-dessous) | Un seul code pour Android/iOS, écosystème mature, cible explicite « Android d'entrée/milieu de gamme » (§11 du cadrage) — Expo permet des builds légers et des mises à jour OTA sans repasser par le store pour les correctifs non natifs. |
+| App Web (`apps/web`) | **React 19 + Vite + TanStack Router**, mêmes rôles que le mobile (passager et chauffeur) | Ajoutée le 3 septembre 2026 à la demande du porteur du projet : permet de commander une course sans smartphone (cybercafé, ordinateur partagé) — un vrai besoin au Togo, pas un simple confort. Même stack que le dashboard admin, code réutilisable (composants, client Supabase). |
 | Dashboard admin | **React 19 + Vite + TanStack Router**, app web | Cohérent avec l'expérience déjà en place sur MBONPLAN, pas de besoin mobile pour l'admin. |
 | Cartographie | **Google Maps Platform** (Maps SDK mobile, Places Autocomplete, Directions API, Geocoding) — voir alternative ci-dessous | Meilleure couverture d'adresses et de POI à Lomé qu'une alternative gratuite au lancement. Architecture conçue pour rester swappable (couche d'abstraction `lib/maps/`) — Mapbox reste l'option de repli si le coût par requête devient un problème à l'échelle. **Décision à confirmer avec vous** : nécessite une clé API facturée à l'usage. |
 | Paiement Mobile Money | **Abstraction multi-fournisseur**, aucun fournisseur câblé au jour 1 | Aucun prestataire n'est encore choisi (Flooz/TMoney en direct, ou agrégateur type Semoa/CinetPay/PayGate). Voir [10-paiements.md](10-paiements.md) — le circuit `pending → success/failed` fonctionne dès le MVP en mode manuel/admin, comme MBONPLAN l'a fait pour son propre paiement. |
 | SMS / OTP | **eSMS Africa (Verify API)** | Déjà en usage éprouvé en production togolaise sur MBONPLAN (délivrabilité correcte via l'API Verify dédiée, contrairement à l'envoi générique). Nécessite un compte/API key **distinct** de celui de MBONPLAN. |
 | Notifications push | **Expo Push Notifications** (FCM sous le capot) | Intégré nativement à Expo, pas de configuration Firebase manuelle nécessaire pour démarrer. |
 | Génération de reçus/factures | **jsPDF** | Cohérence avec l'écosystème déjà maîtrisé (MBONPLAN), léger côté client comme serveur. |
+
+## Révision du 3 septembre 2026 : 4 plateformes, passager/chauffeur unifiés
+
+Décision du porteur du projet, qui inverse un choix documenté plus haut
+(garder les rôles strictement séparés « pour garder chaque interface
+focalisée ») : désormais **4 livrables**, chacun couvrant passager et
+chauffeur sauf l'admin :
+
+1. **Web** (`apps/web`) — nouveau, répond au besoin de commander sans
+   smartphone.
+2. **Android** — binaire Expo, mode passager/chauffeur.
+3. **iOS** — même code Expo que Android, binaire distinct côté stores.
+4. **Admin** (`apps/admin`) — inchangé, équipe uniquement.
+
+Android et iOS restent un seul code source (Expo produit les deux
+binaires depuis `apps/mobile`) — ce n'est pas un cinquième chantier de
+développement, seulement deux publications de store distinctes.
+`apps/passenger`/`apps/driver` (scaffoldés séparément en phase de cadrage)
+sont donc remplacés par `apps/mobile` avant que du code n'y soit écrit —
+aucune perte, ils ne contenaient qu'un README chacun.
 
 ## Vue d'ensemble
 
@@ -22,13 +42,13 @@
                         │  (Maps, Places, Direct.)│
                         └───────────▲─────────────┘
                                     │
-┌───────────────┐  ┌───────────────┴──────────────┐  ┌────────────────┐
-│  App Passager  │  │        App Chauffeur          │  │  Dashboard      │
-│ React Native   │  │        React Native            │  │  Admin (Web)    │
-│   (Expo)       │  │        (Expo)                   │  │  React + Vite   │
-└───────┬────────┘  └───────────────┬────────────────┘  └────────┬────────┘
-        │  HTTPS + Realtime WS                    │                 │  HTTPS
-        └───────────────┬──────────────────────────┴─────────────────┘
+┌────────────────┐  ┌──────────────┴──────────────┐  ┌────────────────┐
+│   App Web       │  │         App Mobile           │  │  Dashboard      │
+│ React + Vite    │  │   React Native (Expo)         │  │  Admin (Web)    │
+│ passager+chauff. │  │   passager+chauffeur          │  │  React + Vite   │
+└────────┬────────┘  └───────────────┬───────────────┘  └────────┬────────┘
+         │  HTTPS                    │  HTTPS + Realtime WS       │  HTTPS
+         └───────────────┬────────────┴──────────────────────────┘
                          ▼
               ┌──────────────────────────┐
               │        Supabase           │
@@ -74,9 +94,9 @@ d'atomicité que le client ne peut pas fournir :
 ```
 vtc/
 ├── apps/
-│   ├── passenger/     # app Expo passager
-│   ├── driver/        # app Expo chauffeur
-│   └── admin/         # dashboard web
+│   ├── web/            # app web publique, passager + chauffeur
+│   ├── mobile/         # app Expo (Android + iOS), passager + chauffeur
+│   └── admin/          # dashboard web, équipe uniquement
 ├── packages/
 │   ├── shared-types/  # types générés depuis le schéma Supabase
 │   ├── api-client/    # client Supabase + fonctions typées communes
@@ -87,11 +107,12 @@ vtc/
 └── docs/
 ```
 
-Un chauffeur peut aussi être passager (compte unique) : les deux apps
-partagent la même base Auth Supabase, mais restent deux binaires distincts —
-pas de bascule de mode dans une appli unique, pour garder chaque interface
-strictement focalisée sur son usage (cohérent avec l'exigence de simplicité
-et de rapidité du §11).
+Un chauffeur peut aussi être passager (compte unique, `user_roles` porte
+déjà les deux rôles cumulables — schéma inchangé). Depuis la révision du
+3 septembre 2026 (voir plus haut), web et mobile portent les deux rôles
+dans un seul binaire par plateforme, avec une bascule de mode explicite à
+la connexion (pas de mélange des deux dans un même écran — chaque mode
+garde son propre jeu d'écrans, seul le point d'entrée est partagé).
 
 ## Scalabilité (100 → dizaines de milliers de chauffeurs)
 
