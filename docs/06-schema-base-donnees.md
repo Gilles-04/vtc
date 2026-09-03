@@ -9,6 +9,9 @@ PostGIS local (pas seulement relu) :
 - [`../supabase/migrations/00000000000002_business_logic.sql`](../supabase/migrations/00000000000002_business_logic.sql) — fonctions RPC, triggers, tâches planifiées
 - [`../supabase/migrations/00000000000003_phone_verification.sql`](../supabase/migrations/00000000000003_phone_verification.sql) — suivi de la vérification téléphone pré-inscription
 - [`../supabase/migrations/00000000000004_push_tokens.sql`](../supabase/migrations/00000000000004_push_tokens.sql) — jeton de notification push
+- [`../supabase/migrations/00000000000005_notifications_push_trigger.sql`](../supabase/migrations/00000000000005_notifications_push_trigger.sql) — contournement `pg_net` du Database Webhook natif cassé sur ce projet
+- [`../supabase/migrations/00000000000006_driver_documents_storage.sql`](../supabase/migrations/00000000000006_driver_documents_storage.sql) — bucket Storage `driver-documents` + policies RLS
+- [`../supabase/migrations/00000000000007_profile_embed_fks.sql`](../supabase/migrations/00000000000007_profile_embed_fks.sql) — FK additionnelles `drivers.id`/`rides.passenger_id` → `profiles.id` (embedding PostgREST, voir §Identité)
 
 ## Vue relationnelle simplifiée
 
@@ -92,6 +95,14 @@ simple champ), `status` (`pending_documents`|`pending_review`|
 `approved` + `is_available`. Aucun accès en écriture directe côté client
 (ni `INSERT` ni les colonnes `status`/`category`) : `submit_driver_application`
 (`SECURITY DEFINER`) est le seul point de création.
+
+**`id` porte deux FK** vers `auth.users(id)` (identité) **et**, depuis la
+migration 7, vers `public.profiles(id)` — ajoutée après coup car
+PostgREST ne peut embarquer `profiles(...)` dans une requête `drivers`
+sans contrainte FK directe entre les deux tables (contrairement à
+`passengers.id`, qui référence déjà `profiles` depuis le début). Même
+correctif sur `rides.passenger_id`. Voir le commentaire en tête de
+`00000000000007_profile_embed_fks.sql`.
 
 ### `driver_documents`, `vehicles`
 Inchangés depuis le cadrage initial — voir [01](01-architecture-fonctionnelle.md)/[05](05-ecrans.md).

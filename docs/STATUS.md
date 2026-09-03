@@ -1,7 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (bucket Storage `driver-documents`
-déployé sur le projet réel)*
+*Dernière mise à jour : 3 septembre 2026 (bug d'embedding PostgREST
+profiles trouvé et corrigé, migration 7 en attente de collage)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -29,15 +29,26 @@ local sur votre machine.
 déployé sur le projet réel — le lien « Voir » d'un document, jusque-là
 inerte, fonctionne désormais.
 
+**Bug trouvé en préparant l'écran suivant** : `drivers.id` et
+`rides.passenger_id` référencent `auth.users` directement, jamais
+`profiles` — sans FK entre les deux tables, PostgREST ne peut pas
+embarquer `profiles(...)` (`Could not find a relationship...`). Ça aurait
+cassé l'affichage du nom/téléphone dans l'écran chauffeurs déjà livré
+(jamais détecté, jamais exercé contre le projet réel). Corrigé par la
+migration 7 (`00000000000007_profile_embed_fks.sql`, ajoute les FK
+manquantes, aucun changement de code requis) — **vérifiée en local,
+reste à coller** (voir §6).
+
 Reste à construire : les ~22 autres écrans admin, les 2 apps mobiles
 (passager/chauffeur), le worker de dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (6 migrations), vérifiée de bout en bout contre
-Postgres 16 + PostGIS local, **et déployée** sur le projet réel (32
-tables, 49 fonctions, 51 policies RLS, 6 plans, bucket Storage
-`driver-documents` avec ses 4 policies — comptage confirmé identique) :
+**Base de données** (7 migrations, la 7ᵉ écrite et vérifiée en local, pas
+encore collée sur le projet réel), vérifiée de bout en bout contre
+Postgres 16 + PostGIS local (32 tables, 49 fonctions, 51 policies RLS, 6
+plans, bucket Storage `driver-documents` avec ses 4 policies pour les 6
+premières migrations — comptage confirmé identique sur le projet réel) :
 - Cycle complet d'une course par catégorie (voiture/moto), matching filtré
   par catégorie, cash ou Mobile Money.
 - Frais de service (2,5 %) calculés une fois à la confirmation du
@@ -128,6 +139,9 @@ Rien en cours — en attente de la prochaine demande.
    navigateur.
 6. Bucket Storage `driver-documents` + policies RLS (migration 6),
    vérifié en local puis déployé sur le projet réel.
+7. Bug d'embedding PostgREST `profiles` trouvé (en préparant l'écran
+   courses) et corrigé (migration 7, FK manquantes) — vérifié en local,
+   pas encore collé sur le projet réel.
 
 Antérieurement (2 septembre 2026) : backend initial complet (schéma,
 ~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
@@ -135,9 +149,14 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-Sans priorité indiquée, je poursuis le dashboard admin (écran suivant à
-déterminer — probablement courses en temps réel, plus visible que
-tarification/zones). En parallèle, reste ouvert quand vous voulez :
+- **Coller la migration 7** (FK `profiles`, < 1 Ko, un seul morceau,
+  aucune dépendance externe) — bloquant pour tout futur écran qui affiche
+  un nom/téléphone de passager ou chauffeur.
+
+Ensuite, sans priorité indiquée, je poursuis le dashboard admin — écran
+« Liste courses » plutôt que « Carte live » (celle-ci dépend de la
+décision cartographie non encore prise, §7). En parallèle, reste ouvert
+quand vous voulez :
 - **Vérification backend** : créer le secret `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe), puis tester réellement
   `phone-verification-check` (nécessite un compte eSMS Africa, §7).

@@ -273,6 +273,36 @@ libre).
 
 ---
 
+## TASK-009 — Corrige l'embedding PostgREST profiles cassé (drivers/rides)
+
+- **Objectif** : en préparant l'écran « Liste courses », repéré que
+  `drivers.id` et `rides.passenger_id` référencent `auth.users`
+  directement, jamais `public.profiles` (contrairement à `passengers.id`,
+  qui référence bien `profiles`) — PostgREST ne peut embarquer une
+  relation sans contrainte FK explicite entre les deux tables demandées.
+  `Drivers.tsx`/`DriverDetail.tsx` (TASK-007, déjà commités) utilisent
+  `.select('..., profiles(phone, full_name)')` depuis `drivers` : ça
+  aurait échoué à l'exécution contre de vraies données avec « Could not
+  find a relationship... » — jamais détecté car jamais exercé contre le
+  projet réel (réseau sandbox bloqué).
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** : migration 7
+  (`00000000000007_profile_embed_fks.sql`) — ajoute
+  `drivers.id → profiles.id` et `rides.passenger_id → profiles.id` (FK
+  additionnelles, aucune retirée). Aucun changement de code nécessaire
+  côté `apps/admin/` : `profiles(...)` résout désormais sans ambiguïté.
+- **Vérifié** contre un Postgres 16 local (schémas stub reconstruits) :
+  les 7 migrations s'appliquent en séquence ; `pg_constraint` confirme
+  exactement une FK `drivers → profiles` et une `rides → profiles` (pas
+  d'ambiguïté pour PostgREST) ; une jointure `rides → profiles` (passager)
+  et `rides → drivers → profiles` (chauffeur) sur des données réelles
+  insérées localement retourne les bons `phone`/`full_name`.
+- **Résultat** : migration prête à coller (< 1 Ko, un seul morceau).
+  Débloque pour de bon l'identité passager/chauffeur sur tout futur écran
+  (liste courses, paiements, etc.) sans requête manuelle supplémentaire.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
