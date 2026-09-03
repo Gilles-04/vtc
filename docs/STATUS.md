@@ -1,7 +1,8 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 3 septembre 2026 (dashboard admin complet — les
-24 écrans de docs/05-ecrans.md sont tous construits)*
+*Dernière mise à jour : 3 septembre 2026 (bootstrap du premier compte
+admin — mot de passe probablement à réinitialiser avant de pouvoir
+l'utiliser)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -49,8 +50,7 @@ bloquée sur **deux points**, indépendants du choix cartographie
    — `pricing-directions` (Edge Function) attend déjà des coordonnées.
 2. **`pricing_rules` est vide** sur le projet réel — `estimate_ride_fare`
    échoue tant qu'aucune règle n'existe pour une catégorie. Se règle en
-   30 secondes via `/tarification` (dashboard admin, maintenant
-   construit) une fois votre compte admin créé.
+   30 secondes via `/tarification` (dashboard admin) une fois connecté.
 
 Un serveur **MCP Supabase** est connecté à cette session (accès direct au
 projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
@@ -94,12 +94,14 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 - **Secrets Edge Functions pas tous configurés** : `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe) ; `GOOGLE_MAPS_API_KEY` en attente (§7).
   `ESMS_AFRICA_API_KEY` n'est plus à l'ordre du jour (abandonné).
-- **Aucun compte staff admin n'existe encore** — le premier `super_admin`
-  doit être créé à la main en SQL une fois le compte Auth créé via le
-  dashboard (voir `apps/admin/README.md` §Bootstrap) : impossible
-  autrement, la policy RLS de `admin_roles` exige déjà d'être
-  `super_admin` pour y écrire. Bloque la vérification bout-en-bout des
-  24 écrans admin avec de vraies actions.
+- **Premier compte admin créé** (`abotchigilles@yahoo.fr`,
+  `super_admin` inséré dans `admin_roles` via MCP) mais **mot de passe
+  probablement inutilisable** : ce compte existait déjà comme compte
+  passager (créé via `/passager`, code email — TASK-021), jamais via un
+  formulaire email+mot de passe. `/login` (`apps/admin`) utilise
+  `signInWithPassword` — réinitialiser le mot de passe depuis Dashboard
+  → Authentication → Users si la connexion échoue. Non testable depuis
+  ce sandbox (réseau bloqué).
 - **Database Webhook natif Supabase cassé sur ce projet** — contourné
   pour `push-notifications-dispatch`, un futur besoin similaire
   rencontrera la même anomalie.
@@ -126,7 +128,10 @@ Rien en cours — en attente de la prochaine demande.
 ## 5. Dernièrement terminé
 
 **3 septembre 2026** — détail complet de chaque point dans
-`docs/TASKS.md` (TASK-004 à TASK-026, une entrée par point) : révision
+`docs/TASKS.md` (TASK-004 à TASK-027, une entrée par point) : **premier
+compte admin bootstrappé** (`super_admin` inséré pour
+`abotchigilles@yahoo.fr`, mot de passe probablement à réinitialiser —
+voir §3) ; révision
 du modèle économique (catégories, frais de service) ; module paiement/
 abonnement/facturation ; déploiement réel du schéma (12 migrations) et
 des 5 Edge Functions ; contournement `pg_net` pour les push ; **les 24
@@ -144,20 +149,20 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-Le dashboard admin est terminé — plus d'écran attendu de ce côté sauf
-demande nouvelle. Prochain chantier naturel : la **demande de course
-côté passager** dans `apps/web`, actuellement bloquée sur deux points
-indépendants (§1/§3/§7) — clé Google Maps et `pricing_rules` vide (ce
-second point se résout maintenant que `/tarification` existe, dès que
-le compte admin est créé). Sinon, en parallèle et non bloquant : worker
-de dispatch, `apps/mobile`, `PAYMENT_WEBHOOK_SECRET`, décisions
-fournisseurs (§7).
+Le dashboard admin est terminé côté code. Reste à confirmer que vous
+pouvez réellement vous y connecter (§3/§7 — mot de passe à
+réinitialiser probablement) pour valider les 24 écrans avec de vraies
+actions. En parallèle, prochain chantier naturel : la **demande de
+course côté passager** dans `apps/web`, bloquée sur la clé Google Maps
+(`pricing_rules` se règle en 30 secondes une fois connecté à
+`/tarification`). Sinon, non bloquant : worker de dispatch,
+`apps/mobile`, `PAYMENT_WEBHOOK_SECRET`, décisions fournisseurs (§7).
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
-- **Compte admin** : créez votre compte (Dashboard → Authentication →
-  Users → Add user), donnez-moi l'UUID pour le rôle `super_admin`. Sans
-  ça, impossible de vérifier les 24 écrans admin avec de vraies actions.
+- **Connexion admin** : essayez `/login` avec `abotchigilles@yahoo.fr`.
+  Si ça échoue (probable — voir §3), réinitialisez le mot de passe
+  depuis Dashboard → Authentication → Users → ce compte.
 - **Clé API Google Maps** (fournisseur décidé le 3 septembre 2026) —
   console.cloud.google.com, activer *Directions API*, *Places API* et
   *Maps JavaScript API* sur un même projet, puis créer deux clés :

@@ -912,6 +912,35 @@ libre).
 
 ---
 
+## TASK-027 — Bootstrap du premier compte admin (super_admin)
+
+- **Objectif** : débloquer la vérification bout-en-bout des 24 écrans
+  admin — le porteur du projet a donné l'email à utiliser
+  (`abotchigilles@yahoo.fr`).
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** : vérifié que ce compte existait déjà côté `auth.users`
+  (c'est l'un des deux comptes créés par le porteur du projet en
+  testant `/passager` en local, TASK-021 — email confirmé) ; inséré
+  `('594619db-16a4-49f0-a207-641c32643308', 'super_admin')` dans
+  `public.admin_roles` via MCP (`execute_sql`), suivant exactement le
+  bootstrap documenté dans `apps/admin/README.md` §Bootstrap ; revérifié
+  par une jointure `admin_roles`/`auth.users` sur l'email.
+- **Point d'attention signalé** : ce compte a été créé via le flux
+  passager par code email (`signInWithOtp`), pas via un formulaire
+  email+mot de passe — `encrypted_password` est renseigné en base
+  (`has_password: true`) mais rien ne garantit que ce soit un mot de
+  passe que le porteur du projet connaît/a choisi (comportement
+  standard Supabase pour un compte créé par OTP). Or `/login`
+  (`apps/admin`) utilise `signInWithPassword`. À vérifier au premier
+  essai de connexion — si ça échoue, réinitialiser le mot de passe
+  depuis Dashboard → Authentication → Users.
+- **Résultat** : `admin_roles` contient désormais un `super_admin`.
+  Reste à confirmer que la connexion fonctionne réellement (mot de
+  passe utilisable) — non testable depuis ce sandbox (réseau bloqué),
+  à faire en local ou une fois le mot de passe réinitialisé.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
