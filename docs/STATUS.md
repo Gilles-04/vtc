@@ -33,8 +33,15 @@ construite** : `/passager` (saisie email → code reçu → compte créé,
 société) — code par email au lieu du SMS prévu au cadrage, conçu pour
 accueillir les deux moyens plus tard (circuit téléphone en réserve,
 non appelé). Détail : `docs/02-architecture-technique.md` §Révision
-authentification. `/chauffeur` reste un placeholder ; la demande de
-course dépend encore de la cartographie (non tranchée).
+authentification. `/chauffeur` reste un placeholder.
+
+**Cartographie : Google Maps** (décidé). La demande de course reste
+bloquée en pratique, pas sur le choix mais sur la **clé API** elle-même —
+aucune fournie à ce jour (voir §7). `pricing-directions` (Edge Function)
+attend déjà des coordonnées et appelle Google Directions côté serveur ;
+il manque la clé secrète (`GOOGLE_MAPS_API_KEY`) et une clé restreinte
+côté client (Maps JavaScript + Places Autocomplete) pour saisir une
+adresse.
 
 Un serveur **MCP Supabase** est connecté à cette session (accès direct au
 projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
@@ -91,8 +98,10 @@ regroupement passager+chauffeur par plateforme.
   l'immédiat** — eSMS Africa abandonné, circuit en réserve pour un futur
   fournisseur SMS.
 - **Rendu PDF de la facture non construit.**
-- **Décisions fournisseurs non prises** : Google Maps vs Mapbox, Mobile
-  Money (§7) — non bloquant, backend en mode manuel/admin.
+- **Clé API Google Maps manquante** (fournisseur décidé, voir §1/§7) —
+  bloque la demande de course côté passager, rien d'autre.
+- **Mobile Money** : fournisseur non choisi (§7) — non bloquant, backend
+  en mode manuel/admin.
 - **Critère de fiabilité du matching non implémenté** (doc 08).
 - **Protection mots de passe compromis (HaveIBeenPwned) désactivée** —
   interrupteur dashboard (Authentication → Password protection), pas une
@@ -121,9 +130,9 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-Sans priorité indiquée : demande de course côté passager (dépend de la
-décision cartographie, §7 — bloquant pour cet écran précis) ou reprendre
-le dashboard admin (paiements/abonnements). Worker de dispatch,
+La demande de course côté passager reste bloquée sur la clé Google Maps
+(§7, pas sur le choix du fournisseur — déjà tranché). En attendant, je
+reprends le dashboard admin (écran Paiements). Worker de dispatch,
 `PAYMENT_WEBHOOK_SECRET` et autres décisions fournisseurs (§7) non
 bloquants, en parallèle.
 
@@ -131,7 +140,17 @@ bloquants, en parallèle.
 
 - **Compte admin** : créez votre compte (Dashboard → Authentication →
   Users → Add user), donnez-moi l'UUID pour le rôle `super_admin`.
-- **Cartographie** : Google Maps Platform (recommandé) ou Mapbox.
+- **Clé API Google Maps** (fournisseur décidé le 3 septembre 2026) —
+  console.cloud.google.com, activer *Directions API*, *Places API* et
+  *Maps JavaScript API* sur un même projet, puis créer deux clés :
+  1. Une clé **sans restriction de referrer**, avec seulement
+     *Directions API* activée — c'est `GOOGLE_MAPS_API_KEY`, le secret
+     Edge Function déjà en attente.
+  2. Une clé **restreinte par referrer HTTP** (votre domaine, ou
+     `localhost` pour tester) avec *Places API* + *Maps JavaScript API*
+     — celle-ci sera visible côté navigateur par construction (comme
+     toute clé Maps JS), la restriction de referrer est ce qui la
+     protège d'un usage détourné.
 - **Mobile Money** : Flooz, TMoney (direct) ou Semoa Togo (agrégateur) —
   non bloquant. Détermine aussi la réponse à la question de custody des
   fonds notée en §3.

@@ -517,6 +517,24 @@ libre).
 
 ---
 
+## TASK-016 — Décision cartographie : Google Maps
+
+- **Objectif** : le porteur du projet a tranché Google Maps vs Mapbox
+  (Google Maps retenu) — répercuter partout où la décision était
+  documentée comme ouverte.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** : `docs/STATUS.md` (§1/§3/§6/§7), `docs/02-architecture-technique.md`
+  (tableau de stack), `supabase/functions/pricing-directions/index.ts`
+  (commentaire en tête de fichier).
+- **Résultat** : la demande de course côté passager reste bloquée en
+  pratique — pas sur le choix, sur la clé API elle-même, jamais fournie.
+  Demandée en détail (`docs/STATUS.md` §7) : une clé serveur
+  (`GOOGLE_MAPS_API_KEY`, Directions API, déjà attendue par
+  `pricing-directions`) et une clé client restreinte par referrer
+  (Places API + Maps JavaScript API).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

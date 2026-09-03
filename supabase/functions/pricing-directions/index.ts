@@ -1,6 +1,6 @@
 // Calcule la distance et la durée réelles d'un trajet via Google Directions
 // API (clé jamais exposée au client — voir docs/02-architecture-technique.md,
-// choix Google Maps vs Mapbox encore à confirmer), puis applique la
+// choix Google Maps décidé le 3 septembre 2026), puis applique la
 // tarification (`estimate_ride_fare`) pour renvoyer un prix figé au client
 // en un seul aller-retour.
 import { createAdminClient } from "../_shared/supabase-admin.ts";
