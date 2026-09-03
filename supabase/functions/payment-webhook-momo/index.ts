@@ -1,10 +1,12 @@
-// Réception des webhooks du fournisseur Mobile Money (paiement
-// d'abonnement chauffeur). Aucun fournisseur n'est encore choisi
-// (docs/10-paiements.md) : la forme exacte du payload et de la signature
-// est donc volontairement isolée dans les deux fonctions marquées
-// « À ADAPTER » ci-dessous — le reste (déduplication, re-vérification,
-// activation de l'abonnement) ne changera pas quel que soit le
-// fournisseur retenu.
+// Réception des webhooks du fournisseur Mobile Money — couvre deux flux
+// distincts partageant la même infrastructure de déduplication/signature
+// (voir docs/10-paiements.md) : paiement d'abonnement chauffeur
+// (purpose='driver_subscription') et paiement de course
+// (purpose='ride_fare'). Aucun fournisseur n'est encore choisi : la forme
+// exacte du payload et de la signature est donc volontairement isolée
+// dans les fonctions marquées « À ADAPTER » ci-dessous — le reste
+// (déduplication, re-vérification, activation) ne changera pas quel que
+// soit le fournisseur retenu.
 //
 // Principe non négociable (voir docs/10-paiements.md) : on ne fait
 // jamais confiance au seul contenu du webhook. Après vérification de la
@@ -135,15 +137,47 @@ Deno.serve(async (req: Request) => {
   //     headers: { Authorization: `Bearer ${Deno.env.get("MOMO_PROVIDER_API_KEY")}` },
   //   }).then((r) => r.json());
   //   if (verified.status !== event.status) { ... traiter comme suspect, ne pas activer ... }
+  //   -> `verified.amount` doit remplacer `payment.amount_fcfa` ci-dessous
+  //      dans l'appel à `confirm_ride_payment` une fois cet appel branché :
+  //      c'est le montant confirmé par le fournisseur qui doit être vérifié,
+  //      jamais notre propre valeur locale relue telle quelle.
+
+  const { data: payment, error: paymentLookupError } = await supabase
+    .from("payments")
+    .select("purpose, ride_id, amount_fcfa")
+    .eq("id", event.paymentId)
+    .maybeSingle();
+
+  if (paymentLookupError || !payment) {
+    console.error("payment-webhook-momo: paiement introuvable", event.paymentId, paymentLookupError);
+    return jsonResponse({ error: "payment_not_found" }, 404);
+  }
 
   if (event.status === "success") {
-    const { error: confirmError } = await supabase.rpc("confirm_subscription_payment", {
-      _payment_id: event.paymentId,
-      _provider_ref: event.providerRef,
-    });
-    if (confirmError) {
-      console.error("payment-webhook-momo: échec confirm_subscription_payment", confirmError);
-      return jsonResponse({ error: "confirmation_failed" }, 500);
+    // Deux flux, deux fonctions de confirmation (voir docs/10-paiements.md
+    // §Paiement de la course) : l'abonnement active/prolonge une
+    // souscription, la course calcule les frais de service (2,5 %) et
+    // déclenche la facturation automatique — jamais interchangeables.
+    if (payment.purpose === "ride_fare") {
+      const { error: confirmError } = await supabase.rpc("confirm_ride_payment", {
+        _payment_id: event.paymentId,
+        _provider_ref: event.providerRef,
+        _confirmed_amount_fcfa: payment.amount_fcfa, // À ADAPTER : montant renvoyé par le fournisseur, voir note ci-dessus
+        _expected_ride_id: payment.ride_id,
+      });
+      if (confirmError) {
+        console.error("payment-webhook-momo: échec confirm_ride_payment", confirmError);
+        return jsonResponse({ error: "confirmation_failed" }, 500);
+      }
+    } else {
+      const { error: confirmError } = await supabase.rpc("confirm_subscription_payment", {
+        _payment_id: event.paymentId,
+        _provider_ref: event.providerRef,
+      });
+      if (confirmError) {
+        console.error("payment-webhook-momo: échec confirm_subscription_payment", confirmError);
+        return jsonResponse({ error: "confirmation_failed" }, 500);
+      }
     }
   } else {
     await supabase
@@ -151,6 +185,13 @@ Deno.serve(async (req: Request) => {
       .update({ status: "failed", provider_ref: event.providerRef })
       .eq("id", event.paymentId)
       .eq("status", "pending");
+
+    // Un paiement de course échoué se répercute sur la course elle-même —
+    // jamais un `payment_status='processing'` orphelin qui ne se résout
+    // plus jamais côté client.
+    if (payment.purpose === "ride_fare" && payment.ride_id) {
+      await supabase.from("rides").update({ payment_status: "failed" }).eq("id", payment.ride_id);
+    }
   }
 
   await supabase.from("payment_webhook_events").update({ processed_at: new Date().toISOString() }).eq("event_key", event.eventKey);

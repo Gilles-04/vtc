@@ -126,6 +126,45 @@ libre, le projet n'ayant pas encore de code applicatif).
 
 ---
 
+## TASK-005 — Module paiement, abonnement et facturation (complet)
+
+- **Objectif** : construire le module financier complet demandé —
+  paiement de course en Mobile Money via un vrai cycle webhook (créer
+  transaction → transmettre → attendre → vérifier signature/montant/
+  ride_id/transaction_id → empêcher les doublons → confirmer → facturer),
+  remboursements, reporting financier détaillé (10 items), sans jamais
+  fusionner abonnement et frais de plateforme.
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - Migration 1 : `payments.ride_id` (relie un paiement de course à sa
+    course), contrainte unique `(provider, provider_ref)` anti-doublon de
+    `transaction_id`, RLS `payments` étendue au chauffeur concerné.
+  - Migration 2 : `complete_ride` distingue cash (confirmation immédiate)
+    et Mobile Money (crée un paiement `pending`, course en `processing`) ;
+    nouvelle fonction `confirm_ride_payment` (vérifie montant et `ride_id`,
+    idempotente, réservée `service_role`) ; `admin_mark_payment_failed`
+    synchronise `rides.payment_status` ; nouvelle fonction
+    `admin_refund_payment` ; `admin_stats_overview` étendu aux 10 items de
+    reporting demandés (volume courses, cash/Mobile Money, échecs,
+    remboursements, montant chauffeurs).
+  - Edge Function `payment-webhook-momo` routée selon `payments.purpose`
+    (`confirm_ride_payment` vs `confirm_subscription_payment`), échec
+    fournisseur synchronisé sur la course.
+  - Docs 06/07/09/10/11 mis à jour (nouveau flux de paiement course,
+    nouvelles fonctions, reporting).
+- **Vérifié** : migrations réappliquées contre un Postgres 16 + PostGIS
+  local ; scénario complet rejoué (course Mobile Money → paiement pending
+  → montant erroné rejeté → ride_id erroné rejeté → confirmation valide →
+  frais de service calculés → facture générée → réutilisation du
+  `transaction_id` rejetée par la contrainte base → remboursement →
+  agrégats de reporting corrects avant/après) ; `deno check`/`deno lint`
+  propres sur l'Edge Function modifiée.
+- **Résultat** : voir `docs/STATUS.md` §3 pour la limite ouverte la plus
+  significative (custody des fonds Mobile Money d'une course, dépend du
+  fournisseur retenu, à trancher avec le porteur du projet).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

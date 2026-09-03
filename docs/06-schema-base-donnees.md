@@ -121,9 +121,18 @@ plan dont la catégorie ne correspond pas à `drivers.category` de
 l'acheteur — un chauffeur voiture ne peut pas payer un plan moto.
 
 ### `payments`, `payment_webhook_events`
-Inchangés dans leur forme ; `payments.metadata` porte désormais
-`{plan_id, plan_code}` au moment de l'achat, relu par
-`confirm_subscription_payment()` pour savoir quelle durée accorder.
+`payments.metadata` porte `{plan_id, plan_code}` au moment de l'achat d'un
+abonnement, relu par `confirm_subscription_payment()` pour savoir quelle
+durée accorder. **Nouveau** (module paiement course) : `payments.ride_id`
+(nullable, `references rides`, ajoutée par `alter table` après la
+définition de `rides` — `payments` est créée avant dans le fichier) relie
+un paiement `purpose='ride_fare'` à sa course ; index partiel
+`payments_ride_idx`. **Nouveau** : contrainte unique
+`payments_provider_ref_unique_idx` sur `(provider, provider_ref)` (partout
+où `provider_ref` n'est pas nul) — empêche qu'un même `transaction_id`
+fournisseur soit rattaché à deux paiements distincts, abonnement ou
+course confondus ; garantie base, pas seulement applicative (confirmé par
+un test d'insertion qui échoue comme attendu).
 
 ### `promotions`, `promotion_redemptions`
 Codes de réduction sur l'abonnement uniquement (`applies_to='subscription'`
@@ -151,8 +160,13 @@ détermine le pool de matching (`ride_offers` ne porte que des chauffeurs de
 la même catégorie, voir [08-matching.md](08-matching.md)). Ajouts pour la
 facturation/le règlement des frais de service : `payment_status`
 (`pending`|`processing`|`success`|`failed`|`cancelled`|`refunded`, distinct
-du statut de la course — reflète le règlement direct passager→chauffeur,
-confirmé par le chauffeur à la fin de course), `platform_fee_fcfa` et
+du statut de la course). Cash : `pending` → `success`/`failed` directement
+dans `complete_ride`, confirmé par le chauffeur au même geste que la fin de
+course. Mobile Money : `complete_ride` pose `processing` (transaction
+créée, en attente de la confirmation fournisseur), puis
+`confirm_ride_payment` (webhook, voir [10-paiements.md](10-paiements.md))
+pose `success`/`failed` — jamais de confirmation synchrone côté client
+pour ce mode. `platform_fee_fcfa` et
 `driver_amount_fcfa` (calculés une seule fois par `complete_ride()` —
 `platform_fee_fcfa = round(final_fare_fcfa * 0.025)`,
 `driver_amount_fcfa = final_fare_fcfa - platform_fee_fcfa` — jamais

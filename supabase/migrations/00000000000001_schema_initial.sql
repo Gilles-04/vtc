@@ -168,6 +168,14 @@ create table public.payments (
   confirmed_at timestamptz
 );
 
+-- Un identifiant de transaction fournisseur (`provider_ref`) ne peut jamais
+-- être rattaché à deux paiements distincts, quel que soit le flux
+-- (abonnement ou course) — rejeu/réutilisation d'un `transaction_id`
+-- bloqué au niveau base, pas seulement par la déduplication applicative du
+-- webhook (`payment_webhook_events.event_key`, qui dédoublonne la
+-- *livraison* du webhook, pas la transaction elle-même).
+create unique index payments_provider_ref_unique_idx on public.payments (provider, provider_ref) where provider_ref is not null;
+
 create table public.payment_webhook_events (
   id uuid primary key default gen_random_uuid(),
   provider public.payment_provider not null,
@@ -318,6 +326,16 @@ create table public.rides (
 create index rides_passenger_idx on public.rides (passenger_id);
 create index rides_driver_idx on public.rides (driver_id);
 create index rides_status_idx on public.rides (status);
+
+-- Ajoutée ici (`alter table`, pas dans la définition de `payments` plus
+-- haut) car `rides` n'existe pas encore au moment où `payments` est créée
+-- — même table, même paiement de course que celui suivi sur
+-- `rides.payment_status`/`platform_fee_fcfa`, ce n'est pas une donnée
+-- dupliquée : `payments` porte le cycle de vie de la transaction
+-- (pending/processing/success/failed/...), `rides` porte le résultat figé
+-- une fois le paiement confirmé.
+alter table public.payments add column ride_id uuid references public.rides (id);
+create index payments_ride_idx on public.payments (ride_id) where ride_id is not null;
 
 create table public.ride_offers (
   id uuid primary key default gen_random_uuid(),
@@ -752,7 +770,9 @@ revoke all on public.payments from authenticated, anon;
 grant select on public.payments to authenticated;
 
 create policy payments_select on public.payments for select using (
-  user_id = auth.uid() or private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[])
+  user_id = auth.uid()
+  or (ride_id is not null and exists (select 1 from public.rides r where r.id = payments.ride_id and r.driver_id = auth.uid()))
+  or private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[])
 );
 
 revoke all on public.payment_webhook_events from authenticated, anon;

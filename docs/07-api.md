@@ -43,7 +43,7 @@ réel (le compte n'existe pas encore au moment de la demande de code).
 | `update_driver_location(lat, lng, accuracy?, ride_id?)` | Met à jour le cache + journalise dans `driver_locations` ; détecte une anomalie de vitesse GPS |
 | `respond_to_ride_offer(offer_id, accept)` | Accepte (atomique, gère la concurrence) ou refuse (relance `dispatch_next_offer`) |
 | `mark_driver_arrived(ride_id)` / `start_ride(ride_id)` | Transitions de statut, vérifient le chauffeur assigné et l'état précédent |
-| `complete_ride(ride_id, distance_km, duration_min, payment_confirmed=true)` | Clôt la course, calcule `platform_fee_fcfa = round(prix × 2,5 %)` et `driver_amount_fcfa` une seule fois ; `payment_confirmed=false` → `payment_status='failed'`, aucun frais crédité (à régulariser via le support) |
+| `complete_ride(ride_id, distance_km, duration_min, payment_confirmed=true, provider='manual')` | Clôt la course. **Cash** : `payment_confirmed` décide tout de suite `payment_status='success'\|'failed'` et calcule `platform_fee_fcfa`/`driver_amount_fcfa`. **Mobile Money** : `payment_confirmed` ignoré — crée un `payments(purpose='ride_fare', status='pending')`, `rides.payment_status='processing'`, rien n'est calculé avant `confirm_ride_payment` |
 | `purchase_subscription(plan_code, provider, promo_code?)` | Crée le paiement (`pending`), applique la réduction si code valide ; refuse (`plan_category_mismatch`) un plan dont la catégorie ne correspond pas à celle du chauffeur |
 | `create_support_ticket(...)` | Identique au passager |
 
@@ -53,11 +53,12 @@ réel (le compte n'existe pas encore au moment de la demande de code).
 |---|---|
 | `admin_review_driver_document(document_id, decision, reason?)` | Approuve/rejette un document, trace l'audit |
 | `admin_decide_driver_application(driver_id, decision, reason?)` | Décision globale du dossier, notifie le chauffeur |
-| `admin_manual_payment_confirm(payment_id)` / `admin_mark_payment_failed(payment_id, reason?)` | Mode manuel tant qu'aucun fournisseur Mobile Money n'est branché |
+| `admin_manual_payment_confirm(payment_id)` / `admin_mark_payment_failed(payment_id, reason?)` | Mode manuel tant qu'aucun fournisseur Mobile Money n'est branché — `admin_mark_payment_failed` synchronise `rides.payment_status='failed'` quand le paiement est de type `ride_fare` (vérifié : jamais de course laissée en `'processing'` orphelin) |
+| `admin_refund_payment(payment_id, reason?)` | Rembourse un paiement `success` (abonnement ou course) → `status='refunded'` ; pour une course, `rides.payment_status='refunded'` aussi (exclue automatiquement des agrégats `admin_stats_overview` filtrés sur `'success'`, vérifié) |
 | `admin_suspend_user(user_id, reason)` / `admin_unsuspend_user(user_id)` | Bloque l'accès (vérifié : `create_ride_request` etc. refusent ensuite avec `account_suspended`) |
 | `admin_resolve_report(...)` / `admin_resolve_sos(...)` / `admin_resolve_fraud_flag(...)` | Résolution avec trace d'audit systématique |
 | `admin_assign_support_ticket(...)` / `admin_resolve_support_ticket(...)` | Gestion des tickets |
-| `admin_stats_overview()` | Agrégats temps réel — **les deux revenus restent séparés dans la réponse**, jamais additionnés : courses/chauffeurs actifs/abonnements actifs par catégorie, revenu d'abonnement du jour par catégorie, frais de service du jour par catégorie, frais de service en attente de règlement |
+| `admin_stats_overview()` | Agrégats temps réel — **les deux revenus restent séparés dans la réponse**, jamais additionnés : courses/chauffeurs actifs/abonnements actifs par catégorie, revenu d'abonnement du jour par catégorie, frais de service du jour par catégorie, frais de service en attente de règlement, **reporting financier** (volume total des courses, paiements cash/Mobile Money du jour, paiements échoués du jour, remboursements du jour, montant net revenant aux chauffeurs du jour) |
 | `admin_create_settlement(driver_id, period_start, period_end)` | Réservée `finance`/`admin`/`super_admin` : regroupe les courses réglées non rattachées de la période en une créance de frais de service (`settlements`), rattache ces courses ; échoue (`no_unsettled_rides_in_period`) si rien à régler |
 | `admin_mark_settlement_paid(settlement_id, method?)` | Réservée `finance`/`admin`/`super_admin` : clôt un règlement (`status='settled'`) |
 
@@ -73,6 +74,7 @@ en ajout seul (jamais de modification d'une règle déjà appliquée).
 | `expire_ride_offers_and_dispatch()` | Le worker `services/matching-worker/`, toutes les ~5 s |
 | `expire_subscriptions()` | `pg_cron`, chaque minute |
 | `confirm_subscription_payment(payment_id, provider_ref)` | `admin_manual_payment_confirm` ou l'Edge Function `payment-webhook-momo` (clé de service) — idempotente |
+| `confirm_ride_payment(payment_id, provider_ref, confirmed_amount_fcfa, expected_ride_id?)` | Uniquement l'Edge Function `payment-webhook-momo` (clé de service) — vérifie montant et `ride_id` avant d'activer, rejette un `transaction_id` déjà utilisé (contrainte base), idempotente ; calcule `platform_fee_fcfa`/`driver_amount_fcfa` et déclenche la facture |
 | `cleanup_rate_limits()` | `pg_cron`, une fois par jour |
 | `generate_invoice_on_ride_success()` | Trigger `AFTER UPDATE` sur `rides` (pas une fonction appelable) — génère la ligne `invoices` dès `status='completed' AND payment_status='success'`, jamais à la main |
 
@@ -92,7 +94,7 @@ utilisateur. Deux Edge Functions, jamais de RPC exposée côté client (le
 
 | Fonction | Déclenchement | Rôle |
 |---|---|---|
-| `payment-webhook-momo` | Webhook du fournisseur Mobile Money | Vérifie la signature HMAC, déduplique (`payment_webhook_events.event_key`), appelle `confirm_subscription_payment` — la re-vérification API réelle reste à brancher une fois le fournisseur choisi (marqué `À ADAPTER` dans le code) |
+| `payment-webhook-momo` | Webhook du fournisseur Mobile Money | Vérifie la signature HMAC, déduplique (`payment_webhook_events.event_key`), lit `payments.purpose` puis route vers `confirm_ride_payment` (course) ou `confirm_subscription_payment` (abonnement) ; un échec fournisseur synchronise `rides.payment_status='failed'` pour une course — la re-vérification API réelle reste à brancher une fois le fournisseur choisi (marqué `À ADAPTER` dans le code) |
 | `pricing-directions` | Client, avant `create_ride_request` | Google Directions API (clé serveur) + `estimate_ride_fare` en un aller-retour |
 | `push-notifications-dispatch` | Database Webhook Supabase sur `notifications` (INSERT) | Envoie via Expo Push (lit `profiles.push_token`) |
 

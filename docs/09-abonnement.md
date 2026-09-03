@@ -82,6 +82,15 @@ Un code promo (`validate_promo_code`/table `promotions`) peut réduire le
 montant à payer, en pourcentage ou en montant fixe — une utilisation par
 code et par chauffeur.
 
+Le webhook Mobile Money (`payment-webhook-momo`) est désormais partagé
+avec le paiement de course (`payments.purpose='ride_fare'`, voir
+[10-paiements.md](10-paiements.md) §Paiement de la course) — même
+déduplication, même vérification de signature, mais deux fonctions de
+confirmation aux effets différents (`confirm_subscription_payment` active
+un abonnement, `confirm_ride_payment` calcule les frais de service et
+déclenche une facture) : **toujours deux revenus distincts**, jamais
+fusionnés même quand ils partagent l'infrastructure technique.
+
 ## Règles
 
 - **Un seul abonnement `active` par chauffeur** — imposé par un index unique

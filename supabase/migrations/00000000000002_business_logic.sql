@@ -684,9 +684,20 @@ $$;
 -- créance de frais de service ne sont générées (trigger ci-dessous) que si
 -- le paiement est confirmé ; sinon la course reste `completed` avec
 -- `payment_status = 'failed'`, à régulariser via le support.
+-- Deux chemins de paiement bien distincts à la clôture d'une course (voir
+-- docs/10-paiements.md §Paiement course) :
+--   - CASH : `_payment_confirmed` reflète la confirmation du chauffeur au
+--     même geste que "Terminer la course" — succès/échec connus tout de
+--     suite, aucune transaction asynchrone.
+--   - MOBILE_MONEY : jamais de confirmation synchrone côté client — une
+--     ligne `payments` (purpose='ride_fare') est créée en 'pending', la
+--     course reste `payment_status='processing'` jusqu'à ce que
+--     `confirm_ride_payment` (webhook fournisseur, service_role) confirme
+--     réellement le paiement. `_payment_confirmed` est ignoré dans ce cas.
 create or replace function public.complete_ride(
   _ride_id uuid, _final_distance_km numeric, _final_duration_min numeric,
-  _payment_confirmed boolean default true
+  _payment_confirmed boolean default true,
+  _provider public.payment_provider default 'manual'
 )
 returns integer
 language plpgsql
@@ -698,6 +709,7 @@ declare
   _estimate record;
   _platform_fee integer;
   _driver_amount integer;
+  _payment_id uuid;
 begin
   select * into _ride from public.rides where id = _ride_id and driver_id = auth.uid() and status = 'in_progress' for update;
   if _ride is null then
@@ -706,18 +718,31 @@ begin
 
   select * into _estimate from public.estimate_ride_fare(_final_distance_km, _final_duration_min, _ride.category, _ride.zone_id);
 
-  if _payment_confirmed then
-    _platform_fee := round(_estimate.fare_fcfa * 0.025);
-    _driver_amount := _estimate.fare_fcfa - _platform_fee;
-  end if;
+  if _ride.payment_method = 'mobile_money' then
+    insert into public.payments (user_id, ride_id, purpose, amount_fcfa, provider, status)
+    values (_ride.passenger_id, _ride_id, 'ride_fare', _estimate.fare_fcfa, _provider, 'pending')
+    returning id into _payment_id;
 
-  update public.rides
-  set status = 'completed', completed_at = now(),
-      final_distance_km = _final_distance_km, final_duration_min = _final_duration_min,
-      final_fare_fcfa = _estimate.fare_fcfa,
-      payment_status = case when _payment_confirmed then 'success'::public.payment_status else 'failed'::public.payment_status end,
-      platform_fee_fcfa = _platform_fee, driver_amount_fcfa = _driver_amount
-  where id = _ride_id;
+    update public.rides
+    set status = 'completed', completed_at = now(),
+        final_distance_km = _final_distance_km, final_duration_min = _final_duration_min,
+        final_fare_fcfa = _estimate.fare_fcfa,
+        payment_status = 'processing'
+    where id = _ride_id;
+  else
+    if _payment_confirmed then
+      _platform_fee := round(_estimate.fare_fcfa * 0.025);
+      _driver_amount := _estimate.fare_fcfa - _platform_fee;
+    end if;
+
+    update public.rides
+    set status = 'completed', completed_at = now(),
+        final_distance_km = _final_distance_km, final_duration_min = _final_duration_min,
+        final_fare_fcfa = _estimate.fare_fcfa,
+        payment_status = case when _payment_confirmed then 'success'::public.payment_status else 'failed'::public.payment_status end,
+        platform_fee_fcfa = _platform_fee, driver_amount_fcfa = _driver_amount
+    where id = _ride_id;
+  end if;
 
   update public.drivers set total_rides = total_rides + 1 where id = _ride.driver_id;
   update public.passengers set total_rides = total_rides + 1 where id = _ride.passenger_id;
@@ -726,6 +751,66 @@ begin
   values (_ride.passenger_id, 'ride_completed', 'Course terminée', 'Votre course est terminée.', jsonb_build_object('ride_id', _ride_id));
 
   return _estimate.fare_fcfa;
+end;
+$$;
+
+-- Confirme un paiement de course Mobile Money — jamais appelée par un
+-- client : uniquement par l'Edge Function de webhook (clé de service), une
+-- fois la signature vérifiée et le paiement re-vérifié auprès de l'API du
+-- fournisseur (voir docs/10-paiements.md). Idempotente comme
+-- `confirm_subscription_payment`. Trois vérifications explicites avant
+-- toute activation :
+--   - montant : `_confirmed_amount_fcfa` (renvoyé par le fournisseur) doit
+--     correspondre exactement à `payments.amount_fcfa` (fixé par
+--     `complete_ride`, jamais modifiable depuis) ;
+--   - ride_id : `_expected_ride_id`, si fourni par l'appelant, doit
+--     correspondre au `ride_id` enregistré sur le paiement ;
+--   - transaction_id : l'unicité de `(provider, provider_ref)` (migration 1)
+--     rejette nativement une réutilisation d'un `provider_ref` déjà
+--     consommé par un autre paiement — pas une vérification applicative,
+--     une contrainte base.
+create or replace function public.confirm_ride_payment(
+  _payment_id uuid, _provider_ref text, _confirmed_amount_fcfa integer,
+  _expected_ride_id uuid default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  _payment record;
+  _platform_fee integer;
+  _driver_amount integer;
+begin
+  select * into _payment from public.payments where id = _payment_id for update;
+  if _payment is null then
+    raise exception 'payment_not_found';
+  end if;
+  if _payment.purpose <> 'ride_fare' then
+    raise exception 'unexpected_payment_purpose';
+  end if;
+  if _payment.status = 'success' then
+    return;
+  end if;
+  if _expected_ride_id is not null and _payment.ride_id is distinct from _expected_ride_id then
+    raise exception 'ride_id_mismatch';
+  end if;
+  if _confirmed_amount_fcfa <> _payment.amount_fcfa then
+    raise exception 'amount_mismatch';
+  end if;
+
+  update public.payments set status = 'success', provider_ref = _provider_ref, confirmed_at = now() where id = _payment_id;
+
+  _platform_fee := round(_payment.amount_fcfa * 0.025);
+  _driver_amount := _payment.amount_fcfa - _platform_fee;
+
+  update public.rides
+  set payment_status = 'success', platform_fee_fcfa = _platform_fee, driver_amount_fcfa = _driver_amount
+  where id = _payment.ride_id;
+
+  insert into public.audit_logs (actor_id, action, target_table, target_id, metadata)
+  values (auth.uid(), 'confirm_ride_payment', 'payments', _payment_id::text, jsonb_build_object('provider_ref', _provider_ref, 'ride_id', _payment.ride_id));
 end;
 $$;
 
@@ -985,16 +1070,66 @@ language plpgsql
 security definer
 set search_path = public, extensions
 as $$
+declare
+  _purpose public.payment_purpose;
+  _ride_id uuid;
 begin
   if not private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[]) then
     raise exception 'not_authorized';
   end if;
   update public.payments
   set status = 'failed', metadata = metadata || jsonb_build_object('failure_reason', _reason)
-  where id = _payment_id and status = 'pending';
+  where id = _payment_id and status = 'pending'
+  returning purpose, ride_id into _purpose, _ride_id;
   if not found then
     raise exception 'payment_not_found_or_not_pending';
   end if;
+
+  -- Un paiement de course échoué doit se refléter sur la course elle-même
+  -- (`rides.payment_status`), jamais laisser un statut 'processing' orphelin.
+  if _purpose = 'ride_fare' and _ride_id is not null then
+    update public.rides set payment_status = 'failed' where id = _ride_id;
+  end if;
+end;
+$$;
+
+-- Remboursement manuel — au MVP, uniquement admin/finance (voir
+-- docs/10-paiements.md), pas de remboursement automatisé fournisseur.
+-- Ne s'applique qu'à un paiement déjà `success` (rembourser un paiement
+-- qui n'a jamais réussi n'a pas de sens). Pour un paiement de course, la
+-- course garde le détail déjà facturé (`platform_fee_fcfa`/
+-- `driver_amount_fcfa` ne sont pas remis à zéro : c'est un fait historique,
+-- pas annulé rétroactivement) — seul `payment_status` reflète le
+-- remboursement, la régularisation comptable d'un règlement déjà soldé
+-- reste un cas traité au cas par cas par le staff finance.
+create or replace function public.admin_refund_payment(_payment_id uuid, _reason text default null)
+returns void
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  _purpose public.payment_purpose;
+  _ride_id uuid;
+begin
+  if not private.has_admin_role(array['super_admin', 'admin', 'finance']::public.admin_role[]) then
+    raise exception 'not_authorized';
+  end if;
+
+  update public.payments
+  set status = 'refunded', metadata = metadata || jsonb_build_object('refund_reason', _reason)
+  where id = _payment_id and status = 'success'
+  returning purpose, ride_id into _purpose, _ride_id;
+  if not found then
+    raise exception 'payment_not_found_or_not_refundable';
+  end if;
+
+  if _purpose = 'ride_fare' and _ride_id is not null then
+    update public.rides set payment_status = 'refunded' where id = _ride_id;
+  end if;
+
+  insert into public.audit_logs (actor_id, action, target_table, target_id, metadata)
+  values (auth.uid(), 'refund_payment', 'payments', _payment_id::text, jsonb_build_object('reason', _reason));
 end;
 $$;
 
@@ -1336,6 +1471,25 @@ begin
     'platform_fees_today_car_fcfa', (select coalesce(sum(platform_fee_fcfa), 0) from public.rides where category = 'car' and payment_status = 'success' and completed_at >= date_trunc('day', now())),
     'platform_fees_today_moto_fcfa', (select coalesce(sum(platform_fee_fcfa), 0) from public.rides where category = 'moto' and payment_status = 'success' and completed_at >= date_trunc('day', now())),
     'platform_fees_pending_settlement_fcfa', (select coalesce(sum(platform_fee_fcfa), 0) from public.rides where payment_status = 'success' and settlement_id is null),
+    -- Reporting financier (module paiement/abonnement/facturation) : volume
+    -- de courses, répartition par mode de paiement, échecs, remboursements,
+    -- part revenant aux chauffeurs — toujours des clés séparées de
+    -- l'abonnement et des frais de plateforme ci-dessus, jamais fusionnées.
+    'rides_volume_today_fcfa', (select coalesce(sum(final_fare_fcfa), 0) from public.rides where payment_status = 'success' and completed_at >= date_trunc('day', now())),
+    'payments_cash_today_count', (select count(*) from public.rides where payment_method = 'cash' and payment_status = 'success' and completed_at >= date_trunc('day', now())),
+    'payments_cash_today_fcfa', (select coalesce(sum(final_fare_fcfa), 0) from public.rides where payment_method = 'cash' and payment_status = 'success' and completed_at >= date_trunc('day', now())),
+    'payments_mobile_money_today_count', (select count(*) from public.rides where payment_method = 'mobile_money' and payment_status = 'success' and completed_at >= date_trunc('day', now())),
+    'payments_mobile_money_today_fcfa', (select coalesce(sum(final_fare_fcfa), 0) from public.rides where payment_method = 'mobile_money' and payment_status = 'success' and completed_at >= date_trunc('day', now())),
+    'payments_failed_today_count', (
+      select count(*) from public.payments
+      where status = 'failed' and created_at >= date_trunc('day', now())
+    ) + (
+      select count(*) from public.rides
+      where payment_method = 'cash' and payment_status = 'failed' and completed_at >= date_trunc('day', now())
+    ),
+    'refunds_today_count', (select count(*) from public.payments where status = 'refunded' and confirmed_at >= date_trunc('day', now())),
+    'refunds_today_fcfa', (select coalesce(sum(amount_fcfa), 0) from public.payments where status = 'refunded' and confirmed_at >= date_trunc('day', now())),
+    'driver_earnings_today_fcfa', (select coalesce(sum(driver_amount_fcfa), 0) from public.rides where payment_status = 'success' and completed_at >= date_trunc('day', now())),
     'open_sos', (select count(*) from public.sos_alerts where status = 'open'),
     'open_reports', (select count(*) from public.reports where status = 'open'),
     'open_support_tickets', (select count(*) from public.support_tickets where status in ('open', 'pending')),
@@ -1370,13 +1524,14 @@ grant execute on function public.create_ride_request(public.driver_category, dou
 grant execute on function public.respond_to_ride_offer(uuid, boolean) to authenticated;
 grant execute on function public.mark_driver_arrived(uuid) to authenticated;
 grant execute on function public.start_ride(uuid) to authenticated;
-grant execute on function public.complete_ride(uuid, numeric, numeric, boolean) to authenticated;
+grant execute on function public.complete_ride(uuid, numeric, numeric, boolean, public.payment_provider) to authenticated;
 grant execute on function public.cancel_ride(uuid, text) to authenticated;
 
 grant execute on function public.validate_promo_code(text) to authenticated;
 grant execute on function public.purchase_subscription(text, public.payment_provider, text) to authenticated;
 grant execute on function public.admin_manual_payment_confirm(uuid) to authenticated;
 grant execute on function public.admin_mark_payment_failed(uuid, text) to authenticated;
+grant execute on function public.admin_refund_payment(uuid, text) to authenticated;
 grant execute on function public.admin_create_settlement(uuid, timestamptz, timestamptz) to authenticated;
 grant execute on function public.admin_mark_settlement_paid(uuid, text) to authenticated;
 
@@ -1399,6 +1554,7 @@ grant execute on function public.dispatch_next_offer(uuid) to service_role;
 grant execute on function public.expire_ride_offers_and_dispatch() to service_role;
 grant execute on function public.expire_subscriptions() to service_role;
 grant execute on function public.confirm_subscription_payment(uuid, text) to service_role;
+grant execute on function public.confirm_ride_payment(uuid, text, integer, uuid) to service_role;
 grant execute on function public.cleanup_rate_limits() to service_role;
 
 -- ========================================================================

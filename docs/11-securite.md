@@ -48,11 +48,18 @@ rejetée (`account_suspended`) avant même la moindre écriture.
 - `driver_locations` : écriture réservée au chauffeur, pour sa propre
   ligne ; lecture limitée à lui-même, au passager de la course en cours
   (si `ride_id` renseigné), et au staff admin.
-- `payments`, `subscriptions` : lecture limitée au chauffeur propriétaire +
-  staff `finance`/`admin`/`super_admin`. Écriture uniquement via fonctions
-  serveur (`SECURITY DEFINER` + Edge Functions avec la clé de service),
-  jamais en direct depuis le client — **vérifié réellement** : aucune
-  policy d'écriture cliente n'existe sur ces deux tables (migration 1).
+- `payments`, `subscriptions` : lecture limitée au propriétaire (`user_id`,
+  le passager pour un paiement de course) + staff
+  `finance`/`admin`/`super_admin`. **Nouveau** : un paiement de course
+  (`payments.ride_id` renseigné) est aussi visible par le chauffeur assigné
+  à la course concernée — c'est son argent, pas seulement celui du
+  passager qui l'a payé. Écriture uniquement via fonctions serveur
+  (`SECURITY DEFINER` + Edge Functions avec la clé de service), jamais en
+  direct depuis le client — **vérifié réellement** : aucune policy
+  d'écriture cliente n'existe sur ces deux tables (migration 1). Un
+  `transaction_id` (`provider_ref`) fournisseur ne peut jamais être réutilisé
+  entre deux paiements (contrainte unique base, voir
+  [06-schema-base-donnees.md](06-schema-base-donnees.md)).
 - `settlements` : lecture limitée au chauffeur concerné + staff
   `finance`/`admin`/`super_admin`. `invoices` : lecture limitée au passager
   et au chauffeur de la course + même staff. Aucune écriture cliente sur
