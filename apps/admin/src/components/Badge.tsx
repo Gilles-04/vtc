@@ -136,3 +136,12 @@ const subscriptionStatusLabel: Record<string, string> = {
 export function SubscriptionStatusBadge({ status }: { status: string }) {
   return <Badge tone={subscriptionStatusTone[status] ?? 'default'}>{subscriptionStatusLabel[status] ?? status}</Badge>
 }
+
+const userRoleLabel: Record<string, string> = {
+  passenger: 'Passager',
+  driver: 'Chauffeur',
+}
+
+export function UserRoleBadge({ role }: { role: string }) {
+  return <Badge tone={role === 'driver' ? 'navy' : 'default'}>{userRoleLabel[role] ?? role}</Badge>
+}

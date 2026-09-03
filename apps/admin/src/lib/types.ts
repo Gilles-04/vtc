@@ -19,6 +19,7 @@ export type PaymentPurpose = 'driver_subscription' | 'ride_fare'
 export type PaymentProvider = 'flooz' | 'tmoney' | 'manual'
 export type SubscriptionStatus = 'active' | 'expired' | 'cancelled'
 export type SettlementStatus = 'pending' | 'settled'
+export type AppUserRole = 'passenger' | 'driver'
 
 export interface DriverListRow {
   id: string
@@ -152,6 +153,37 @@ export interface SettlementListRow {
   settlement_method: string | null
   settled_at: string | null
   drivers: { category: DriverCategory; profiles: { phone: string | null; full_name: string | null } | null } | null
+}
+
+export interface UserListRow {
+  id: string
+  full_name: string | null
+  phone: string | null
+  is_suspended: boolean
+  created_at: string
+  user_roles: { role: AppUserRole }[]
+}
+
+export interface UserDetail {
+  id: string
+  full_name: string | null
+  phone: string | null
+  language: string
+  is_suspended: boolean
+  suspended_reason: string | null
+  created_at: string
+  user_roles: { role: AppUserRole }[]
+}
+
+export interface UserRideHistoryRow {
+  id: string
+  category: DriverCategory
+  status: RideStatus
+  pickup_address: string
+  dropoff_address: string
+  final_fare_fcfa: number | null
+  estimated_fare_fcfa: number | null
+  requested_at: string
 }
 
 export interface AdminStatsOverview {

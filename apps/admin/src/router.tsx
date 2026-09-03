@@ -11,6 +11,8 @@ import { Invoices } from './pages/Invoices'
 import { Subscriptions } from './pages/Subscriptions'
 import { SubscriptionPlans } from './pages/SubscriptionPlans'
 import { Settlements } from './pages/Settlements'
+import { Users } from './pages/Users'
+import { UserDetail } from './pages/UserDetail'
 import { Shell } from './components/Shell'
 
 const rootRoute = createRootRoute({
@@ -134,6 +136,28 @@ const settlementsRoute = createRoute({
   ),
 })
 
+const usersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/utilisateurs',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <Users />
+    </Shell>
+  ),
+})
+
+const userDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/utilisateurs/$userId',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <UserDetail />
+    </Shell>
+  ),
+})
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
@@ -157,6 +181,8 @@ const routeTree = rootRoute.addChildren([
   subscriptionsRoute,
   subscriptionPlansRoute,
   settlementsRoute,
+  usersRoute,
+  userDetailRoute,
   loginRoute,
 ])
 
