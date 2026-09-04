@@ -120,7 +120,7 @@ et détecte au passage une anomalie de vitesse (anti-fraude, voir plus bas).
 
 ### `subscription_plans`, `subscriptions`
 `subscription_plans.category` (`car`|`moto`) sépare les deux grilles —
-6 plans en seed (`pass_jour_car` 1 000 FCFA, `pass_jour_moto` 500 FCFA,
+6 plans en seed (`pass_jour_car` 1 000 FCFA, `pass_jour_moto` 300 FCFA,
 actifs ; `pass_7j_car/moto`, `pass_30j_car/moto`, `is_active=false`).
 `subscriptions` (renommée depuis le cadrage initial pour correspondre au
 schéma cible) : `driver_id`, `plan_id`, `payment_id`, `started_at`,
@@ -155,13 +155,23 @@ en clair au client : validation via la fonction `validate_promo_code()`.
 
 ## Tarification & zones
 
-`zones` inchangée. `pricing_rules.category` (`car`|`moto`) sépare les deux
-grilles de prix — chaque catégorie a sa propre `base_fare_fcfa`/
-`price_per_km_fcfa`/`price_per_min_fcfa`/`minimum_fare_fcfa`.
+`zones` inchangée (table vide sur le projet réel — aucune zone créée à ce
+jour). `pricing_rules.category` (`car`|`moto`) sépare les deux grilles de
+prix — chaque catégorie a sa propre `base_fare_fcfa`/`price_per_km_fcfa`/
+`price_per_min_fcfa`/`minimum_fare_fcfa`. Tarifs réels seedés le
+4 septembre 2026 (migration 15, sans zone — `zone_id IS NULL`, tarif par
+défaut plateforme) : voiture 250 FCFA prise en charge + 250 FCFA/km,
+minimum 700 FCFA ; moto 100 FCFA prise en charge + 70 FCFA/km, pas de
+minimum ; pas de prix à la minute pour les deux ; majoration de nuit 10 %
+pour les deux — voir [01-architecture-fonctionnelle.md](01-architecture-fonctionnelle.md).
 `estimate_ride_fare(distance_km, duration_min, category, zone_id?)`
 sélectionne la règle la plus spécifique **de la bonne catégorie** (zone
-donnée, sinon règle globale `zone_id IS NULL`) et applique la majoration
-nuit selon les horaires de la zone.
+donnée, sinon règle globale `zone_id IS NULL`). Majoration nuit : si une
+zone est fournie, ses horaires (`night_start_time`/`night_end_time`)
+font foi ; sinon (cas courant — la sélection de zone est optionnelle côté
+passager et `zones` est vide), repli sur une fenêtre par défaut 22h-5h
+(migration 15 — sans ce repli la majoration ne se déclencherait jamais en
+pratique).
 
 ## Courses
 

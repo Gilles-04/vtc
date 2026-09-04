@@ -18,12 +18,14 @@ le client mobile.
 Deux catégories parallèles (`car`/`moto`, voir
 [01-architecture-fonctionnelle.md](01-architecture-fonctionnelle.md)
 §Deux catégories), chacune sa propre grille — **règle absolue, ne jamais
-modifier ces deux prix sans instruction explicite** :
+modifier ces deux prix sans instruction explicite** (moto-taxi corrigé de
+500 à 300 FCFA le 4 septembre 2026, chiffre confirmé par le porteur du
+projet) :
 
 | Code | Catégorie | Durée | Prix | Actif au MVP |
 |---|---|---|---|---|
 | `pass_jour_car` | Voiture | 24 h | **1 000 FCFA** | Oui |
-| `pass_jour_moto` | Moto-taxi | 24 h | **500 FCFA** | Oui |
+| `pass_jour_moto` | Moto-taxi | 24 h | **300 FCFA** | Oui |
 | `pass_7j_car` | Voiture | 7 jours | à définir | Non — ligne présente en base, `is_active=false` |
 | `pass_7j_moto` | Moto-taxi | 7 jours | à définir | Non — idem |
 | `pass_30j_car` | Voiture | 30 jours | à définir | Non — idem |

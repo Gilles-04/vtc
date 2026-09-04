@@ -3,7 +3,7 @@
 Plateforme VTC pour le marché togolais, deux catégories parallèles —
 **voiture (VTC)** et **moto-taxi** — avec deux revenus distincts, jamais
 mélangés : un **abonnement à durée fixe** (Pass Jour — 24 h, 1 000 FCFA
-voiture / 500 FCFA moto-taxi) pour recevoir des courses, et des **frais de
+voiture / 300 FCFA moto-taxi) pour recevoir des courses, et des **frais de
 service de plateforme** de 2,5 % sur chaque course (jamais une commission
 sur le prix payé par le passager — voir
 [docs/01-architecture-fonctionnelle.md](docs/01-architecture-fonctionnelle.md)).

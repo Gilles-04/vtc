@@ -70,7 +70,7 @@ resynchronise à la reconnexion, ne perd jamais la course en cours).
 8. Écran d'accueil : bandeau « Aucun abonnement actif » tant qu'aucun pass
    n'est acheté — bouton disponibilité grisé/inactif jusqu'à l'achat.
 9. Achète le Pass Jour de sa catégorie (**1 000 FCFA** voiture,
-   **500 FCFA** moto-taxi) → paiement Mobile Money → confirmation →
+   **300 FCFA** moto-taxi) → paiement Mobile Money → confirmation →
    abonnement actif affiché avec compte à rebours (temps restant).
 10. Active sa disponibilité → apparaît dans le pool de matching **de sa
     catégorie uniquement**.

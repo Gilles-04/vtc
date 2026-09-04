@@ -18,12 +18,22 @@ jamais mélangés** entre eux, dans le code comme dans les rapports :
 | Catégorie | Abonnement / 24 h | Frais de service / course |
 |---|---|---|
 | Voiture (VTC) | **1 000 FCFA** | **2,5 %** du prix de la course |
-| Moto-taxi | **500 FCFA** | **2,5 %** du prix de la course |
+| Moto-taxi | **300 FCFA** | **2,5 %** du prix de la course |
 
 **Règle absolue, ne jamais modifier sans instruction explicite** (rappelée
 telle quelle dans chaque document technique concerné — schéma, paiements,
 API) : ces deux chiffres et ce pourcentage sont fixes. Le 2,5 % s'applique
-dès le lancement, sur chaque course, aux deux catégories.
+dès le lancement, sur chaque course, aux deux catégories. (Moto-taxi
+corrigé de 500 à 300 FCFA le 4 septembre 2026 — chiffre confirmé par le
+porteur du projet, le précédent n'avait jamais été validé.)
+
+**Tarif de la course elle-même** (`pricing_rules`, distinct de
+l'abonnement ci-dessus), confirmé le 4 septembre 2026 :
+
+| Catégorie | Prise en charge | Prix/km | Prix/min | Minimum | Majoration nuit |
+|---|---|---|---|---|---|
+| Voiture (VTC) | 250 FCFA | 250 FCFA | — | 700 FCFA | +10 % (22h-5h) |
+| Moto-taxi | 100 FCFA | 70 FCFA | — | aucun | +10 % (22h-5h) |
 
 Règle centrale inchangée, valable pour toute la plateforme : **un
 chauffeur ne peut recevoir aucune demande de course tant qu'il n'a pas

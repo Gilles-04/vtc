@@ -46,7 +46,7 @@ disponible depuis 9/10), Support.
 | 8 | Attente de validation | Statut, délai indicatif |
 | 9 | Dossier refusé | Motif, correction ciblée |
 | 10 | Accueil chauffeur | Catégorie affichée, statut abonnement (temps restant), bascule disponibilité (désactivée si pas d'abonnement) |
-| 11 | Abonnement — plans | Pass Jour de sa catégorie (1 000 FCFA voiture / 500 FCFA moto-taxi, actif), 7j/30j (affichés « Bientôt disponible ») |
+| 11 | Abonnement — plans | Pass Jour de sa catégorie (1 000 FCFA voiture / 300 FCFA moto-taxi, actif), 7j/30j (affichés « Bientôt disponible ») |
 | 12 | Abonnement — paiement | Choix opérateur Mobile Money, confirmation |
 | 13 | Historique abonnements | Dates début/fin, statut, montant |
 | 14 | Nouvelle demande de course | Décompte, zone de prise en charge, prix estimé, Accepter/Refuser |
