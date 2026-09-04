@@ -1113,6 +1113,40 @@ libre).
 
 ---
 
+## TASK-033 — Démarrage apps/mobile (Expo) : accueil + auth passager/chauffeur
+
+- **Objectif** : initialiser `apps/mobile` (React Native/Expo, un seul
+  code Android+iOS, passager+chauffeur), resté un simple README jusqu'ici.
+  Périmètre volontairement limité à la Phase 1 du plan (auth) — pas de
+  duplication du travail déjà fait côté `apps/web`.
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** : scaffold Expo SDK 57 + TypeScript + Expo Router (fichiers
+  `app/`) ; accueil avec bascule de rôle ; authentification par code
+  email en deux étapes (composant partagé `EmailOtpAuth.tsx`, port direct
+  de `PassengerLogin.tsx`/`DriverLogin.tsx` d'`apps/web`) ; garde de
+  session sur les 4 routes ; accueils passager/chauffeur en stub
+  volontaire (contenu réel déjà construit côté web, à porter
+  progressivement). Fichiers de config template retirés
+  (`AGENTS.md`/`CLAUDE.md`/`.claude/`/`LICENSE`, non pertinents pour ce
+  monorepo).
+- **Vérifié** : `tsc --noEmit` et `oxlint` propres. Aucun émulateur natif
+  disponible dans cet environnement — vérifié via `expo start --web`
+  (react-native-web) + Playwright/Chromium réel : navigation accueil →
+  connexion passager/chauffeur, appel réel `signInWithOtp` déclenché
+  (échec propre sur le réseau sandboxé, `*.supabase.co` inaccessible —
+  attendu, l'écran affiche une erreur claire), gardes de session sur les
+  deux routes `/accueil` testées sans session active (redirection vers la
+  connexion confirmée). Rendu natif réel sur simulateur/appareil **non
+  vérifié** — à faire dès qu'un environnement avec Expo Go ou un
+  simulateur est disponible.
+- **Résultat** : `apps/mobile` n'est plus un dossier vide. Aucun compte
+  Expo/EAS requis à ce stade (Expo Go/mode web suffisent en
+  développement) — seulement pour un build natif installable, plus tard.
+  Prochaines tâches naturelles : portage du tableau de bord chauffeur et
+  de la demande de course passager depuis `apps/web`.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

@@ -1,8 +1,7 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 4 septembre 2026 (vrais tarifs course + abonnement
-câblés, déblocage de la demande de course — un seul point bloquant
-restant, la clé Google Maps)*
+*Dernière mise à jour : 4 septembre 2026 (vrais tarifs câblés, `apps/mobile`
+démarré — auth passager/chauffeur, Phase 1 du plan)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -53,16 +52,24 @@ l'affiche clairement plutôt que d'échouer en silence. Les tarifs
 
 **4 livrables** (révision du 3 septembre 2026, détail dans
 `docs/02-architecture-technique.md`) : Web, Android, iOS, Admin — chacun
-couvrant passager **et** chauffeur sauf l'admin. Android/iOS restent un
-seul code Expo (`apps/mobile`), pas encore démarré.
+couvrant passager **et** chauffeur sauf l'admin. Android/iOS = un seul
+code Expo (`apps/mobile`) — **démarré le 4 septembre 2026** : accueil
+avec bascule de rôle, authentification par code email (passager et
+chauffeur), gardes de session. Volontairement limité à cette Phase 1 du
+plan (`docs/12-roadmap.md`) — le tableau de bord chauffeur et la demande
+de course restent à porter depuis `apps/web`, où ils existent déjà.
+Vérifié via le mode web d'Expo (aucun émulateur natif disponible dans cet
+environnement) — rendu réel sur simulateur/appareil Android ou iOS non
+testé, à faire dès qu'un tel environnement est disponible.
 
 Un serveur **MCP Supabase** est connecté à cette session (accès direct au
 projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
 séparé de la politique réseau du sandbox : le navigateur ne peut toujours
 pas contacter `*.supabase.co` directement depuis cet environnement.
 
-Reste à construire : `apps/mobile` (pas commencé), le worker de dispatch
-(écrit, pas déployé).
+Reste à construire : le reste d'`apps/mobile` (tableau de bord chauffeur,
+demande de course, notifications push, géolocalisation), le worker de
+dispatch (écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
 
@@ -144,8 +151,19 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-032) :
-**vrais tarifs câblés** — `pricing_rules` (voiture 250 FCFA prise en
+**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-033) :
+**`apps/mobile` démarré** (Expo SDK 57 + TypeScript + Expo Router) —
+accueil avec bascule de rôle, authentification par code email passager/
+chauffeur (composant partagé, port direct de la logique `apps/web`),
+gardes de session sur les 4 routes. Volontairement limité à la Phase 1 du
+plan — accueils passager/chauffeur en stub, le contenu réel existe déjà
+côté web et sera porté progressivement. Vérifié via le mode web d'Expo +
+Playwright (aucun émulateur natif ici) : navigation complète, appel réel
+`signInWithOtp` déclenché (échec propre sur le réseau sandboxé, attendu),
+gardes de session confirmées dans les deux sens. `tsc`/`oxlint` propres.
+
+**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md`
+(TASK-032) : **vrais tarifs câblés** — `pricing_rules` (voiture 250 FCFA prise en
 charge + 250 FCFA/km, minimum 700 FCFA ; moto 100 FCFA prise en charge +
 70 FCFA/km, pas de minimum ; majoration de nuit 10 % de 22h à 5h pour les
 deux) et correction de `subscription_plans` (Pass Jour moto 500 → 300
@@ -185,12 +203,14 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-Le code applicatif (dashboard admin + `apps/web` passager/chauffeur) est
-terminé pour le périmètre MVP documenté. Les chantiers restants sont tous
-soit externes (décisions/comptes qui vous appartiennent, §7), soit hors
-périmètre immédiat (`apps/mobile`, worker de dispatch pas déployé).
-Aucun chantier de code n'est bloqué en attente d'une décision technique —
-seulement en attente de vos décisions/actions (§7).
+Le code applicatif web (dashboard admin + `apps/web` passager/chauffeur)
+est terminé pour le périmètre MVP documenté. `apps/mobile` est démarré
+(Phase 1 — auth) ; la suite naturelle est de porter le tableau de bord
+chauffeur puis la demande de course passager depuis `apps/web`, en
+gardant le même découpage progressif. En parallèle, chantiers externes
+qui vous appartiennent (§7) : clé Google Maps, connexion admin, décisions
+fournisseurs. Aucun chantier de code n'est bloqué en attente d'une
+décision technique de mon côté.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
