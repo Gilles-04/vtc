@@ -968,6 +968,115 @@ libre).
 
 ---
 
+## TASK-029 — apps/web : côté chauffeur complet (auth, onboarding, tableau de bord)
+
+- **Objectif** : construire le pendant chauffeur de `apps/web`, jusque-là
+  un simple `ComingSoon` — authentification, dépôt de dossier KYC +
+  véhicule, et le tableau de bord opérationnel (abonnement,
+  disponibilité, offres de course, course en cours).
+- **Statut** : Terminé (3 septembre 2026).
+- **Fait** :
+  - `DriverLogin.tsx` : identique à `PassengerLogin.tsx` (code par email
+    en deux étapes), route `/chauffeur`.
+  - `DriverOnboarding.tsx` : formulaire catégorie/ville/véhicule →
+    `submit_driver_application`.
+  - `DriverHome.tsx` : tableau de bord unique qui bascule selon
+    `driver.status` et l'état de l'abonnement/course — dépôt de
+    documents, message si suspendu, section abonnement (achat en mode
+    manuel), bascule disponibilité, offres de course en attente
+    (rafraîchies par Realtime sur `ride_offers`/`rides`), course en
+    cours (`mark_driver_arrived` → `start_ride` → `complete_ride`).
+  - `router.tsx` : routes `/chauffeur` et `/chauffeur/accueil` ajoutées,
+    `ComingSoon.tsx` supprimé (plus référencé).
+- **Vérifié** : `tsc --noEmit`, `npm run build`, `npm run lint` propres.
+  Playwright/Chromium réel avec mocks REST/RPC stateful (dossier soumis,
+  documents envoyés, abonnement acheté, offre acceptée, course menée
+  jusqu'à `complete_ride`) — assertions sur chaque transition d'état.
+  Realtime lui-même non testable depuis ce sandbox (WebSocket bloqué),
+  mais tout le flux REST/RPC sous-jacent l'est.
+- **Résultat** : côté chauffeur fonctionnellement complet, à l'exception
+  de la confirmation admin des paiements manuels (TASK-030) et de la
+  demande de course passager qui alimente les offres (TASK-031).
+
+---
+
+## TASK-030 — apps/admin : actions de confirmation manuelle des paiements
+
+- **Objectif** : `Payments.tsx` était en lecture seule — fermer la boucle
+  du paiement manuel (mode de secours tant qu'aucun fournisseur Mobile
+  Money n'est branché, voir `docs/10-paiements.md`).
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** : colonne « Actions » avec trois boutons conditionnels au
+  statut/type du paiement — Confirmer (`admin_manual_payment_confirm`,
+  abonnement chauffeur uniquement — la RPC n'enveloppe que
+  `confirm_subscription_payment`, jamais `confirm_ride_payment`),
+  Marquer échoué (`admin_mark_payment_failed`, tout paiement en attente),
+  Rembourser (`admin_refund_payment`, tout paiement réussi). Une note
+  explicite s'affiche sur les paiements de course Mobile Money en
+  attente : leur confirmation passe uniquement par le webhook fournisseur
+  (`confirm_ride_payment`, réservée à `service_role` — vérification du
+  montant/`ride_id` qu'un clic admin ne peut pas reproduire), l'admin peut
+  seulement les marquer échoués si le webhook ne répond jamais.
+- **Vérifié** : `tsc --noEmit`, `npm run build`, `npm run lint` propres.
+  Playwright/Chromium réel avec mocks RPC stateful : bouton Confirmer
+  absent sur une course Mobile Money en attente, présent sur un
+  abonnement en attente ; les trois actions changent bien le statut
+  affiché après rechargement.
+- **Résultat** : écran Paiements pleinement actionnable en mode manuel.
+
+---
+
+## TASK-031 — apps/web : accueil passager réel + demande de course
+
+- **Objectif** : remplacer le stub « bientôt disponible » de
+  `PassengerHome.tsx` par un tableau de bord réel — historique des
+  courses et flux complet de demande de course.
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** :
+  - `PassengerHome.tsx` : suivi de la course en cours (statut, infos
+    publiques du chauffeur une fois matché, annulation via
+    `cancel_ride`) si une course est active ; sinon formulaire de
+    demande — catégorie, adresses avec coordonnées saisies à la main
+    (Google Places pas encore branché — placeholder explicite à
+    l'écran), zone optionnelle, mode de paiement, estimation via
+    l'Edge Function `pricing-directions` puis `create_ride_request` ;
+    historique des courses terminées/annulées en dessous. Abonnement
+    Realtime sur `rides` (filtre `passenger_id`).
+  - Migration 13 : `get_ride_driver_public_info` /
+    `get_ride_passenger_public_info` (fonctions `SECURITY DEFINER`) —
+    RLS interdit tout accès direct passager↔chauffeur en dehors de
+    ces champs publics (`docs/11-securite.md`). En vérifiant les
+    grants réels post-application, repéré que l'embed
+    `rides.profiles!passenger_id(...)` utilisé côté `DriverHome.tsx`
+    (TASK-029) retournait déjà silencieusement `null` en production
+    pour la même raison — corrigé dans le même mouvement.
+  - Migration 14 : correctif de sécurité sur la migration 13 — la
+    comparaison `<>` avec `auth.uid()` ne levait pas l'exception
+    `not_authorized` pour un appel non authentifié (`NULL` traité comme
+    faux par `plpgsql`), et `anon` reçoit `EXECUTE` par défaut sur ce
+    projet (constat déjà fait en TASK migration 8). Passage à
+    `is distinct from`, NULL-safe.
+- **Vérifié** : migrations 13/14 rejouées en local (Postgres 16 réel,
+  14 migrations dans l'ordre) avant application au vrai projet ; accès
+  légitime (passager↔chauffeur assignés) et refus (tiers, anonyme)
+  testés directement en SQL des deux côtés avant et après le correctif.
+  `tsc --noEmit`, `npm run build`, `npm run lint` propres côté
+  `apps/web`. Playwright/Chromium réel : formulaire → erreur claire si
+  tarification non configurée → estimation → confirmation → carte de
+  suivi → infos chauffeur après un rechargement simulant le matching →
+  annulation → retour au formulaire ; historique affiché correctement.
+- **Bloqueur non levé par cette tâche** : la demande de course échouera
+  réellement tant que `GOOGLE_MAPS_API_KEY` n'est pas configurée
+  (`pricing-directions` renvoie `not_configured`) et tant que
+  `pricing_rules` n'est pas peuplée avec de vrais tarifs (décision
+  business du porteur du projet, jamais inventée ici) — l'écran affiche
+  un message clair dans les deux cas plutôt que d'échouer en silence.
+- **Résultat** : parcours passager complet côté code ; bloqué en usage
+  réel par les deux points ci-dessus, déjà signalés en TASK-après-021
+  (clé Maps) et jamais résolus depuis (tarifs, jamais abordés).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
