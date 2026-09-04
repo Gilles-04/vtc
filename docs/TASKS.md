@@ -1077,6 +1077,42 @@ libre).
 
 ---
 
+## TASK-032 — Vrais tarifs (course + abonnement) et déblocage de la demande de course
+
+- **Objectif** : câbler les vrais tarifs communiqués par le porteur du
+  projet (jamais inventés — voir `CLAUDE.md`/§Règles) pour lever le
+  blocage `pricing_rules` vide identifié en TASK-031.
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** :
+  - Migration 15 : `pricing_rules` seedée — voiture 250 FCFA prise en
+    charge + 250 FCFA/km, minimum 700 FCFA ; moto 100 FCFA prise en
+    charge + 70 FCFA/km, pas de minimum ; majoration de nuit 10 %
+    (22h-5h) pour les deux, pas de prix à la minute. `subscription_plans`
+    corrigée : Pass Jour moto 500 → 300 FCFA (jamais confirmé
+    précédemment) ; Pass Jour voiture (1000 FCFA) déjà correct.
+  - Correctif d'architecture trouvé en câblant ces tarifs :
+    `estimate_ride_fare` ne calculait la majoration de nuit que si une
+    zone était fournie (lecture de `zones.night_start_time`/
+    `night_end_time`) — la sélection de zone étant optionnelle côté
+    passager (`PassengerHome.tsx`, TASK-031) et la table `zones` vide sur
+    le projet réel, la majoration ne se serait jamais déclenchée en
+    pratique. Ajout d'un repli sur la fenêtre 22h-5h quand aucune zone
+    n'est fournie ; une zone spécifique garde la priorité si elle existe.
+- **Vérifié** : migration rejouée en local (Postgres 16 réel, 15
+  migrations dans l'ordre) avant application au projet réel. Calculs
+  vérifiés (1500 FCFA/5km voiture, 240 FCFA/2km moto, clamp à 700 FCFA
+  sur une course très courte), limites de la fenêtre de nuit testées
+  (21h59/05h00 = jour, 22h00/03h00 = nuit), chemin avec zone toujours
+  fonctionnel (non régressé), `create_ride_request` testé de bout en bout
+  (n'échoue plus sur `no_pricing_rule_configured`). Appliqué au projet
+  réel puis revérifié par requête directe (jamais fait confiance au
+  `{"success":true}` seul).
+- **Résultat** : le blocage `pricing_rules` (TASK-031 §Bloqueur) est levé.
+  Seule la clé Google Maps reste bloquante pour la demande de course en
+  usage réel (§7 de `STATUS.md`).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

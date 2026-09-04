@@ -1,8 +1,8 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 4 septembre 2026 (accueil passager réel + demande
-de course, actions admin sur les paiements manuels, correctif de sécurité
-sur les infos publiques chauffeur/passager)*
+*Dernière mise à jour : 4 septembre 2026 (vrais tarifs course + abonnement
+câblés, déblocage de la demande de course — un seul point bloquant
+restant, la clé Google Maps)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -10,8 +10,10 @@ sur les infos publiques chauffeur/passager)*
 
 Le backend (schéma, logique métier, module financier complet, deux
 catégories voiture/moto-taxi) est **déployé pour de vrai** sur le projet
-Supabase dédié : 14 migrations + 5 Edge Functions en place et vérifiées
+Supabase dédié : 15 migrations + 5 Edge Functions en place et vérifiées
 (32 tables, 49 fonctions, 51 policies RLS, grants internes durcis).
+**Les vrais tarifs sont câblés** (`pricing_rules` + `subscription_plans`,
+migration 15) — plus aucun tarif inventé ni manquant.
 
 **Le dashboard admin (`apps/admin/`) est complet et pleinement actionnable** :
 les 24 écrans documentés dans `docs/05-ecrans.md` sont construits (certains
@@ -28,7 +30,7 @@ local chez vous.
 
 **`apps/web` est maintenant fonctionnellement complet des deux côtés**
 (passager et chauffeur), code vérifié de bout en bout, mais bloqué en
-usage réel par deux points externes (voir plus bas) :
+usage réel par un seul point externe désormais (voir plus bas) :
 
 - **Côté passager** : auth par email confirmée en conditions réelles
   (vous avez créé deux comptes en local, flux `signInWithOtp`/`verifyOtp`
@@ -43,15 +45,11 @@ usage réel par deux points externes (voir plus bas) :
   offres de course reçues en Realtime, course en cours jusqu'à
   `complete_ride`).
 
-Bloqué en usage réel, indépendamment du code (§3/§7) :
-1. **`GOOGLE_MAPS_API_KEY`** toujours pas fournie — `pricing-directions`
-   (Edge Function) répond `not_configured`, l'écran de demande de course
-   l'affiche clairement plutôt que d'échouer en silence.
-2. **`pricing_rules` toujours vide** sur le projet réel — bloque à la fois
-   l'estimation de prix et la clôture d'une course (`complete_ride`). Se
-   règle en 30 secondes via `/tarification` (dashboard admin) une fois
-   connecté, mais ce sont de vrais tarifs FCFA à décider par vous, jamais
-   inventés ici.
+Bloqué en usage réel par un seul point désormais (§3/§7) :
+**`GOOGLE_MAPS_API_KEY`** toujours pas fournie — `pricing-directions`
+(Edge Function) répond `not_configured`, l'écran de demande de course
+l'affiche clairement plutôt que d'échouer en silence. Les tarifs
+(`pricing_rules`) ne bloquent plus rien, câblés le 4 septembre (§5).
 
 **4 livrables** (révision du 3 septembre 2026, détail dans
 `docs/02-architecture-technique.md`) : Web, Android, iOS, Admin — chacun
@@ -68,7 +66,7 @@ Reste à construire : `apps/mobile` (pas commencé), le worker de dispatch
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (14 migrations, vérifiées en local puis déployées,
+**Base de données** (15 migrations, vérifiées en local puis déployées,
 comptage confirmé identique) : cycle complet d'une course par catégorie
 (matching, cash/Mobile Money), frais de service 2,5 % jamais mélangés à
 l'abonnement, facturation/règlement/remboursement automatiques, reporting
@@ -80,13 +78,17 @@ hérités. Migrations 9-12 ont corrigé le même bug d'embedding PostgREST
 portes d'accès aux infos publiques entre passager et chauffeur assignés
 à une même course, RLS interdisant tout accès direct) puis corrigé une
 faille NULL-safety découverte en vérifiant les grants réels (appel non
-authentifié pas correctement rejeté avant le correctif).
+authentifié pas correctement rejeté avant le correctif). Migration 15 a
+câblé les vrais tarifs (`pricing_rules`, `subscription_plans`) et corrigé
+un repli manquant sur la majoration de nuit (ne se déclenchait jamais
+sans zone sélectionnée — la sélection de zone est optionnelle côté
+passager et la table `zones` est vide sur le projet réel).
 
 **Dashboard admin complet et actionnable** (`apps/admin/`) : voir §1.
 Code React 19 + Vite + TanStack Router, même stack que `apps/web`.
 
 **`apps/web` complet des deux côtés** (passager et chauffeur) : voir §1.
-Reste bloqué en usage réel par la clé Google Maps et les tarifs (§3).
+Reste bloqué en usage réel uniquement par la clé Google Maps (§3).
 
 **5 Edge Functions déployées** (`payment-webhook-momo`,
 `phone-verification-start`/`-check`, `pricing-directions`,
@@ -104,9 +106,7 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 ## 3. Ce qui pose problème / limites connues
 
 - **Clé API Google Maps manquante** — bloque l'estimation/demande de
-  course (§7).
-- **`pricing_rules` vide sur le projet réel** — bloque aussi la demande
-  de course et la clôture d'une course, indépendamment de Google Maps.
+  course (§7). Seul point bloquant restant sur ce parcours.
 - **Secrets Edge Functions pas tous configurés** : `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe). `ESMS_AFRICA_API_KEY` n'est plus à l'ordre
   du jour (abandonné).
@@ -144,8 +144,18 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-029 à
-TASK-031) : **côté chauffeur de `apps/web` construit** (auth, dépôt de
+**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-032) :
+**vrais tarifs câblés** — `pricing_rules` (voiture 250 FCFA prise en
+charge + 250 FCFA/km, minimum 700 FCFA ; moto 100 FCFA prise en charge +
+70 FCFA/km, pas de minimum ; majoration de nuit 10 % de 22h à 5h pour les
+deux) et correction de `subscription_plans` (Pass Jour moto 500 → 300
+FCFA, jamais confirmé avant). Corrigé au passage : la majoration de nuit
+ne se déclenchait jamais sans zone sélectionnée (repli sur la fenêtre
+22h-5h ajouté). Plus aucun tarif inventé ni manquant — la demande de
+course ne dépend plus que de la clé Google Maps (§3/§7).
+
+**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md`
+(TASK-029 à TASK-031) : **côté chauffeur de `apps/web` construit** (auth, dépôt de
 dossier KYC + véhicule, tableau de bord avec abonnement/disponibilité/
 offres/course en cours) ; **actions admin sur les paiements manuels**
 (Confirmer/Marquer échoué/Rembourser sur `/paiements`) ; **accueil
@@ -195,10 +205,6 @@ seulement en attente de vos décisions/actions (§7).
      — celle-ci sera visible côté navigateur par construction (comme
      toute clé Maps JS), la restriction de referrer est ce qui la
      protège d'un usage détourné.
-- **Tarifs réels** (`pricing_rules`) — prix de base, prix/km, prix/min,
-  tarif minimum et majoration de nuit par catégorie (voiture/moto-taxi),
-  éventuellement par zone. Se saisit via `/tarification` une fois
-  connecté à l'admin — decision business, jamais inventée dans le code.
 - **Connexion admin** : essayez `/login` avec `abotchigilles@yahoo.fr`.
   Si ça échoue (probable — voir §3), réinitialisez le mot de passe
   depuis Dashboard → Authentication → Users → ce compte.
