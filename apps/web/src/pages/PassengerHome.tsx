@@ -1,12 +1,213 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
+import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRide, PaymentMethodType, RideHistoryRow, Zone } from '../lib/types'
+import { Badge, CategoryBadge, RideStatusBadge } from '../components/Badge'
+import { fcfa } from '../lib/format'
+
+const CANCELLABLE_STATUSES = ['requested', 'searching', 'accepted', 'driver_arriving', 'driver_arrived']
+const ACTIVE_STATUSES = ['requested', 'searching', 'accepted', 'driver_arriving', 'driver_arrived', 'in_progress']
+const TERMINAL_STATUSES = ['completed', 'cancelled_by_passenger', 'cancelled_by_driver', 'cancelled_by_system']
+
+function pricingErrorMessage(code: string): string {
+  switch (code) {
+    case 'not_configured':
+      return "La tarification en ligne n'est pas encore activée (intégration Google Maps en attente) — vous ne pouvez pas encore demander de course depuis l'application."
+    case 'invalid_coordinates':
+      return 'Coordonnées de départ ou de destination invalides.'
+    case 'invalid_category':
+      return 'Catégorie de véhicule invalide.'
+    case 'directions_failed':
+      return "Impossible de calculer l'itinéraire — vérifiez les coordonnées saisies."
+    case 'pricing_failed':
+    case 'no_pricing_rule_configured':
+      return 'Aucun tarif configuré pour cette catégorie ou cette zone pour le moment.'
+    default:
+      return "Erreur lors de l'estimation du prix."
+  }
+}
 
 export function PassengerHome() {
   const navigate = useNavigate()
+  const [userId, setUserId] = useState<string | null>(null)
+  const [activeRide, setActiveRide] = useState<PassengerActiveRide | null | undefined>(undefined)
+  const [driverInfo, setDriverInfo] = useState<DriverPublicInfo | null>(null)
+  const [history, setHistory] = useState<RideHistoryRow[]>([])
+  const [zones, setZones] = useState<Zone[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const [category, setCategory] = useState<DriverCategory>('car')
+  const [pickupAddress, setPickupAddress] = useState('')
+  const [pickupLat, setPickupLat] = useState('6.1319')
+  const [pickupLng, setPickupLng] = useState('1.2228')
+  const [dropoffAddress, setDropoffAddress] = useState('')
+  const [dropoffLat, setDropoffLat] = useState('')
+  const [dropoffLng, setDropoffLng] = useState('')
+  const [zoneId, setZoneId] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('cash')
+  const [estimate, setEstimate] = useState<FareEstimate | null>(null)
+  const [estimateError, setEstimateError] = useState<string | null>(null)
+  const [estimating, setEstimating] = useState(false)
+
+  const loadActiveRide = useCallback(async (uid: string) => {
+    const { data: rideData } = await supabase
+      .from('rides')
+      .select('id, status, category, pickup_address, dropoff_address, estimated_fare_fcfa, estimated_distance_km, payment_method, driver_id')
+      .eq('passenger_id', uid)
+      .in('status', ACTIVE_STATUSES)
+      .order('requested_at', { ascending: false })
+      .maybeSingle()
+    setActiveRide((rideData as unknown as PassengerActiveRide) ?? null)
+
+    if (rideData && (rideData as { driver_id: string | null }).driver_id) {
+      const { data: info } = await supabase.rpc('get_ride_driver_public_info', { _ride_id: rideData.id }).maybeSingle()
+      setDriverInfo(info as DriverPublicInfo | null)
+    } else {
+      setDriverInfo(null)
+    }
+  }, [])
+
+  const loadHistory = useCallback(async (uid: string) => {
+    const { data } = await supabase
+      .from('rides')
+      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, requested_at')
+      .eq('passenger_id', uid)
+      .in('status', TERMINAL_STATUSES)
+      .order('requested_at', { ascending: false })
+      .limit(20)
+    setHistory((data as unknown as RideHistoryRow[]) ?? [])
+  }, [])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id
+      if (!uid) return
+      setUserId(uid)
+      loadActiveRide(uid)
+      loadHistory(uid)
+    })
+
+    supabase
+      .from('zones')
+      .select('id, name, city')
+      .eq('is_active', true)
+      .order('name')
+      .then(({ data }) => setZones((data as Zone[]) ?? []))
+  }, [loadActiveRide, loadHistory])
+
+  useEffect(() => {
+    if (!userId) return
+
+    const channel = supabase
+      .channel(`passenger-${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides', filter: `passenger_id=eq.${userId}` }, () => {
+        loadActiveRide(userId)
+        loadHistory(userId)
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [userId, loadActiveRide, loadHistory])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
     navigate({ to: '/passager' })
+  }
+
+  async function estimateFare(e: FormEvent) {
+    e.preventDefault()
+    setEstimateError(null)
+    setEstimate(null)
+    if (!pickupAddress.trim() || !dropoffAddress.trim()) {
+      setEstimateError('Renseignez une adresse de départ et de destination.')
+      return
+    }
+    const pLat = Number(pickupLat)
+    const pLng = Number(pickupLng)
+    const dLat = Number(dropoffLat)
+    const dLng = Number(dropoffLng)
+    if ([pLat, pLng, dLat, dLng].some((v) => Number.isNaN(v))) {
+      setEstimateError('Coordonnées invalides — utilisez des nombres décimaux (ex : 6.1319).')
+      return
+    }
+
+    setEstimating(true)
+    const { data, error: invokeError } = await supabase.functions.invoke('pricing-directions', {
+      body: {
+        pickup: { lat: pLat, lng: pLng },
+        dropoff: { lat: dLat, lng: dLng },
+        category,
+        zone_id: zoneId || null,
+      },
+    })
+    setEstimating(false)
+
+    if (invokeError) {
+      let reason = 'directions_failed'
+      const ctx = (invokeError as { context?: Response }).context
+      if (ctx) {
+        try {
+          const body = await ctx.clone().json()
+          if (body?.error) reason = body.error
+        } catch {
+          // réponse non-JSON — on garde le message générique
+        }
+      }
+      setEstimateError(pricingErrorMessage(reason))
+      return
+    }
+    if (data?.error) {
+      setEstimateError(pricingErrorMessage(data.error))
+      return
+    }
+    setEstimate(data as FareEstimate)
+  }
+
+  async function confirmRequest() {
+    if (!estimate || !userId) return
+    setError(null)
+    setBusy(true)
+    const { error: rpcError } = await supabase.rpc('create_ride_request', {
+      _category: category,
+      _pickup_lat: Number(pickupLat),
+      _pickup_lng: Number(pickupLng),
+      _pickup_address: pickupAddress.trim(),
+      _dropoff_lat: Number(dropoffLat),
+      _dropoff_lng: Number(dropoffLng),
+      _dropoff_address: dropoffAddress.trim(),
+      _distance_km: estimate.distance_km,
+      _duration_min: estimate.duration_min,
+      _payment_method: paymentMethod,
+      _zone_id: zoneId || null,
+    })
+    setBusy(false)
+    if (rpcError) {
+      setError(rpcError.message)
+      return
+    }
+    setEstimate(null)
+    setPickupAddress('')
+    setDropoffAddress('')
+    setDropoffLat('')
+    setDropoffLng('')
+    loadActiveRide(userId)
+  }
+
+  async function cancelRide() {
+    if (!activeRide) return
+    if (!window.confirm('Annuler cette course ?')) return
+    setError(null)
+    setBusy(true)
+    const { error: rpcError } = await supabase.rpc('cancel_ride', { _ride_id: activeRide.id })
+    setBusy(false)
+    if (rpcError) {
+      setError(rpcError.message)
+      return
+    }
+    if (userId) loadActiveRide(userId)
   }
 
   return (
@@ -21,13 +222,240 @@ export function PassengerHome() {
         </button>
       </header>
 
-      <main className="flex flex-col items-center px-6 py-16 text-center">
-        <span className="text-3xl">🚧</span>
-        <h1 className="mt-4 text-xl font-bold text-ink-900">Compte connecté</h1>
-        <p className="mt-2 max-w-sm text-sm text-ink-600">
-          La demande de course en ligne arrive prochainement — elle dépend encore du choix du
-          fournisseur de cartographie.
-        </p>
+      {error && (
+        <div className="mx-auto mb-4 max-w-2xl px-4">
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+        </div>
+      )}
+
+      <main className="mx-auto max-w-2xl px-4 pb-16">
+        {activeRide === undefined && <p className="p-8 text-center text-sm text-ink-400">Chargement…</p>}
+
+        {activeRide && (
+          <section className="mb-6 rounded-2xl border border-navy-500 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-400">Course en cours</h2>
+              <RideStatusBadge status={activeRide.status} />
+            </div>
+            {driverInfo && (
+              <p className="text-sm font-medium text-ink-800">
+                {driverInfo.full_name || 'Chauffeur'}
+                {driverInfo.rating_avg != null && ` — ★ ${driverInfo.rating_avg.toFixed(1)}`}
+                {driverInfo.vehicle_brand && (
+                  <span className="block text-xs text-ink-500">
+                    {driverInfo.vehicle_brand} {driverInfo.vehicle_model} {driverInfo.vehicle_color} — {driverInfo.vehicle_plate}
+                  </span>
+                )}
+              </p>
+            )}
+            {!driverInfo && <p className="text-sm text-ink-400">Recherche d'un chauffeur…</p>}
+            <p className="mt-2 text-sm text-ink-600">
+              {activeRide.pickup_address} → {activeRide.dropoff_address}
+            </p>
+            <p className="mt-1 text-sm text-ink-600">
+              {activeRide.estimated_fare_fcfa != null ? fcfa(activeRide.estimated_fare_fcfa) : '—'} —{' '}
+              {activeRide.payment_method === 'cash' ? 'Cash' : 'Mobile Money'}
+            </p>
+            {CANCELLABLE_STATUSES.includes(activeRide.status) && (
+              <button
+                disabled={busy}
+                onClick={cancelRide}
+                className="mt-4 w-full rounded-lg bg-red-50 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+              >
+                Annuler la course
+              </button>
+            )}
+          </section>
+        )}
+
+        {activeRide === null && (
+          <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-400">Demander une course</h2>
+            <p className="mb-4 text-xs text-ink-400">
+              Saisie manuelle des coordonnées en attendant l'auto-complétion d'adresse (Google Places) — indiquez la
+              latitude/longitude approximative des points de départ et d'arrivée.
+            </p>
+
+            <form onSubmit={estimateFare}>
+              <div className="mb-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCategory('car')}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+                    category === 'car' ? 'border-navy-500 bg-navy-50 text-navy-700' : 'border-ink-100 text-ink-600'
+                  }`}
+                >
+                  🚗 Voiture
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCategory('moto')}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+                    category === 'moto' ? 'border-navy-500 bg-navy-50 text-navy-700' : 'border-ink-100 text-ink-600'
+                  }`}
+                >
+                  🏍️ Moto-taxi
+                </button>
+              </div>
+
+              <label className="mb-1 block text-sm font-medium text-ink-800">Adresse de départ</label>
+              <input
+                type="text"
+                value={pickupAddress}
+                onChange={(e) => setPickupAddress(e.target.value)}
+                placeholder="Ex : Grand Marché, Lomé"
+                className="mb-2 w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
+              />
+              <div className="mb-4 grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={pickupLat}
+                  onChange={(e) => setPickupLat(e.target.value)}
+                  placeholder="Latitude"
+                  className="w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
+                />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={pickupLng}
+                  onChange={(e) => setPickupLng(e.target.value)}
+                  placeholder="Longitude"
+                  className="w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
+                />
+              </div>
+
+              <label className="mb-1 block text-sm font-medium text-ink-800">Destination</label>
+              <input
+                type="text"
+                value={dropoffAddress}
+                onChange={(e) => setDropoffAddress(e.target.value)}
+                placeholder="Ex : Aéroport de Lomé"
+                className="mb-2 w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
+              />
+              <div className="mb-4 grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={dropoffLat}
+                  onChange={(e) => setDropoffLat(e.target.value)}
+                  placeholder="Latitude"
+                  className="w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
+                />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={dropoffLng}
+                  onChange={(e) => setDropoffLng(e.target.value)}
+                  placeholder="Longitude"
+                  className="w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
+                />
+              </div>
+
+              {zones.length > 0 && (
+                <>
+                  <label className="mb-1 block text-sm font-medium text-ink-800">Zone (optionnel)</label>
+                  <select
+                    value={zoneId}
+                    onChange={(e) => setZoneId(e.target.value)}
+                    className="mb-4 w-full rounded-lg border border-ink-100 px-3 py-2 text-sm text-ink-800"
+                  >
+                    <option value="">— Aucune —</option>
+                    {zones.map((z) => (
+                      <option key={z.id} value={z.id}>
+                        {z.name} ({z.city})
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              <label className="mb-1 block text-sm font-medium text-ink-800">Paiement</label>
+              <div className="mb-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('cash')}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+                    paymentMethod === 'cash' ? 'border-navy-500 bg-navy-50 text-navy-700' : 'border-ink-100 text-ink-600'
+                  }`}
+                >
+                  💵 Cash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('mobile_money')}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+                    paymentMethod === 'mobile_money' ? 'border-navy-500 bg-navy-50 text-navy-700' : 'border-ink-100 text-ink-600'
+                  }`}
+                >
+                  📱 Mobile Money
+                </button>
+              </div>
+
+              {estimateError && (
+                <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{estimateError}</p>
+              )}
+
+              {estimate && (
+                <div className="mb-4 rounded-lg bg-navy-50 px-3 py-3 text-sm text-navy-800">
+                  <p className="font-semibold">{fcfa(estimate.fare_fcfa)}</p>
+                  <p className="text-xs text-navy-600">
+                    {estimate.distance_km} km — {estimate.duration_min} min{estimate.is_night ? ' — tarif de nuit' : ''}
+                  </p>
+                </div>
+              )}
+
+              {!estimate && (
+                <button
+                  type="submit"
+                  disabled={estimating}
+                  className="w-full rounded-lg bg-navy-600 py-2.5 text-sm font-semibold text-white hover:bg-navy-700 disabled:opacity-50"
+                >
+                  {estimating ? 'Estimation…' : 'Estimer le prix'}
+                </button>
+              )}
+              {estimate && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={confirmRequest}
+                  className="w-full rounded-lg bg-navy-600 py-2.5 text-sm font-semibold text-white hover:bg-navy-700 disabled:opacity-50"
+                >
+                  {busy ? 'Envoi…' : 'Confirmer la demande'}
+                </button>
+              )}
+            </form>
+          </section>
+        )}
+
+        {history.length > 0 && (
+          <section className="rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-400">Historique</h2>
+            <div className="space-y-2">
+              {history.map((r) => (
+                <div key={r.id} className="rounded-xl border border-ink-100 p-3">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <CategoryBadge category={r.category} />
+                    <RideStatusBadge status={r.status} />
+                  </div>
+                  <p className="text-sm text-ink-600">
+                    {r.pickup_address} → {r.dropoff_address}
+                  </p>
+                  <div className="mt-1 flex items-center justify-between text-xs text-ink-400">
+                    <span>{new Date(r.requested_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                    <span>{(r.final_fare_fcfa ?? r.estimated_fare_fcfa) != null ? fcfa((r.final_fare_fcfa ?? r.estimated_fare_fcfa) as number) : '—'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activeRide === null && history.length === 0 && (
+          <p className="mt-2 text-center text-xs text-ink-400">
+            <Badge tone="default">Aucune course pour le moment</Badge>
+          </p>
+        )}
       </main>
     </div>
   )

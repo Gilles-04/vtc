@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { DriverOnboarding } from './DriverOnboarding'
-import type { ActiveRide, ActiveSubscription, DriverDocType, DriverRecord, RideOffer, SubscriptionPlan } from '../lib/types'
+import type { ActiveRide, ActiveSubscription, DriverDocType, DriverRecord, PassengerPublicInfo, RideOffer, SubscriptionPlan } from '../lib/types'
 import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadge } from '../components/Badge'
 import { fcfa } from '../lib/format'
 
@@ -27,6 +27,7 @@ export function DriverHome() {
   const [activeSub, setActiveSub] = useState<ActiveSubscription | null>(null)
   const [offers, setOffers] = useState<RideOffer[]>([])
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null)
+  const [passengerInfo, setPassengerInfo] = useState<PassengerPublicInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [uploadingType, setUploadingType] = useState<DriverDocType | null>(null)
@@ -87,12 +88,19 @@ export function DriverHome() {
     const { data: rideData } = await supabase
       .from('rides')
       .select(
-        'id, status, category, pickup_address, dropoff_address, estimated_fare_fcfa, estimated_distance_km, estimated_duration_min, payment_method, profiles!passenger_id(phone, full_name)',
+        'id, status, category, pickup_address, dropoff_address, estimated_fare_fcfa, estimated_distance_km, estimated_duration_min, payment_method',
       )
       .eq('driver_id', driver.id)
       .in('status', ['accepted', 'driver_arriving', 'driver_arrived', 'in_progress'])
       .maybeSingle()
     setActiveRide(rideData as unknown as ActiveRide | null)
+
+    if (rideData) {
+      const { data: info } = await supabase.rpc('get_ride_passenger_public_info', { _ride_id: rideData.id }).maybeSingle()
+      setPassengerInfo(info as PassengerPublicInfo | null)
+    } else {
+      setPassengerInfo(null)
+    }
 
     if (!rideData) {
       const { data: offersData } = await supabase
@@ -404,9 +412,7 @@ export function DriverHome() {
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-400">Course en cours</h2>
                     <RideStatusBadge status={activeRide.status} />
                   </div>
-                  <p className="text-sm font-medium text-ink-800">
-                    {activeRide.profiles?.full_name || activeRide.profiles?.phone || 'Passager'}
-                  </p>
+                  <p className="text-sm font-medium text-ink-800">{passengerInfo?.full_name || 'Passager'}</p>
                   <p className="mt-1 text-sm text-ink-600">
                     {activeRide.pickup_address} → {activeRide.dropoff_address}
                   </p>

@@ -85,7 +85,6 @@ export interface ActiveRide {
   estimated_distance_km: number | null
   estimated_duration_min: number | null
   payment_method: PaymentMethodType
-  profiles: { phone: string | null; full_name: string | null } | null
 }
 
 export interface RideHistoryRow {
@@ -97,4 +96,47 @@ export interface RideHistoryRow {
   final_fare_fcfa: number | null
   estimated_fare_fcfa: number | null
   requested_at: string
+}
+
+// Renvoyées par les fonctions dédiées `get_ride_driver_public_info` /
+// `get_ride_passenger_public_info` (migration 13) — jamais par lecture
+// directe de `drivers`/`profiles`, RLS bloquée entre passager et chauffeur
+// (voir docs/11-securite.md §RLS).
+export interface DriverPublicInfo {
+  full_name: string | null
+  rating_avg: number
+  vehicle_brand: string | null
+  vehicle_model: string | null
+  vehicle_color: string | null
+  vehicle_plate: string | null
+}
+
+export interface PassengerPublicInfo {
+  full_name: string | null
+}
+
+export interface Zone {
+  id: string
+  name: string
+  city: string
+}
+
+export interface PassengerActiveRide {
+  id: string
+  status: RideStatus
+  category: DriverCategory
+  pickup_address: string
+  dropoff_address: string
+  estimated_fare_fcfa: number | null
+  estimated_distance_km: number | null
+  payment_method: PaymentMethodType
+  driver_id: string | null
+}
+
+export interface FareEstimate {
+  pricing_rule_id: string
+  fare_fcfa: number
+  is_night: boolean
+  distance_km: number
+  duration_min: number
 }
