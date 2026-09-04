@@ -1,9 +1,11 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 4 septembre 2026 (position du chauffeur câblée
-sur les deux plateformes — le matching peut fonctionner de bout en bout
-côté fourniture de position — vrais tarifs câblés, `apps/mobile` complet
-côté passager/chauffeur, rendu natif réel non vérifié)*
+*Dernière mise à jour : 4 septembre 2026 (reçu PDF d'abonnement chauffeur
+réellement construit — documenté depuis le début mais jamais fait avant
+ce jour ; position du chauffeur câblée sur les deux plateformes — le
+matching peut fonctionner de bout en bout côté fourniture de position ;
+vrais tarifs câblés ; `apps/mobile` complet côté passager/chauffeur,
+rendu natif réel non vérifié)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -120,6 +122,11 @@ et `apps/mobile` (`expo-location`) — condition nécessaire au matching
 (`dispatch_next_offer`), absente sur les deux plateformes jusqu'au
 4 septembre (TASK-035 dans `docs/TASKS.md`).
 
+**Reçu PDF d'abonnement chauffeur** (`apps/web`, `jsPDF`) — un par
+paiement d'abonnement réussi, téléchargeable depuis le tableau de bord
+chauffeur (TASK-036 dans `docs/TASKS.md`). Ne couvre pas la facture de
+course (§3) ni `apps/mobile`.
+
 **5 Edge Functions déployées** (`payment-webhook-momo`,
 `phone-verification-start`/`-check`, `pricing-directions`,
 `push-notifications-dispatch`) — URLs vérifiées. `push-notifications-dispatch`
@@ -179,7 +186,29 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-035) :
+**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-036) :
+**reçu PDF d'abonnement chauffeur réellement construit** — découvert que
+`docs/10-paiements.md` documentait ce reçu (`jsPDF`) comme déjà fait
+depuis le tout début du projet alors qu'il n'existait nulle part dans le
+code (vérifié : aucune occurrence de `jsPDF` dans le dépôt avant ce jour).
+Construit pour de vrai : `apps/web/src/lib/receipt.ts`, section « Reçus »
+dans le tableau de bord chauffeur, un bouton Télécharger par paiement
+d'abonnement réussi. A aussi révélé un vrai bug au passage : les polices
+standard de jsPDF ne rendent pas l'espace fine insécable qu'utilise le
+formatage FCFA comme séparateur de milliers (montant affiché corrompu
+dans le PDF) — repéré en relisant le contenu réel du fichier généré, pas
+seulement en vérifiant qu'un PDF valide existait ; corrigé localement
+dans `receipt.ts`. `jsPDF` embarque `html2canvas`+`dompurify` (~380 Ko
+gzip, plugin `.html()` jamais utilisé) — chargé à la demande (`import()`
+dynamique) plutôt que dans le chunk principal, pour ne pas alourdir le
+chargement de tout le monde (passager compris) pour une fonctionnalité
+chauffeur seule. Doc corrigée au passage (référençait aussi une route
+`/abonnement` qui n'a jamais existé). Ne couvre pas la facture de course
+(`invoices`, toujours sans rendu PDF, périmètre plus large) ni
+`apps/mobile` (non porté, jsPDF nécessite une approche différente en
+React Native).
+
+**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-035) :
 **position du chauffeur câblée sur les deux plateformes** — découvert en
 vérifiant si `update_driver_location` (existante depuis la migration 2,
 condition nécessaire au matching via `dispatch_next_offer`) était

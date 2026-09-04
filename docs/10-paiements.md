@@ -248,10 +248,12 @@ tiers reste à valider avec vous avant mise en production réelle.
 
 - `payments` conserve l'intégralité des tentatives (y compris échouées) —
   jamais de suppression.
-- Un reçu simple est généré (PDF, `jsPDF`) pour chaque abonnement payé avec
-  succès, consultable dans `/abonnement` côté chauffeur — distinct de la
-  facture de course (`invoices`) ci-dessus, jamais confondu dans les deux
-  revenus.
+- Un reçu simple (PDF, `jsPDF`, généré et téléchargé côté client — aucun
+  stockage du fichier lui-même) est disponible pour chaque paiement
+  d'abonnement réussi, dans la section « Reçus » du tableau de bord
+  chauffeur (`apps/web`, pas encore porté sur `apps/mobile`) — distinct de
+  la facture de course (`invoices`) ci-dessus, jamais confondu dans les
+  deux revenus.
 - Remboursement : au MVP, uniquement manuel côté admin/finance
   (`admin_refund_payment(payment_id, reason)`, vérifié réellement — un
   paiement déjà `success` seulement, jamais deux fois de suite sur le

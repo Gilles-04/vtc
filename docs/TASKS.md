@@ -1237,6 +1237,69 @@ libre).
 
 ---
 
+## TASK-036 — Reçu PDF d'abonnement chauffeur (apps/web)
+
+- **Objectif** : aucun demandé explicitement — `docs/10-paiements.md`
+  §Historique et reçus documentait depuis le début du projet « un reçu
+  simple est généré (PDF, `jsPDF`) pour chaque abonnement payé avec
+  succès » comme si c'était déjà construit. Vérifié en cherchant `jsPDF`
+  dans tout le dépôt : aucune occurrence — jamais construit, malgré la
+  doc affirmant le contraire (et référençant en plus une route `/abonnement`
+  qui n'a jamais existé, l'abonnement étant une section de `DriverHome.tsx`,
+  pas une route séparée). Corrigé dans le même mouvement que la doc.
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** : `apps/web/src/lib/receipt.ts`
+  (`generateSubscriptionReceiptPdf`, `jsPDF`, format A5) — reçu n°
+  (préfixe de l'id du paiement), date, nom du chauffeur (`profiles.full_name`,
+  lu directement — RLS `profiles_select` autorise déjà `auth.uid() = id`),
+  plan (résolu depuis `payments.metadata.plan_id`/`plan_code`, écrit par
+  `purchase_subscription`), mode de paiement, référence fournisseur le cas
+  échéant, montant. Nouveau type `SubscriptionPayment`
+  (`apps/web/src/lib/types.ts`). Section « Reçus » ajoutée dans
+  `DriverHome.tsx` (liste des paiements `driver_subscription` réussis du
+  chauffeur connecté, un bouton Télécharger par ligne) — requête directe
+  sur `payments` filtrée `user_id`/`purpose`/`status`, autorisée par la
+  policy `payments_select` existante (migration 1), aucune migration
+  nécessaire.
+- **Bug réel trouvé et corrigé en vérifiant** : les polices standard de
+  jsPDF (encodage WinAnsi) ne savent pas rendre l'espace fine insécable
+  (U+202F) qu'utilise `Intl.NumberFormat('fr-FR')` comme séparateur de
+  milliers dans `fcfa()` — le montant s'affichait corrompu dans le PDF
+  (`1 /000 FCFA` au lieu de `1 000 FCFA`), repéré en relisant le contenu
+  réel du PDF généré, pas seulement en vérifiant qu'un fichier existait.
+  `fcfa()` elle-même n'est pas en cause (correcte partout ailleurs, rendu
+  navigateur) — corrigé localement dans `receipt.ts` (`pdfSafe()`,
+  substitue l'espace fine insécable par un espace normal avant tout appel
+  `doc.text()`), pas dans `format.ts`.
+- **Poids du bundle corrigé au passage** : `jsPDF` embarque `html2canvas`
+  + `dompurify` (plugin `.html()`, jamais utilisé ici) — l'import statique
+  initial ajoutait ~380 Ko gzip au chunk principal d'`apps/web`, chargé
+  par tout le monde (passager compris) alors que seul le tableau de bord
+  chauffeur en a besoin. Remplacé par un `import()` dynamique déclenché
+  seulement au clic sur Télécharger — `npm run build` confirme `jsPDF` et
+  ses dépendances isolées dans un chunk séparé, chargé à la demande.
+- **Vérifié** : `tsc --noEmit`/`oxlint` propres. Vérifié en conditions
+  réelles (`npm run dev` + Playwright/Chromium, mocks REST réalistes,
+  session simulée) : section « Reçus » affichée avec le bon plan/montant/
+  date, clic sur Télécharger déclenche un vrai téléchargement, fichier
+  récupéré et relu intégralement (pas seulement vérifié comme PDF valide
+  — le contenu textuel a été relu pour confirmer que le bug d'encodage
+  était réellement corrigé, avant et après le correctif).
+- **Non fait** : la facture de course (`invoices`) reste sans rendu PDF —
+  périmètre volontairement plus large, non traité ici (voir §Facturation
+  du même document). Le reçu d'abonnement n'est pas encore porté sur
+  `apps/mobile` (jsPDF fonctionne différemment en React Native — pas de
+  téléchargement navigateur direct, nécessiterait `expo-file-system`/
+  `expo-sharing` — non fait, hors périmètre de cette tâche).
+- **Résultat** : `docs/10-paiements.md` reflète maintenant la réalité du
+  code (reçu réellement construit, localisation corrigée). Décision prise
+  au passage : ne pas créer `CHANGELOG.md` ni restructurer `STATUS.md`
+  malgré sa longueur croissante (299+ lignes) — cette règle de seuil vient
+  du `CLAUDE.md` du dépôt `mbonplan`, pas d'une règle propre à `vtc` (qui
+  n'a pas de `CLAUDE.md`).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

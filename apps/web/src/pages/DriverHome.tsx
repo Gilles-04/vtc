@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { DriverOnboarding } from './DriverOnboarding'
-import type { ActiveRide, ActiveSubscription, DriverDocType, DriverRecord, PassengerPublicInfo, RideOffer, SubscriptionPlan } from '../lib/types'
+import type { ActiveRide, ActiveSubscription, DriverDocType, DriverRecord, PassengerPublicInfo, RideOffer, SubscriptionPayment, SubscriptionPlan } from '../lib/types'
 import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadge } from '../components/Badge'
 import { fcfa } from '../lib/format'
 
@@ -25,6 +25,8 @@ export function DriverHome() {
   const [driver, setDriver] = useState<DriverRecord | null | undefined>(undefined)
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [activeSub, setActiveSub] = useState<ActiveSubscription | null>(null)
+  const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPayment[]>([])
+  const [driverName, setDriverName] = useState<string | null>(null)
   const [offers, setOffers] = useState<RideOffer[]>([])
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null)
   const [passengerInfo, setPassengerInfo] = useState<PassengerPublicInfo | null>(null)
@@ -77,16 +79,41 @@ export function DriverHome() {
       .maybeSingle()
     setActiveSub(sub as unknown as ActiveSubscription | null)
 
-    if (!sub) {
-      const { data: plansData } = await supabase
-        .from('subscription_plans')
-        .select('id, code, name, duration_hours, price_fcfa')
-        .eq('category', driver.category)
-        .eq('is_active', true)
-        .order('sort_order')
-      setPlans(plansData ?? [])
-    }
+    // Chargé même avec un abonnement actif (pas seulement pour la liste
+    // d'achat) : nécessaire pour retrouver le nom du plan sur les reçus PDF.
+    const { data: plansData } = await supabase
+      .from('subscription_plans')
+      .select('id, code, name, duration_hours, price_fcfa')
+      .eq('category', driver.category)
+      .eq('is_active', true)
+      .order('sort_order')
+    setPlans(plansData ?? [])
+
+    // Reçus PDF (docs/10-paiements.md §Historique et reçus) — uniquement les
+    // paiements d'abonnement réussis, jamais un paiement de course (`invoices`
+    // couvre ce flux séparément, rendu PDF non construit).
+    const { data: paymentsData } = await supabase
+      .from('payments')
+      .select('id, amount_fcfa, provider, provider_ref, status, metadata, created_at, confirmed_at')
+      .eq('user_id', driver.id)
+      .eq('purpose', 'driver_subscription')
+      .eq('status', 'success')
+      .order('confirmed_at', { ascending: false })
+    setSubscriptionPayments((paymentsData as unknown as SubscriptionPayment[]) ?? [])
+
+    const { data: profileData } = await supabase.from('profiles').select('full_name').eq('id', driver.id).maybeSingle()
+    setDriverName(profileData?.full_name ?? null)
   }, [driver])
+
+  // jsPDF embarque html2canvas/dompurify (plugin .html(), jamais utilisé
+  // ici) et ajoute ~380 Ko gzip au bundle — chargé à la demande seulement,
+  // pas dans le chunk principal (impact quasi nul, quasiment personne ne
+  // télécharge un reçu à chaque visite).
+  async function downloadReceipt(payment: SubscriptionPayment) {
+    const plan = plans.find((p) => p.id === payment.metadata.plan_id || p.code === payment.metadata.plan_code)
+    const { generateSubscriptionReceiptPdf } = await import('../lib/receipt')
+    generateSubscriptionReceiptPdf(payment, plan, driverName)
+  }
 
   const loadOffersAndRide = useCallback(async () => {
     if (!driver || driver.status !== 'approved') return
@@ -400,6 +427,34 @@ export function DriverHome() {
                   </div>
                 )}
               </section>
+
+              {subscriptionPayments.length > 0 && (
+                <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-400">Reçus</h2>
+                  <div className="space-y-2">
+                    {subscriptionPayments.map((payment) => (
+                      <div key={payment.id} className="flex items-center justify-between rounded-xl border border-ink-100 p-3">
+                        <div>
+                          <p className="text-sm font-medium text-ink-800">
+                            {plans.find((p) => p.id === payment.metadata.plan_id)?.name ?? payment.metadata.plan_code ?? 'Abonnement'}
+                          </p>
+                          <p className="text-xs text-ink-400">
+                            {new Date(payment.confirmed_at ?? payment.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            {' — '}
+                            {fcfa(payment.amount_fcfa)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => downloadReceipt(payment)}
+                          className="rounded-lg border border-ink-200 px-3 py-1.5 text-sm font-medium text-ink-700 hover:bg-ink-50"
+                        >
+                          Télécharger
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               {activeSub && !activeRide && (
                 <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">

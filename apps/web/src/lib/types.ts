@@ -62,6 +62,21 @@ export interface ActiveSubscription {
   subscription_plans: { name: string } | null
 }
 
+// Paiements d'abonnement du chauffeur connecté (purpose='driver_subscription'),
+// utilisés pour générer les reçus PDF (docs/10-paiements.md §Historique et
+// reçus) — jamais la ligne `payments` complète, uniquement les champs
+// nécessaires au reçu.
+export interface SubscriptionPayment {
+  id: string
+  amount_fcfa: number
+  provider: string
+  provider_ref: string | null
+  status: string
+  metadata: { plan_id?: string; plan_code?: string }
+  created_at: string
+  confirmed_at: string | null
+}
+
 export interface RideOffer {
   id: string
   ride_id: string
