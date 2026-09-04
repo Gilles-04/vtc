@@ -25,6 +25,17 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": ["expo-router", "expo-file-system"]
+    "plugins": [
+      "expo-router",
+      "expo-file-system",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "VTC Togo utilise votre position pour vous proposer des courses à proximité pendant que vous êtes disponible.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
+    ]
   }
 }

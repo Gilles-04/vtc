@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { DriverOnboarding } from './DriverOnboarding'
@@ -31,6 +31,12 @@ export function DriverHome() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [uploadingType, setUploadingType] = useState<DriverDocType | null>(null)
+  const [locationError, setLocationError] = useState<string | null>(null)
+
+  const activeRideRef = useRef<ActiveRide | null>(null)
+  useEffect(() => {
+    activeRideRef.current = activeRide
+  }, [activeRide])
 
   const loadDriver = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser()
@@ -138,6 +144,44 @@ export function DriverHome() {
       supabase.removeChannel(channel)
     }
   }, [driver, loadOffersAndRide])
+
+  // Position envoyée à update_driver_location (migration 2) pendant toute
+  // la période où le chauffeur est disponible — condition nécessaire pour
+  // dispatch_next_offer (docs/08-matching.md), qui exige `last_location_at`
+  // récent (< 2 min). Continue pendant une course (is_available reste true
+  // tant qu'aucune bascule manuelle) : _ride_id est alors renseigné pour
+  // l'historique driver_locations.
+  useEffect(() => {
+    if (!driver || driver.status !== 'approved' || !driver.is_available) return
+    if (!navigator.geolocation) {
+      setLocationError("Ce navigateur ne prend pas en charge la géolocalisation.")
+      return
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setLocationError(null)
+        void supabase
+          .rpc('update_driver_location', {
+            _lat: position.coords.latitude,
+            _lng: position.coords.longitude,
+            _accuracy_meters: position.coords.accuracy ?? null,
+            _ride_id: activeRideRef.current?.id ?? null,
+          })
+          .then(({ error }) => {
+            if (error) console.warn('update_driver_location', error.message)
+          })
+      },
+      () => {
+        setLocationError("Autorisation de localisation refusée — vous ne recevrez pas de demande de course tant qu'elle n'est pas accordée.")
+      },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 },
+    )
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId)
+    }
+  }, [driver])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -372,7 +416,11 @@ export function DriverHome() {
                     </button>
                   </div>
 
-                  {driver.is_available && offers.length === 0 && (
+                  {driver.is_available && locationError && (
+                    <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{locationError}</div>
+                  )}
+
+                  {driver.is_available && !locationError && offers.length === 0 && (
                     <p className="text-sm text-ink-400">En attente d'une demande de course…</p>
                   )}
 

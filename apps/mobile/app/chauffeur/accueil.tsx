@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { router } from 'expo-router'
 import {
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native'
 import { File } from 'expo-file-system'
+import * as Location from 'expo-location'
 import { supabase } from '../../src/lib/supabase'
 import { DriverOnboarding } from '../../src/components/DriverOnboarding'
 import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadge } from '../../src/components/Badge'
@@ -53,6 +54,12 @@ export default function DriverHome() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [uploadingType, setUploadingType] = useState<DriverDocType | null>(null)
+  const [locationError, setLocationError] = useState<string | null>(null)
+
+  const activeRideRef = useRef<ActiveRide | null>(null)
+  useEffect(() => {
+    activeRideRef.current = activeRide
+  }, [activeRide])
 
   const loadDriver = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser()
@@ -163,6 +170,54 @@ export default function DriverHome() {
       supabase.removeChannel(channel)
     }
   }, [driver, loadOffersAndRide])
+
+  // Position envoyée à update_driver_location (migration 2) pendant toute
+  // la période où le chauffeur est disponible — condition nécessaire pour
+  // dispatch_next_offer (docs/08-matching.md), qui exige `last_location_at`
+  // récent (< 2 min). Continue pendant une course (is_available reste true
+  // tant qu'aucune bascule manuelle) : _ride_id est alors renseigné pour
+  // l'historique driver_locations. Foreground uniquement — jamais de
+  // localisation en arrière-plan (voir README §Non fait ici).
+  useEffect(() => {
+    if (!driver || driver.status !== 'approved' || !driver.is_available) return
+    let subscription: Location.LocationSubscription | null = null
+    let cancelled = false
+
+    async function start() {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (cancelled) return
+      if (status !== 'granted') {
+        setLocationError("Autorisation de localisation refusée — vous ne recevrez pas de demande de course tant qu'elle n'est pas accordée.")
+        return
+      }
+      setLocationError(null)
+      subscription = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, timeInterval: 20000, distanceInterval: 30 },
+        (position) => {
+          // .rpc(...) est un thenable paresseux (supabase-js) — la requête ne
+          // part que lorsque .then()/await est invoqué. Fire-and-forget
+          // volontaire ici (un ping GPS raté ne doit jamais bloquer l'UI),
+          // mais il faut bien déclencher le .then() pour que ça parte.
+          void supabase
+            .rpc('update_driver_location', {
+              _lat: position.coords.latitude,
+              _lng: position.coords.longitude,
+              _accuracy_meters: position.coords.accuracy ?? null,
+              _ride_id: activeRideRef.current?.id ?? null,
+            })
+            .then(({ error }) => {
+              if (error) console.warn('update_driver_location', error.message)
+            })
+        },
+      )
+    }
+    start()
+
+    return () => {
+      cancelled = true
+      subscription?.remove()
+    }
+  }, [driver])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -430,7 +485,13 @@ export default function DriverHome() {
                     </Pressable>
                   </View>
 
-                  {driver.is_available && offers.length === 0 && <Text style={styles.subHint}>En attente d'une demande de course…</Text>}
+                  {driver.is_available && locationError && (
+                    <View style={styles.locationErrorBox}>
+                      <Text style={styles.locationErrorText}>{locationError}</Text>
+                    </View>
+                  )}
+
+                  {driver.is_available && !locationError && offers.length === 0 && <Text style={styles.subHint}>En attente d'une demande de course…</Text>}
 
                   {offers.map((offer) => (
                     <View key={offer.id} style={styles.offerCard}>
@@ -526,6 +587,8 @@ const styles = StyleSheet.create({
   subName: { fontSize: 14, fontWeight: '600', color: colors.ink800 },
   subExpiry: { fontSize: 12, color: colors.ink400, marginTop: 2 },
   subHint: { fontSize: 13, color: colors.ink600, marginBottom: 8 },
+  locationErrorBox: { backgroundColor: colors.red50, borderRadius: 10, padding: 12, marginBottom: 8 },
+  locationErrorText: { color: colors.red700, fontSize: 13 },
   planRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.ink100, borderRadius: 12, padding: 12, marginBottom: 8 },
   planName: { fontSize: 14, fontWeight: '600', color: colors.ink800 },
   planPrice: { fontSize: 12, color: colors.ink400, marginTop: 2 },
