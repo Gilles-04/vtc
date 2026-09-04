@@ -1,12 +1,15 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 4 septembre 2026 (écran Revenus + historique de
-courses chauffeur construit ; les deux rendus PDF manquants — reçu
-d'abonnement et facture de course — construits ; position du chauffeur
-câblée sur les deux plateformes, le matching peut fonctionner de bout en
-bout côté fourniture de position ; vrais tarifs câblés ; `apps/mobile`
-complet côté passager/chauffeur, rendu natif réel non vérifié — détail
-des tâches dans `docs/TASKS.md`)*
+*Dernière mise à jour : 4 septembre 2026 (`pg_cron` n'était jamais
+installé sur le projet réel — découvert et corrigé, `expire_subscriptions`/
+`cleanup_rate_limits` tournent enfin réellement, en plus du nouveau
+critère de fiabilité du matching qui en dépendait ; écran Revenus +
+historique de courses chauffeur construit ; les deux rendus PDF manquants
+— reçu d'abonnement et facture de course — construits ; position du
+chauffeur câblée sur les deux plateformes, le matching peut fonctionner
+de bout en bout côté fourniture de position ; vrais tarifs câblés ;
+`apps/mobile` complet côté passager/chauffeur, rendu natif réel non
+vérifié — détail des tâches dans `docs/TASKS.md`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -90,7 +93,7 @@ côté `apps/mobile` (hors périmètre porté ce jour), le worker de dispatch
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (15 migrations, vérifiées en local puis déployées,
+**Base de données** (16 migrations, vérifiées en local puis déployées,
 comptage confirmé identique) : cycle complet d'une course par catégorie
 (matching, cash/Mobile Money), frais de service 2,5 % jamais mélangés à
 l'abonnement, facturation/règlement/remboursement automatiques, reporting
@@ -116,6 +119,24 @@ Reste bloqué en usage réel uniquement par la clé Google Maps (§3).
 
 **`apps/mobile` complet côté code, même périmètre qu'`apps/web`** : voir
 §1. Rendu natif réel non vérifié dans cet environnement (§3).
+
+**`pg_cron` réellement actif sur le projet réel** — découvert en
+déployant la migration 16 que l'extension n'avait jamais été installée :
+`expire_subscriptions` et `cleanup_rate_limits` (en place depuis le tout
+début du projet) n'avaient donc **jamais tourné automatiquement en
+production**, malgré le `do $$ if exists(pg_extension pg_cron)... $$`
+qui masquait le problème sans erreur. Corrigé : extension installée, les
+trois tâches (les deux existantes + `recompute-driver-reliability`,
+ci-dessous) programmées et vérifiées en train de tourner
+(`cron.job_run_details`, pas seulement `cron.job`). Aucun effet de bord
+au moment de l'activation (1 seul abonnement en base, non expiré ; 0
+ligne obsolète dans `rate_limit_counters`).
+
+**Critère de fiabilité du matching** (`docs/08-matching.md`, migration
+16) — `drivers.acceptance_rate`/`cancellation_rate`, recalculés toutes
+les 15 min (`pg_cron`), intégrés au classement de `dispatch_next_offer`
+juste après la distance. Demandé explicitement par le porteur du projet
+(documenté jusque-là comme non fait au MVP).
 
 **Position du chauffeur envoyée en continu** (`update_driver_location`,
 foreground uniquement) sur `apps/web` (API géolocalisation du navigateur)
@@ -183,10 +204,8 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
   fournisseur, réservée au webhook `service_role`).
 - **`phone-verification-check` non testée** — eSMS Africa abandonné,
   circuit en réserve pour un futur fournisseur SMS.
-- **Rendu PDF de la facture non construit.**
 - **Mobile Money** : fournisseur non choisi (§7) — non bloquant, backend
   en mode manuel/admin.
-- **Critère de fiabilité du matching non implémenté** (doc 08).
 - **Protection mots de passe compromis (HaveIBeenPwned) désactivée** —
   interrupteur dashboard (Authentication → Password protection), pas une
   migration. Deux minutes, quand vous voulez.
@@ -197,7 +216,32 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-038) :
+**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-039) :
+**critère de fiabilité du matching construit, `pg_cron` réellement activé
+en production** — demandé explicitement par le porteur du projet
+(`docs/08-matching.md` le documentait comme non fait au MVP). Migration
+16 : `drivers.acceptance_rate`/`cancellation_rate` (fenêtre glissante
+30 jours, `null` sans donnée récente — jamais pénalisant), recalculés par
+`recompute_driver_reliability()` (`pg_cron`, toutes les 15 min),
+intégrés au classement de `dispatch_next_offer` juste après la distance.
+Vérifié en local (Postgres réel, deux chauffeurs à distance identique —
+fiable systématiquement préféré au peu fiable ; un chauffeur sans
+historique départagé équitablement par la note) avant application au
+projet réel via MCP. **Découverte significative en vérifiant le
+déploiement** (pas seulement `{"success":true}`) : `pg_cron` n'était
+jamais installé sur le projet réel — `expire_subscriptions`/
+`cleanup_rate_limits` (en place depuis le tout début du projet)
+n'avaient donc jamais tourné automatiquement, sans qu'aucune erreur ne
+le signale (le garde `if exists(pg_extension pg_cron)` masquait le
+problème). Confirmé avec l'utilisateur avant d'agir (activer une
+extension puis programmer des tâches qui modifient des données réelles
+en production dépasse le périmètre demandé) — il a choisi d'activer les
+trois tâches. Aucun effet de bord au moment de l'activation (vérifié
+avant : 1 seul abonnement en base, non expiré) ; `expire-subscriptions`
+confirmé réellement exécuté avec succès dans `cron.job_run_details`, pas
+seulement programmé dans `cron.job`.
+
+**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-038) :
 **écran Revenus + historique de courses chauffeur construit**
 (`docs/05-ecrans.md` écran #18, jamais fait jusqu'ici) — tuiles de gains
 jour/7 jours/mois (`invoices.transport_amount_fcfa`, calculées côté

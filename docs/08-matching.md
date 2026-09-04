@@ -42,26 +42,43 @@ pas un calcul applicatif — indispensable pour rester performant à l'échelle
 ## Étape 1 — Classement des candidats
 
 Score composite, **implémenté et testé** tel quel dans `dispatch_next_offer`
-(migration `00000000000002_business_logic.sql`), dans cet ordre de priorité
-(le premier critère départage la majorité des cas ; les suivants ne
-servent qu'à trancher les ex-æquo) :
+(migration `00000000000002_business_logic.sql`, critères de fiabilité
+ajoutés en migration `00000000000016_driver_reliability_score.sql`),
+dans cet ordre de priorité (le premier critère départage la majorité des
+cas ; les suivants ne servent qu'à trancher les ex-æquo) :
 
 1. **Distance** au point de prise en charge (croissant, `ST_Distance`) —
    critère dominant : un passager togolais attend un chauffeur proche, pas
    un chauffeur mieux noté mais loin.
-2. **Note moyenne** (`rating_avg`, décroissant) — départage à distance
-   comparable.
-3. **Ancienneté de disponibilité** (`last_location_at` le plus ancien en
+2. **Taux d'annulation après acceptation** (`cancellation_rate`,
+   croissant — le moins de casse d'abord) — départage à distance
+   comparable, avant la note : un chauffeur qui accepte puis annule fait
+   perdre plus de temps au passager qu'un chauffeur moins bien noté mais
+   fiable.
+3. **Taux d'acceptation récent** (`acceptance_rate`, décroissant).
+4. **Note moyenne** (`rating_avg`, décroissant).
+5. **Ancienneté de disponibilité** (`last_location_at` le plus ancien en
    dernier recours, pour une répartition plus équitable des courses entre
    chauffeurs abonnés).
 
-**Non implémenté au MVP** (documenté ici pour ne pas le re-découvrir plus
-tard) : un critère de **fiabilité** — taux d'acceptation récent, taux
-d'annulation après acceptation — nécessiterait de nouvelles colonnes
-agrégées sur `drivers` (ex. `acceptance_rate`, `cancellation_rate`) et le
-calcul correspondant, pas encore construits. Le schéma n'interdit pas de
-l'ajouter (`ride_offers.status`/`rides.cancelled_by` portent déjà les
-données brutes nécessaires) — voir [12-roadmap.md](12-roadmap.md).
+**Fiabilité (2 et 3)** : `drivers.acceptance_rate`/`cancellation_rate`
+(`numeric(5,2)`, pourcentage), recalculées toutes les 15 minutes par
+`recompute_driver_reliability()` (`pg_cron`, jamais en temps réel sur le
+chemin chaud du dispatch) sur une fenêtre glissante de 30 jours —
+`acceptance_rate` = part des offres résolues (`accepted`/`rejected`/
+`expired`, jamais `pending`) acceptées ; `cancellation_rate` = part des
+courses effectivement acceptées (`rides.driver_id` renseigné) que le
+chauffeur a lui-même annulées ensuite (`cancelled_by = 'driver'` — une
+annulation par le passager après acceptation du chauffeur ne compte
+jamais contre lui). `null` (jamais `0`) sans donnée récente — un
+chauffeur sans historique récent n'est pas classé comme le pire candidat
+possible par manque de données, `dispatch_next_offer` traite `null`
+comme neutre/favorable (`coalesce(cancellation_rate, 0)`,
+`coalesce(acceptance_rate, 100)`). Vérifié réellement : deux chauffeurs à
+distance identique, l'un fiable (100 %/0 %) et l'autre non (25 %/100 %) —
+le fiable systématiquement choisi ; un chauffeur sans historique récent
+départagé équitablement contre un chauffeur fiable par la note, jamais
+pénalisé par l'absence de données.
 
 ## Étape 2 — Dispatch séquentiel
 

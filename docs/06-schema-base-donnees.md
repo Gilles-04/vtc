@@ -90,10 +90,14 @@ de catégorie voudrait dire un autre véhicule/abonnement/tarif, pas un
 simple champ), `status` (`pending_documents`|`pending_review`|
 `approved`|`rejected`|`suspended`), `city`, `is_available`,
 `current_location geography(Point,4326)` (cache rapide pour le matching),
-`last_location_at`, `rating_avg`, `rating_count`, `total_rides`. Index
-`GIST` sur `current_location`, index partiel sur les chauffeurs
-`approved` + `is_available`. Aucun accès en écriture directe côté client
-(ni `INSERT` ni les colonnes `status`/`category`) : `submit_driver_application`
+`last_location_at`, `rating_avg`, `rating_count`, `total_rides`,
+`acceptance_rate`/`cancellation_rate` (migration 16 — critère de
+fiabilité du matching, `numeric(5,2)`, `null` sans données récentes,
+recalculées par `recompute_driver_reliability()` toutes les 15 min via
+`pg_cron`, voir [08-matching.md](08-matching.md)). Index `GIST` sur
+`current_location`, index partiel sur les chauffeurs `approved` +
+`is_available`. Aucun accès en écriture directe côté client (ni `INSERT`
+ni les colonnes `status`/`category`) : `submit_driver_application`
 (`SECURITY DEFINER`) est le seul point de création.
 
 **`id` porte deux FK** vers `auth.users(id)` (identité) **et**, depuis la

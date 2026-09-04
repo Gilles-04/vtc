@@ -1394,6 +1394,88 @@ libre).
 
 ---
 
+## TASK-039 — Critère de fiabilité du matching + `pg_cron` réellement activé en production
+
+- **Objectif** : demandé explicitement par le porteur du projet (via
+  `AskUserQuestion` — le backlog facilement actionnable était épuisé,
+  chaque piste restante avait un vrai compromis à trancher) : construire
+  le critère de fiabilité du matching que `docs/08-matching.md` documente
+  depuis le cadrage initial comme non fait au MVP.
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** : migration
+  `00000000000016_driver_reliability_score.sql` —
+  - `drivers.acceptance_rate`/`cancellation_rate` (`numeric(5,2)`,
+    `null` sans donnée récente, jamais `0` — ne pas pénaliser un
+    chauffeur sans historique par manque de données).
+  - `recompute_driver_reliability()` : fenêtre glissante de 30 jours,
+    `acceptance_rate` = part des offres résolues (`accepted`/`rejected`/
+    `expired`, jamais `pending`) acceptées ; `cancellation_rate` = part
+    des courses effectivement acceptées (`rides.driver_id` renseigné)
+    annulées ensuite par le chauffeur lui-même
+    (`status = 'cancelled_by_driver'`, jamais une annulation passager
+    après acceptation du chauffeur). Recalcul périodique (`pg_cron`,
+    toutes les 15 min) plutôt qu'en temps réel à chaque
+    `ride_offers`/`rides` — évite d'alourdir le chemin chaud du dispatch
+    pour une fraîcheur qui n'a pas besoin d'être seconde-près. Même
+    schéma que `expire_subscriptions`/`cleanup_rate_limits` (migration
+    2) : `SECURITY DEFINER`, EXECUTE révoqué pour `anon`/`authenticated`
+    (même durcissement que migration 8).
+  - `dispatch_next_offer` (migration 2) redéfinie : deux critères de
+    classement insérés dans l'`ORDER BY`, juste après la distance
+    (dominante) et avant la note — un chauffeur peu fiable fait perdre
+    du temps au passager par construction (offre acceptée puis annulée),
+    un risque plus direct pour l'issue du matching qu'une note plus
+    basse. `coalesce(cancellation_rate, 0)`/`coalesce(acceptance_rate, 100)`
+    pour qu'un chauffeur sans données récentes ne soit jamais désavantagé.
+- **Vérifié en local** (Postgres 16 + PostGIS, 16 migrations rejouées en
+  séquence) avant application au projet réel :
+  - Deux chauffeurs à la **même position exacte** (distance neutralisée
+    exprès) — l'un avec un historique fiable (4 courses acceptées, 0
+    annulée → 100 %/0 %), l'autre peu fiable (1 offre acceptée puis
+    annulée, 3 rejetées → 25 %/100 %) : `dispatch_next_offer` a
+    systématiquement choisi le fiable.
+  - Un troisième chauffeur sans aucun historique récent : taux restés
+    `null` après recalcul (pas `0`) ; départagé équitablement contre le
+    chauffeur fiable (même fiabilité coalescée) par la note
+    (`rating_avg` plus élevé → choisi), confirmant qu'un chauffeur nouveau
+    n'est jamais pénalisé par l'absence de données.
+  - Grants vérifiés (`has_function_privilege`) : `recompute_driver_reliability`
+    et `dispatch_next_offer` bien inaccessibles à `anon`/`authenticated`
+    en RPC direct.
+- **Découverte significative en vérifiant le déploiement réel** (jamais
+  faire confiance à `{"success":true}` seul) : `pg_cron` n'était **jamais
+  installé** sur le projet Supabase réel (`select 1 from pg_extension
+  where extname='pg_cron'` → vide) — ni au moment de migration 2
+  (`expire_subscriptions`/`cleanup_rate_limits`), ni jusqu'à aujourd'hui.
+  Le garde `do $$ if exists(...) $$` de chaque migration empêchait
+  l'erreur mais masquait silencieusement le problème : ces deux tâches
+  n'ont **jamais tourné automatiquement en production** depuis le début
+  du projet — un abonnement expiré ne repassait jamais `'expired'` tout
+  seul (uniquement vérifié à l'instant du matching par
+  `dispatch_next_offer`, donc sans conséquence fonctionnelle immédiate,
+  mais l'état affiché en base restait faux), et `rate_limit_counters` ne
+  se purgeait jamais.
+  - Activer l'extension puis programmer des tâches qui modifient des
+    données réelles en production dépassait le périmètre demandé
+    (critère de fiabilité) — confirmé avec l'utilisateur via
+    `AskUserQuestion` avant d'agir plutôt que de décider seul. Vérifié
+    l'absence d'effet de bord avant d'activer (1 seul abonnement en
+    base, actif et non expiré ; 0 ligne obsolète dans
+    `rate_limit_counters`) puis programmé les trois tâches
+    (`expire-subscriptions`, `cleanup-rate-limits`,
+    `recompute-driver-reliability`) sur demande explicite.
+  - Revérifié après coup que ce n'était pas qu'une programmation
+    silencieuse : `cron.job_run_details` confirme `expire-subscriptions`
+    (toutes les minutes) réellement exécutée avec succès, pas seulement
+    listée dans `cron.job`.
+- **Résultat** : `docs/08-matching.md`, `docs/06-schema-base-donnees.md`
+  et `docs/STATUS.md` mis à jour. Le critère de fiabilité demandé est en
+  place, et un vrai bug de production dormant depuis le tout début du
+  projet (deux tâches de maintenance jamais exécutées) est corrigé au
+  passage.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
