@@ -1147,6 +1147,47 @@ libre).
 
 ---
 
+## TASK-034 — Portage du tableau de bord chauffeur + demande de course vers apps/mobile
+
+- **Objectif** : porter `DriverHome.tsx` et `PassengerHome.tsx` (déjà
+  construits et vérifiés côté `apps/web`, TASK-029/031-032) vers
+  `apps/mobile`, complétant le périmètre au-delà de la Phase 1 (auth
+  seule, TASK-033).
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** : port direct (mêmes RPC/Edge Function, même logique métier,
+  seule la présentation change) — `app/chauffeur/accueil.tsx` (onboarding,
+  documents via `expo-file-system` `File.pickFileAsync`/`.arrayBuffer()`
+  sans dépendance séparée, abonnement, disponibilité, offres Realtime,
+  course en cours) et `app/passager/accueil.tsx` (suivi de course,
+  formulaire de demande avec `SelectField` — nouveau picker modal,
+  React Native n'a pas de `<select>` —, estimation, historique). Nouveaux
+  composants partagés `Badge.tsx`/`SelectField.tsx`/`DriverOnboarding.tsx` ;
+  `types.ts`/`format.ts` copiés tels quels depuis `apps/web` (TS pur).
+- **Vérifié** : `tsc --noEmit`/`oxlint` propres. Aucun émulateur natif
+  disponible dans cet environnement (pas de SDK Android, pas d'Xcode) —
+  vérifié via `expo start --web` + Playwright/Chromium, mocks REST/RPC,
+  session simulée (AsyncStorage web = wrapper `localStorage`, confirmé en
+  lisant sa source — même technique que pour `apps/web`) : onboarding,
+  section documents (décompte/statuts), abonnement actif, disponibilité,
+  offre acceptée → passager affiché → arrivée → démarrage → course
+  terminée (Mobile Money) côté chauffeur ; formulaire, `SelectField`,
+  erreur si tarification non configurée, estimation, confirmation, suivi,
+  historique côté passager.
+- **Limitation découverte et documentée** (`apps/mobile/README.md`) :
+  `Alert.alert` (React Native) est un no-op complet sur `react-native-web`
+  (confirmé en lisant sa source) — fonctionne normalement sur appareil
+  réel, mais les trois confirmations qui en dépendent (achat d'abonnement,
+  paiement cash confirmé, annulation de course) ne sont pas vérifiables
+  dans ce mode web précisément à cause de cette limitation du mode de
+  vérification, pas d'un défaut de l'app.
+- **Résultat** : `apps/mobile` couvre désormais le même périmètre
+  fonctionnel qu'`apps/web` pour passager et chauffeur. Rendu natif réel
+  (simulateur/appareil), upload de document réel, et les trois
+  confirmations `Alert.alert` restent à vérifier dès qu'un environnement
+  avec Expo Go ou un simulateur est disponible.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

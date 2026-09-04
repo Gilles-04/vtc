@@ -1,7 +1,8 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 4 septembre 2026 (vrais tarifs câblés, `apps/mobile`
-démarré — auth passager/chauffeur, Phase 1 du plan)*
+*Dernière mise à jour : 4 septembre 2026 (vrais tarifs câblés,
+`apps/mobile` complet côté passager/chauffeur — même périmètre
+fonctionnel qu'`apps/web`, rendu natif réel non vérifié)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -53,23 +54,26 @@ l'affiche clairement plutôt que d'échouer en silence. Les tarifs
 **4 livrables** (révision du 3 septembre 2026, détail dans
 `docs/02-architecture-technique.md`) : Web, Android, iOS, Admin — chacun
 couvrant passager **et** chauffeur sauf l'admin. Android/iOS = un seul
-code Expo (`apps/mobile`) — **démarré le 4 septembre 2026** : accueil
-avec bascule de rôle, authentification par code email (passager et
-chauffeur), gardes de session. Volontairement limité à cette Phase 1 du
-plan (`docs/12-roadmap.md`) — le tableau de bord chauffeur et la demande
-de course restent à porter depuis `apps/web`, où ils existent déjà.
-Vérifié via le mode web d'Expo (aucun émulateur natif disponible dans cet
-environnement) — rendu réel sur simulateur/appareil Android ou iOS non
-testé, à faire dès qu'un tel environnement est disponible.
+code Expo (`apps/mobile`) — **complet côté code** depuis le 4 septembre
+2026 : accueil, auth par code email, tableau de bord chauffeur (dossier,
+documents, abonnement, disponibilité, offres, course en cours) et demande
+de course passager (suivi, formulaire, historique), portés directement
+depuis `apps/web` (mêmes RPC/Edge Function, même logique). Vérifié via le
+mode web d'Expo + Playwright (aucun émulateur Android/iOS disponible dans
+cet environnement — pas de SDK Android, pas d'Xcode). **Non vérifié** :
+rendu natif réel sur simulateur/appareil, upload de document réel, et
+trois confirmations (`Alert.alert`, un no-op confirmé sur le mode web
+utilisé ici — fonctionne normalement sur appareil réel) : achat
+d'abonnement, paiement cash confirmé, annulation de course.
 
 Un serveur **MCP Supabase** est connecté à cette session (accès direct au
 projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
 séparé de la politique réseau du sandbox : le navigateur ne peut toujours
 pas contacter `*.supabase.co` directement depuis cet environnement.
 
-Reste à construire : le reste d'`apps/mobile` (tableau de bord chauffeur,
-demande de course, notifications push, géolocalisation), le worker de
-dispatch (écrit, pas déployé).
+Reste à construire : notifications push et géolocalisation en arrière-plan
+côté `apps/mobile` (hors périmètre porté ce jour), le worker de dispatch
+(écrit, pas déployé).
 
 ## 2. Ce qui fonctionne
 
@@ -97,6 +101,9 @@ Code React 19 + Vite + TanStack Router, même stack que `apps/web`.
 **`apps/web` complet des deux côtés** (passager et chauffeur) : voir §1.
 Reste bloqué en usage réel uniquement par la clé Google Maps (§3).
 
+**`apps/mobile` complet côté code, même périmètre qu'`apps/web`** : voir
+§1. Rendu natif réel non vérifié dans cet environnement (§3).
+
 **5 Edge Functions déployées** (`payment-webhook-momo`,
 `phone-verification-start`/`-check`, `pricing-directions`,
 `push-notifications-dispatch`) — URLs vérifiées. `push-notifications-dispatch`
@@ -114,6 +121,11 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 
 - **Clé API Google Maps manquante** — bloque l'estimation/demande de
   course (§7). Seul point bloquant restant sur ce parcours.
+- **`apps/mobile` jamais lancé sur un simulateur/appareil réel** — cet
+  environnement n'a ni SDK Android ni Xcode, uniquement vérifié via le
+  mode web d'Expo. Trois confirmations (`Alert.alert`, achat d'abonnement/
+  paiement cash/annulation) n'ont pas pu être exercées en conséquence
+  (no-op côté web, fonctionnent normalement sur appareil réel).
 - **Secrets Edge Functions pas tous configurés** : `PAYMENT_WEBHOOK_SECRET`
   (aucune dépendance externe). `ESMS_AFRICA_API_KEY` n'est plus à l'ordre
   du jour (abandonné).
@@ -151,16 +163,22 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-033) :
-**`apps/mobile` démarré** (Expo SDK 57 + TypeScript + Expo Router) —
-accueil avec bascule de rôle, authentification par code email passager/
-chauffeur (composant partagé, port direct de la logique `apps/web`),
-gardes de session sur les 4 routes. Volontairement limité à la Phase 1 du
-plan — accueils passager/chauffeur en stub, le contenu réel existe déjà
-côté web et sera porté progressivement. Vérifié via le mode web d'Expo +
-Playwright (aucun émulateur natif ici) : navigation complète, appel réel
-`signInWithOtp` déclenché (échec propre sur le réseau sandboxé, attendu),
-gardes de session confirmées dans les deux sens. `tsc`/`oxlint` propres.
+**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-034) :
+**`apps/mobile` porté au même périmètre qu'`apps/web`** — tableau de bord
+chauffeur (onboarding, documents via `expo-file-system`, abonnement,
+disponibilité, offres, course en cours) et demande de course passager
+(suivi, formulaire avec le nouveau composant `SelectField`, estimation,
+historique), portage direct des mêmes RPC/Edge Function. Vérifié via le
+mode web d'Expo + Playwright (aucun émulateur natif ici) : les deux
+tableaux de bord de bout en bout sur les chemins non bloqués par
+`Alert.alert` (no-op découvert sur ce mode de vérification, sans effet
+sur le comportement natif réel). `tsc`/`oxlint` propres.
+
+**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md`
+(TASK-033) : **`apps/mobile` démarré** (Expo SDK 57 + TypeScript + Expo
+Router) — accueil avec bascule de rôle, authentification par code email
+passager/chauffeur (composant partagé, port direct de la logique
+`apps/web`), gardes de session sur les 4 routes.
 
 **Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md`
 (TASK-032) : **vrais tarifs câblés** — `pricing_rules` (voiture 250 FCFA prise en
@@ -203,14 +221,14 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 ## 6. Prochaine étape
 
-Le code applicatif web (dashboard admin + `apps/web` passager/chauffeur)
-est terminé pour le périmètre MVP documenté. `apps/mobile` est démarré
-(Phase 1 — auth) ; la suite naturelle est de porter le tableau de bord
-chauffeur puis la demande de course passager depuis `apps/web`, en
-gardant le même découpage progressif. En parallèle, chantiers externes
-qui vous appartiennent (§7) : clé Google Maps, connexion admin, décisions
-fournisseurs. Aucun chantier de code n'est bloqué en attente d'une
-décision technique de mon côté.
+Le code applicatif (dashboard admin, `apps/web` et `apps/mobile`,
+passager/chauffeur) est terminé pour le périmètre MVP documenté sur les
+trois plateformes. Ce qui reste est soit externe (décisions/comptes qui
+vous appartiennent, §7), soit une vérification que je ne peux pas faire
+depuis cet environnement (rendu natif réel d'`apps/mobile` sur un
+simulateur/appareil Android ou iOS, upload de document, les trois
+confirmations `Alert.alert`). Aucun chantier de code n'est bloqué en
+attente d'une décision technique de mon côté.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
@@ -225,6 +243,12 @@ décision technique de mon côté.
      — celle-ci sera visible côté navigateur par construction (comme
      toute clé Maps JS), la restriction de referrer est ce qui la
      protège d'un usage détourné.
+- **Tester `apps/mobile` sur votre téléphone** (optionnel, quand vous
+  voulez) : `cd apps/mobile && npm install && npx expo start`, puis
+  scanner le QR code avec l'app **Expo Go** (Android/iOS, gratuite) — pas
+  besoin de compte Expo/EAS pour ça. C'est le seul moyen de vérifier le
+  rendu natif réel et les trois confirmations `Alert.alert`, non
+  testables depuis cet environnement (voir §3).
 - **Connexion admin** : essayez `/login` avec `abotchigilles@yahoo.fr`.
   Si ça échoue (probable — voir §3), réinitialisez le mot de passe
   depuis Dashboard → Authentication → Users → ce compte.
