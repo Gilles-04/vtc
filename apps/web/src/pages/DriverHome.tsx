@@ -1,0 +1,436 @@
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { supabase } from '../lib/supabase'
+import { DriverOnboarding } from './DriverOnboarding'
+import type { ActiveRide, ActiveSubscription, DriverDocType, DriverRecord, RideOffer, SubscriptionPlan } from '../lib/types'
+import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadge } from '../components/Badge'
+import { fcfa } from '../lib/format'
+
+function documentStoragePath(userId: string, docType: DriverDocType, fileName: string): string {
+  return `${userId}/${docType}-${Date.now()}-${fileName}`
+}
+
+const DOC_TYPES: { type: DriverDocType; label: string }[] = [
+  { type: 'piece_identite', label: "Pièce d'identité" },
+  { type: 'permis_conduire', label: 'Permis de conduire' },
+  { type: 'carte_transport', label: 'Carte de transport' },
+  { type: 'assurance', label: 'Assurance' },
+  { type: 'carte_grise', label: 'Carte grise' },
+  { type: 'photo_vehicule', label: 'Photo du véhicule' },
+]
+
+export function DriverHome() {
+  const navigate = useNavigate()
+  const [userId, setUserId] = useState<string | null>(null)
+  const [driver, setDriver] = useState<DriverRecord | null | undefined>(undefined)
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([])
+  const [activeSub, setActiveSub] = useState<ActiveSubscription | null>(null)
+  const [offers, setOffers] = useState<RideOffer[]>([])
+  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [uploadingType, setUploadingType] = useState<DriverDocType | null>(null)
+
+  const loadDriver = useCallback(async () => {
+    const { data: userData } = await supabase.auth.getUser()
+    const uid = userData.user?.id
+    if (!uid) return
+    setUserId(uid)
+
+    const { data, error } = await supabase
+      .from('drivers')
+      .select(
+        'id, category, status, city, is_available, rating_avg, rating_count, total_rides, vehicles(brand, model, color, plate_number, year), driver_documents(id, doc_type, file_path, status, rejection_reason, created_at)',
+      )
+      .eq('id', uid)
+      .maybeSingle()
+
+    if (error) {
+      setError(error.message)
+      return
+    }
+    setDriver((data as unknown as DriverRecord) ?? null)
+  }, [])
+
+  useEffect(() => {
+    loadDriver()
+  }, [loadDriver])
+
+  const loadSubscriptionData = useCallback(async () => {
+    if (!driver || driver.status !== 'approved') return
+
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('id, status, expires_at, subscription_plans(name)')
+      .eq('driver_id', driver.id)
+      .eq('status', 'active')
+      .gt('expires_at', new Date().toISOString())
+      .order('expires_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    setActiveSub(sub as unknown as ActiveSubscription | null)
+
+    if (!sub) {
+      const { data: plansData } = await supabase
+        .from('subscription_plans')
+        .select('id, code, name, duration_hours, price_fcfa')
+        .eq('category', driver.category)
+        .eq('is_active', true)
+        .order('sort_order')
+      setPlans(plansData ?? [])
+    }
+  }, [driver])
+
+  const loadOffersAndRide = useCallback(async () => {
+    if (!driver || driver.status !== 'approved') return
+
+    const { data: rideData } = await supabase
+      .from('rides')
+      .select(
+        'id, status, category, pickup_address, dropoff_address, estimated_fare_fcfa, estimated_distance_km, estimated_duration_min, payment_method, profiles!passenger_id(phone, full_name)',
+      )
+      .eq('driver_id', driver.id)
+      .in('status', ['accepted', 'driver_arriving', 'driver_arrived', 'in_progress'])
+      .maybeSingle()
+    setActiveRide(rideData as unknown as ActiveRide | null)
+
+    if (!rideData) {
+      const { data: offersData } = await supabase
+        .from('ride_offers')
+        .select('id, ride_id, expires_at, rides(category, pickup_address, dropoff_address, estimated_fare_fcfa, estimated_distance_km)')
+        .eq('driver_id', driver.id)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .order('sent_at', { ascending: false })
+      setOffers((offersData as unknown as RideOffer[]) ?? [])
+    } else {
+      setOffers([])
+    }
+  }, [driver])
+
+  useEffect(() => {
+    loadSubscriptionData()
+    loadOffersAndRide()
+  }, [loadSubscriptionData, loadOffersAndRide])
+
+  useEffect(() => {
+    if (!driver || driver.status !== 'approved') return
+
+    const channel = supabase
+      .channel(`driver-${driver.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_offers', filter: `driver_id=eq.${driver.id}` }, () => {
+        loadOffersAndRide()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rides', filter: `driver_id=eq.${driver.id}` }, () => {
+        loadOffersAndRide()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [driver, loadOffersAndRide])
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    navigate({ to: '/chauffeur' })
+  }
+
+  async function handleUpload(docType: DriverDocType, file: File) {
+    if (!userId) return
+    setError(null)
+    setUploadingType(docType)
+    const path = documentStoragePath(userId, docType, file.name)
+    const { error: uploadError } = await supabase.storage.from('driver-documents').upload(path, file)
+    if (uploadError) {
+      setUploadingType(null)
+      setError(uploadError.message)
+      return
+    }
+    const { error: insertError } = await supabase.from('driver_documents').insert({ driver_id: userId, doc_type: docType, file_path: path })
+    setUploadingType(null)
+    if (insertError) {
+      setError(insertError.message)
+      return
+    }
+    loadDriver()
+  }
+
+  async function toggleAvailability() {
+    if (!driver) return
+    setError(null)
+    setBusy(true)
+    const { error } = await supabase.rpc('set_driver_availability', { _is_available: !driver.is_available })
+    setBusy(false)
+    if (error) {
+      setError(error.message === 'no_active_subscription' ? "Aucun abonnement actif — achetez un abonnement pour passer disponible." : error.message)
+      return
+    }
+    loadDriver()
+  }
+
+  async function buyPlan(planCode: string) {
+    setError(null)
+    if (!window.confirm('Confirmer l\'achat de cet abonnement (paiement manuel, à confirmer par l\'équipe) ?')) return
+    setBusy(true)
+    const { error } = await supabase.rpc('purchase_subscription', { _plan_code: planCode, _provider: 'manual' })
+    setBusy(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    window.alert("Demande envoyée — votre abonnement s'activera une fois le paiement confirmé par l'équipe.")
+  }
+
+  async function respondToOffer(offerId: string, accept: boolean) {
+    setError(null)
+    setBusy(true)
+    const { error } = await supabase.rpc('respond_to_ride_offer', { _offer_id: offerId, _accept: accept })
+    setBusy(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    loadOffersAndRide()
+  }
+
+  async function advanceRide() {
+    if (!activeRide) return
+    setError(null)
+    setBusy(true)
+    let rpcError = null
+    if (activeRide.status === 'accepted' || activeRide.status === 'driver_arriving') {
+      ;({ error: rpcError } = await supabase.rpc('mark_driver_arrived', { _ride_id: activeRide.id }))
+    } else if (activeRide.status === 'driver_arrived') {
+      ;({ error: rpcError } = await supabase.rpc('start_ride', { _ride_id: activeRide.id }))
+    } else if (activeRide.status === 'in_progress') {
+      const paid = activeRide.payment_method === 'cash' ? window.confirm('Le passager a-t-il payé en espèces ?') : true
+      ;({ error: rpcError } = await supabase.rpc('complete_ride', {
+        _ride_id: activeRide.id,
+        _final_distance_km: activeRide.estimated_distance_km ?? 0,
+        _final_duration_min: activeRide.estimated_duration_min ?? 0,
+        _payment_confirmed: paid,
+      }))
+    }
+    setBusy(false)
+    if (rpcError) {
+      setError((rpcError as { message: string }).message)
+      return
+    }
+    loadOffersAndRide()
+  }
+
+  if (driver === undefined) {
+    return <p className="p-8 text-center text-sm text-ink-400">Chargement…</p>
+  }
+
+  return (
+    <div className="min-h-screen bg-ink-50">
+      <header className="flex items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-navy-600 text-lg">🚕</span>
+          <span className="font-display text-lg font-bold text-ink-900">VTC Togo</span>
+        </div>
+        <button onClick={handleSignOut} className="text-sm font-medium text-ink-600 hover:underline">
+          Se déconnecter
+        </button>
+      </header>
+
+      {error && (
+        <div className="mx-auto mb-4 max-w-2xl px-4">
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+        </div>
+      )}
+
+      {driver === null && <DriverOnboarding onSubmitted={loadDriver} />}
+
+      {driver && (
+        <main className="mx-auto max-w-2xl px-4 pb-16">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+            <div>
+              <div className="flex items-center gap-2">
+                <CategoryBadge category={driver.category} />
+                <DriverStatusBadge status={driver.status} />
+              </div>
+              {driver.vehicles && (
+                <p className="mt-2 text-sm text-ink-600">
+                  {driver.vehicles.brand} {driver.vehicles.model} — {driver.vehicles.plate_number}
+                </p>
+              )}
+            </div>
+            {driver.total_rides > 0 && (
+              <div className="text-right text-sm text-ink-600">
+                <p>{driver.total_rides} course{driver.total_rides > 1 ? 's' : ''}</p>
+                {driver.rating_count > 0 && <p>★ {driver.rating_avg.toFixed(1)}</p>}
+              </div>
+            )}
+          </div>
+
+          {driver.status !== 'approved' && driver.status !== 'suspended' && (
+            <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-400">
+                Documents ({driver.driver_documents.length}/{DOC_TYPES.length} soumis)
+              </h2>
+              <div className="space-y-2">
+                {DOC_TYPES.map(({ type, label }) => {
+                  const doc = driver.driver_documents.find((d) => d.doc_type === type)
+                  return (
+                    <div key={type} className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 p-3">
+                      <div>
+                        <p className="text-sm font-medium text-ink-800">{label}</p>
+                        {doc && (
+                          <div className="mt-1 flex items-center gap-2">
+                            <DocStatusBadge status={doc.status} />
+                            {doc.rejection_reason && <span className="text-xs text-red-600">{doc.rejection_reason}</span>}
+                          </div>
+                        )}
+                      </div>
+                      <label className="cursor-pointer rounded-lg bg-navy-50 px-3 py-1.5 text-sm font-medium text-navy-700 hover:bg-navy-100">
+                        {uploadingType === type ? 'Envoi…' : doc ? 'Remplacer' : 'Envoyer'}
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          disabled={uploadingType !== null}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleUpload(type, file)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
+
+          {driver.status === 'suspended' && (
+            <section className="mb-6 rounded-2xl border border-red-100 bg-red-50 p-5 text-sm text-red-700">
+              Votre compte chauffeur est suspendu. Contactez le support pour plus d'informations.
+            </section>
+          )}
+
+          {driver.status === 'approved' && (
+            <>
+              <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-400">Abonnement</h2>
+                {activeSub ? (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-ink-800">{activeSub.subscription_plans?.name}</p>
+                      <p className="text-xs text-ink-400">
+                        Expire le {new Date(activeSub.expires_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <Badge tone="green">Actif</Badge>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="mb-2 text-sm text-ink-600">Aucun abonnement actif — achetez-en un pour passer disponible.</p>
+                    {plans.map((p) => (
+                      <div key={p.id} className="flex items-center justify-between rounded-xl border border-ink-100 p-3">
+                        <div>
+                          <p className="text-sm font-medium text-ink-800">{p.name}</p>
+                          <p className="text-xs text-ink-400">{p.price_fcfa != null ? fcfa(p.price_fcfa) : '—'}</p>
+                        </div>
+                        <button
+                          disabled={busy || p.price_fcfa == null}
+                          onClick={() => buyPlan(p.code)}
+                          className="rounded-lg bg-navy-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-navy-700 disabled:opacity-50"
+                        >
+                          Acheter
+                        </button>
+                      </div>
+                    ))}
+                    {plans.length === 0 && <p className="text-sm text-ink-400">Aucun plan disponible pour votre catégorie actuellement.</p>}
+                  </div>
+                )}
+              </section>
+
+              {activeSub && !activeRide && (
+                <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-400">Disponibilité</h2>
+                    <button
+                      disabled={busy}
+                      onClick={toggleAvailability}
+                      className={`rounded-lg px-4 py-1.5 text-sm font-semibold disabled:opacity-50 ${
+                        driver.is_available ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-navy-600 text-white hover:bg-navy-700'
+                      }`}
+                    >
+                      {driver.is_available ? 'Se mettre indisponible' : 'Se mettre disponible'}
+                    </button>
+                  </div>
+
+                  {driver.is_available && offers.length === 0 && (
+                    <p className="text-sm text-ink-400">En attente d'une demande de course…</p>
+                  )}
+
+                  {offers.map((offer) => (
+                    <div key={offer.id} className="mt-2 rounded-xl border border-gold-500 bg-gold-400/10 p-4">
+                      <p className="text-sm text-ink-600">
+                        {offer.rides.pickup_address} → {offer.rides.dropoff_address}
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-ink-800">
+                        {offer.rides.estimated_fare_fcfa != null ? fcfa(offer.rides.estimated_fare_fcfa) : '—'}
+                        {offer.rides.estimated_distance_km != null && ` — ${offer.rides.estimated_distance_km} km`}
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          disabled={busy}
+                          onClick={() => respondToOffer(offer.id, true)}
+                          className="rounded-lg bg-navy-600 px-4 py-1.5 text-sm font-semibold text-white hover:bg-navy-700 disabled:opacity-50"
+                        >
+                          Accepter
+                        </button>
+                        <button
+                          disabled={busy}
+                          onClick={() => respondToOffer(offer.id, false)}
+                          className="rounded-lg bg-red-50 px-4 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                        >
+                          Refuser
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+              )}
+
+              {activeRide && (
+                <section className="mb-6 rounded-2xl border border-navy-500 bg-white p-5 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-400">Course en cours</h2>
+                    <RideStatusBadge status={activeRide.status} />
+                  </div>
+                  <p className="text-sm font-medium text-ink-800">
+                    {activeRide.profiles?.full_name || activeRide.profiles?.phone || 'Passager'}
+                  </p>
+                  <p className="mt-1 text-sm text-ink-600">
+                    {activeRide.pickup_address} → {activeRide.dropoff_address}
+                  </p>
+                  <p className="mt-1 text-sm text-ink-600">
+                    {activeRide.estimated_fare_fcfa != null ? fcfa(activeRide.estimated_fare_fcfa) : '—'} —{' '}
+                    {activeRide.payment_method === 'cash' ? 'Cash' : 'Mobile Money'}
+                  </p>
+                  <button
+                    disabled={busy || activeRide.status === 'completed'}
+                    onClick={advanceRide}
+                    className="mt-4 w-full rounded-lg bg-navy-600 py-2.5 text-sm font-semibold text-white hover:bg-navy-700 disabled:opacity-50"
+                  >
+                    {activeRide.status === 'accepted' || activeRide.status === 'driver_arriving'
+                      ? 'Signaler mon arrivée'
+                      : activeRide.status === 'driver_arrived'
+                        ? 'Démarrer la course'
+                        : 'Terminer la course'}
+                  </button>
+                </section>
+              )}
+            </>
+          )}
+        </main>
+      )}
+    </div>
+  )
+}

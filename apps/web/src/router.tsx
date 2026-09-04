@@ -1,9 +1,10 @@
 import { createRootRoute, createRoute, createRouter, Outlet, redirect } from '@tanstack/react-router'
 import { supabase } from './lib/supabase'
 import { Home } from './pages/Home'
-import { ComingSoon } from './pages/ComingSoon'
 import { PassengerLogin } from './pages/PassengerLogin'
 import { PassengerHome } from './pages/PassengerHome'
+import { DriverLogin } from './pages/DriverLogin'
+import { DriverHome } from './pages/DriverHome'
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -39,13 +40,37 @@ const passengerHomeRoute = createRoute({
   component: PassengerHome,
 })
 
-const driverRoute = createRoute({
+const driverLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/chauffeur',
-  component: () => <ComingSoon audience="chauffeur" />,
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getSession()
+    if (data.session) {
+      throw redirect({ to: '/chauffeur/accueil' })
+    }
+  },
+  component: DriverLogin,
 })
 
-const routeTree = rootRoute.addChildren([homeRoute, passengerLoginRoute, passengerHomeRoute, driverRoute])
+const driverHomeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/chauffeur/accueil',
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getSession()
+    if (!data.session) {
+      throw redirect({ to: '/chauffeur' })
+    }
+  },
+  component: DriverHome,
+})
+
+const routeTree = rootRoute.addChildren([
+  homeRoute,
+  passengerLoginRoute,
+  passengerHomeRoute,
+  driverLoginRoute,
+  driverHomeRoute,
+])
 
 export const router = createRouter({ routeTree })
 
