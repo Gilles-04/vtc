@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
-import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRide, PaymentMethodType, RideHistoryRow, Zone } from '../lib/types'
+import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRide, PaymentMethodType, RideHistoryRow, RideInvoice, Zone } from '../lib/types'
 import { Badge, CategoryBadge, RideStatusBadge } from '../components/Badge'
 import { fcfa } from '../lib/format'
 
@@ -33,6 +33,8 @@ export function PassengerHome() {
   const [activeRide, setActiveRide] = useState<PassengerActiveRide | null | undefined>(undefined)
   const [driverInfo, setDriverInfo] = useState<DriverPublicInfo | null>(null)
   const [history, setHistory] = useState<RideHistoryRow[]>([])
+  const [invoicesByRide, setInvoicesByRide] = useState<Record<string, RideInvoice>>({})
+  const [passengerName, setPassengerName] = useState<string | null>(null)
   const [zones, setZones] = useState<Zone[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -71,12 +73,34 @@ export function PassengerHome() {
   const loadHistory = useCallback(async (uid: string) => {
     const { data } = await supabase
       .from('rides')
-      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, requested_at')
+      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, final_distance_km, requested_at')
       .eq('passenger_id', uid)
       .in('status', TERMINAL_STATUSES)
       .order('requested_at', { ascending: false })
       .limit(20)
-    setHistory((data as unknown as RideHistoryRow[]) ?? [])
+    const rows = (data as unknown as RideHistoryRow[]) ?? []
+    setHistory(rows)
+
+    // Une facture n'existe que pour une course `completed` avec paiement
+    // réussi (trigger `generate_invoice_on_ride_success`) — jamais pour
+    // toute course terminée. Chargées en une fois pour tout l'historique
+    // plutôt qu'à la demande : évite d'interroger `invoices` par course
+    // juste pour savoir si le bouton Facture doit s'afficher.
+    if (rows.length > 0) {
+      const { data: invoicesData } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, ride_id, transport_amount_fcfa, platform_fee_fcfa, total_fcfa, payment_method, payment_reference, issued_at')
+        .eq('passenger_id', uid)
+        .in(
+          'ride_id',
+          rows.map((r) => r.id),
+        )
+      const byRide: Record<string, RideInvoice> = {}
+      for (const inv of (invoicesData as unknown as RideInvoice[]) ?? []) byRide[inv.ride_id] = inv
+      setInvoicesByRide(byRide)
+    } else {
+      setInvoicesByRide({})
+    }
   }, [])
 
   useEffect(() => {
@@ -86,6 +110,12 @@ export function PassengerHome() {
       setUserId(uid)
       loadActiveRide(uid)
       loadHistory(uid)
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', uid)
+        .maybeSingle()
+        .then(({ data }) => setPassengerName(data?.full_name ?? null))
     })
 
     supabase
@@ -208,6 +238,16 @@ export function PassengerHome() {
       return
     }
     if (userId) loadActiveRide(userId)
+  }
+
+  // jsPDF chargé à la demande seulement (voir apps/web/src/pages/DriverHome.tsx
+  // pour le même choix côté reçu d'abonnement) — pas dans le chunk principal.
+  async function downloadInvoice(ride: RideHistoryRow) {
+    const invoice = invoicesByRide[ride.id]
+    if (!invoice) return
+    const { data: info } = await supabase.rpc('get_ride_driver_public_info', { _ride_id: ride.id }).maybeSingle()
+    const { generateRideInvoicePdf } = await import('../lib/invoice')
+    generateRideInvoicePdf(invoice, ride, (info as DriverPublicInfo | null) ?? null, passengerName)
   }
 
   return (
@@ -445,6 +485,14 @@ export function PassengerHome() {
                     <span>{new Date(r.requested_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                     <span>{(r.final_fare_fcfa ?? r.estimated_fare_fcfa) != null ? fcfa((r.final_fare_fcfa ?? r.estimated_fare_fcfa) as number) : '—'}</span>
                   </div>
+                  {invoicesByRide[r.id] && (
+                    <button
+                      onClick={() => downloadInvoice(r)}
+                      className="mt-2 rounded-lg border border-ink-200 px-3 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
+                    >
+                      Facture
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

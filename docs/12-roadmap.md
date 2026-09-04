@@ -104,8 +104,6 @@ de passer à la suivante.
 - Encaissement du prix de la course par la plateforme (permettrait un
   prélèvement des frais de service course par course plutôt qu'un
   règlement différé par lot, voir [10-paiements.md](10-paiements.md)).
-- Rendu PDF effectif de la facture de course (`invoices` ne produit
-  aujourd'hui que la ligne de données, pas le document).
 - Tarification dynamique (surge).
 - Partage de trajet public (lien externe).
 - Extension à d'autres villes du Togo au-delà de Lomé (`zones` déjà prêt).

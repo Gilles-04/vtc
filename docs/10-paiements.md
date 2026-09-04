@@ -238,9 +238,16 @@ document **pour son compte** (voir
 Accessible par le passager, le chauffeur concerné et le staff
 `finance`/`admin`/`super_admin` (RLS, migration 1).
 
-**Ne fait pas encore au MVP** : le rendu PDF du document lui-même (seule
-la ligne de données `invoices` est produite pour l'instant, voir
-[12-roadmap.md](12-roadmap.md)) ; la compatibilité fine avec le régime
+Le rendu PDF du document (`jsPDF`, généré et téléchargé côté client — même
+approche que le reçu d'abonnement ci-dessous, aucun stockage du fichier
+lui-même) est disponible depuis l'historique passager (`apps/web`, un
+bouton « Facture » par course facturée) — numéro, date, passager,
+chauffeur, véhicule/plaque, trajet, distance, mode de paiement, montants
+transport/frais de service/total. Pas encore côté chauffeur (aucun écran
+d'historique de courses n'existe encore sur son tableau de bord web) ni
+sur `apps/mobile`.
+
+**Ne fait pas encore au MVP** : la compatibilité fine avec le régime
 fiscal togolais applicable à ce mécanisme de facturation pour compte de
 tiers reste à valider avec vous avant mise en production réelle.
 

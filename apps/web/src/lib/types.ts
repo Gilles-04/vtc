@@ -110,7 +110,24 @@ export interface RideHistoryRow {
   dropoff_address: string
   final_fare_fcfa: number | null
   estimated_fare_fcfa: number | null
+  final_distance_km: number | null
   requested_at: string
+}
+
+// Facture générée automatiquement à la complétion d'une course payée
+// (trigger `generate_invoice_on_ride_success`, docs/10-paiements.md
+// §Facturation) — jamais une pour toute course terminée : seulement
+// `completed` + `payment_status = 'success'`.
+export interface RideInvoice {
+  id: string
+  invoice_number: string
+  ride_id: string
+  transport_amount_fcfa: number
+  platform_fee_fcfa: number
+  total_fcfa: number
+  payment_method: PaymentMethodType
+  payment_reference: string | null
+  issued_at: string
 }
 
 // Renvoyées par les fonctions dédiées `get_ride_driver_public_info` /

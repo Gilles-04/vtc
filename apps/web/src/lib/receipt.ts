@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import type { SubscriptionPayment, SubscriptionPlan } from './types'
 import { fcfa } from './format'
+import { pdfSafe } from './pdf'
 
 const PROVIDER_LABELS: Record<string, string> = {
   manual: 'Manuel (vérifié par la plateforme)',
@@ -8,19 +9,9 @@ const PROVIDER_LABELS: Record<string, string> = {
   tmoney: 'T-Money',
 }
 
-// Les polices standard de jsPDF (WinAnsiEncoding) ne connaissent pas
-// l'espace fine insécable (U+202F) qu'`Intl.NumberFormat('fr-FR')` utilise
-// comme séparateur de milliers dans `fcfa()` — rendu comme un caractère
-// erroné dans le PDF sinon. Rien à voir avec `fcfa()` elle-même, correcte
-// partout ailleurs (rendu navigateur) : uniquement un problème d'encodage
-// propre à jsPDF, donc corrigé ici plutôt que dans `format.ts`.
-function pdfSafe(text: string): string {
-  return text.replace(/[  ]/g, ' ')
-}
-
 // Reçu simple pour un paiement d'abonnement chauffeur réussi (docs/10-paiements.md
 // §Historique et reçus) — jamais utilisé pour une facture de course
-// (`invoices`, rendu PDF non construit, voir le même document).
+// (`invoices`, voir `invoice.ts`).
 export function generateSubscriptionReceiptPdf(
   payment: SubscriptionPayment,
   plan: SubscriptionPlan | undefined,

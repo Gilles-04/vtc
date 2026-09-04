@@ -1300,6 +1300,55 @@ libre).
 
 ---
 
+## TASK-037 — Facture PDF de course (`invoices`, apps/web passager)
+
+- **Objectif** : `docs/10-paiements.md` §Facturation listait explicitement
+  le rendu PDF de la facture comme un manque connu du MVP (« seule la
+  ligne de données `invoices` est produite ») — comblé à la suite de
+  TASK-036 (même besoin, même solution technique).
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** :
+  - `apps/web/src/lib/pdf.ts` (nouveau) — extrait `pdfSafe()` de
+    `receipt.ts` vers un module partagé (même correctif d'encodage
+    jsPDF/espace fine insécable que TASK-036, maintenant utilisé par les
+    deux générateurs plutôt que dupliqué).
+  - `apps/web/src/lib/invoice.ts` (nouveau) — `generateRideInvoicePdf`
+    (`jsPDF`, format A5) : numéro de facture, date d'émission, passager,
+    chauffeur + véhicule/plaque (`get_ride_driver_public_info`, migration
+    13 — fonctionne pour une course terminée, pas seulement active),
+    trajet, distance, mode de paiement, référence, montants
+    transport/frais de service/total — avec la mention explicite que le
+    document est émis par la plateforme pour le compte du chauffeur
+    (docs/01 §Rôle des parties).
+  - Nouveau type `RideInvoice` (`lib/types.ts`) ; `RideHistoryRow` étendu
+    de `final_distance_km`.
+  - `PassengerHome.tsx` : après le chargement de l'historique, requête
+    batch sur `invoices` (`passenger_id`/`ride_id in (...)`, policy
+    `invoices_select` existante, migration 1 — aucune migration
+    nécessaire) plutôt qu'une requête par course ; bouton « Facture »
+    affiché seulement sur les lignes d'historique qui ont effectivement
+    une facture (une course `completed` peut ne pas en avoir si le
+    paiement a échoué) ; nom du passager chargé une fois
+    (`profiles.full_name`, RLS `auth.uid() = id`).
+- **Vérifié** : `tsc --noEmit`/`oxlint`/`npm run build` propres —
+  `jsPDF` (chargé en `import()` dynamique, comme TASK-036) partagé entre
+  `receipt.ts` et `invoice.ts` dans un seul chunk `pdf-*.js`, toujours
+  hors du chunk principal. Playwright/Chromium réel : deux courses en
+  historique (une avec facture, une annulée sans facture) — un seul
+  bouton Facture affiché, sur la bonne ; clic → téléchargement réel →
+  fichier récupéré et **son contenu texte intégralement relu** (tous les
+  champs corrects, montants avec séparateur de milliers correctement
+  rendu grâce à `pdfSafe()`).
+- **Non fait** : pas de bouton Facture côté chauffeur (`DriverHome.tsx`
+  n'a pas d'écran d'historique de courses — n'existe pas encore, hors
+  périmètre de cette tâche) ni sur `apps/mobile`.
+- **Résultat** : `docs/10-paiements.md` §Facturation et `docs/12-roadmap.md`
+  mis à jour (l'item roadmap correspondant retiré, plus un manque). Les
+  deux gaps de rendu PDF identifiés dans le projet (reçu d'abonnement,
+  facture de course) sont maintenant comblés côté `apps/web`.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
