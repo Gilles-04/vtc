@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { PaymentListRow, PaymentProvider, PaymentPurpose, PaymentStatus } from '../lib/types'
 import { PaymentPurposeBadge, PaymentStatusBadge, paymentProviderName } from '../components/Badge'
@@ -55,8 +55,10 @@ export function Payments() {
   const [period, setPeriod] = useState<'today' | '7d' | '30d' | 'all'>('7d')
   const [payments, setPayments] = useState<PaymentListRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setPayments(null)
     let query = supabase
       .from('payments')
@@ -75,6 +77,52 @@ export function Payments() {
       else setPayments(data as unknown as PaymentListRow[])
     })
   }, [status, purpose, provider, period])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  async function confirmPayment(paymentId: string) {
+    setActionError(null)
+    if (!window.confirm("Confirmer la réception de ce paiement d'abonnement ?")) return
+    setBusyId(paymentId)
+    const { error } = await supabase.rpc('admin_manual_payment_confirm', { _payment_id: paymentId })
+    setBusyId(null)
+    if (error) {
+      setActionError(error.message)
+      return
+    }
+    load()
+  }
+
+  async function markFailed(paymentId: string) {
+    setActionError(null)
+    const reason = window.prompt('Raison de l\'échec (optionnel) :')
+    if (reason === null) return
+    setBusyId(paymentId)
+    const { error } = await supabase.rpc('admin_mark_payment_failed', { _payment_id: paymentId, _reason: reason || null })
+    setBusyId(null)
+    if (error) {
+      setActionError(error.message)
+      return
+    }
+    load()
+  }
+
+  async function refundPayment(paymentId: string) {
+    setActionError(null)
+    const reason = window.prompt('Raison du remboursement (optionnel) :')
+    if (reason === null) return
+    if (!window.confirm('Confirmer le remboursement de ce paiement ?')) return
+    setBusyId(paymentId)
+    const { error } = await supabase.rpc('admin_refund_payment', { _payment_id: paymentId, _reason: reason || null })
+    setBusyId(null)
+    if (error) {
+      setActionError(error.message)
+      return
+    }
+    load()
+  }
 
   const total = payments?.reduce((sum, p) => (p.status === 'success' ? sum + p.amount_fcfa : sum), 0) ?? 0
 
@@ -132,8 +180,10 @@ export function Payments() {
         </select>
       </div>
 
-      {error && (
-        <div className="max-w-lg rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{error}</div>
+      {(error || actionError) && (
+        <div className="mb-4 max-w-lg rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+          {error || actionError}
+        </div>
       )}
 
       {!error && payments === null && <p className="text-sm text-ink-400">Chargement…</p>}
@@ -159,6 +209,7 @@ export function Payments() {
                   <th className="px-4 py-3">Statut</th>
                   <th className="px-4 py-3">Créé le</th>
                   <th className="px-4 py-3">Confirmé le</th>
+                  <th className="px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -183,6 +234,43 @@ export function Payments() {
                       {p.confirmed_at
                         ? new Date(p.confirmed_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
                         : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        {p.status === 'pending' && p.purpose === 'driver_subscription' && (
+                          <button
+                            disabled={busyId === p.id}
+                            onClick={() => confirmPayment(p.id)}
+                            className="rounded-lg bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-50"
+                          >
+                            Confirmer
+                          </button>
+                        )}
+                        {p.status === 'pending' && (
+                          <button
+                            disabled={busyId === p.id}
+                            onClick={() => markFailed(p.id)}
+                            className="rounded-lg bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                          >
+                            Marquer échoué
+                          </button>
+                        )}
+                        {p.status === 'success' && (
+                          <button
+                            disabled={busyId === p.id}
+                            onClick={() => refundPayment(p.id)}
+                            className="rounded-lg bg-ink-100 px-3 py-1.5 text-sm font-medium text-ink-700 hover:bg-ink-200 disabled:opacity-50"
+                          >
+                            Rembourser
+                          </button>
+                        )}
+                        {!(p.status === 'pending' || p.status === 'success') && (
+                          <span className="text-ink-300">—</span>
+                        )}
+                      </div>
+                      {p.status === 'pending' && p.purpose === 'ride_fare' && (
+                        <p className="mt-1 text-xs text-ink-400">Confirmation automatique par le fournisseur Mobile Money.</p>
+                      )}
                     </td>
                   </tr>
                 ))}
