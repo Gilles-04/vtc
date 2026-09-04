@@ -1349,6 +1349,51 @@ libre).
 
 ---
 
+## TASK-038 — Écran Revenus + historique de courses chauffeur (`apps/web`)
+
+- **Objectif** : `docs/05-ecrans.md` écran #18 (« Revenus ») documente
+  « gains transport jour/semaine/mois (net des frais de service),
+  historique de courses — jamais mélangé à l'abonnement » — jamais
+  construit (`DriverHome.tsx` n'avait ni l'un ni l'autre, seulement la
+  course active et les offres). Comble aussi le manque noté en fermant
+  TASK-037 (pas de bouton Facture côté chauffeur, faute d'écran
+  d'historique pour l'accrocher).
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** : nouvelle section « Revenus » dans `DriverHome.tsx` —
+  - Trois tuiles (aujourd'hui / 7 derniers jours / ce mois-ci), calculées
+    côté client à partir de `invoices.transport_amount_fcfa` (déjà net
+    des frais de service par construction du schéma) sur une seule
+    requête `invoices` bornée au mois en cours plutôt que trois
+    requêtes séparées.
+  - Liste d'historique des courses du chauffeur (`rides` filtré
+    `driver_id`, 20 dernières terminées/annulées) — même structure que
+    l'historique passager (`PassengerHome.tsx`, TASK-037).
+  - Bouton « Facture » réutilisant `generateRideInvoicePdf` (TASK-037) :
+    les infos chauffeur viennent de l'état local déjà chargé
+    (`driver`/`driverName`, pas besoin d'appeler
+    `get_ride_driver_public_info` sur soi-même) ; le nom du passager
+    passe par `get_ride_passenger_public_info` (migration 13 — déjà
+    utilisée pour la course active, fonctionne aussi pour une course
+    terminée puisque la fonction ne restreint pas par statut).
+  - Rafraîchi automatiquement sur le canal Realtime existant (`rides`
+    table, même canal que les offres) après complétion d'une course.
+- **Vérifié** : `tsc --noEmit`/`oxlint`/`npm run build` propres (jsPDF
+  toujours isolé dans son chunk séparé, chargé à la demande — aucun
+  changement à ce sujet). Playwright/Chromium réel : deux courses en
+  historique (une terminée avec facture, une annulée sans facture) — un
+  seul bouton Facture affiché, sur la bonne ; agrégats jour/semaine/mois
+  vérifiés arithmétiquement corrects contre les factures simulées
+  (course annulée exclue, comme attendu puisqu'aucune facture ne lui est
+  jamais associée) ; téléchargement réel déclenché, **contenu du PDF
+  intégralement relu** (véhicule/plaque du chauffeur, nom du passager via
+  RPC, montants — tous corrects).
+- **Résultat** : `docs/05-ecrans.md` écran #18 fait. Le chauffeur peut
+  désormais télécharger la facture de ses propres courses, comme le
+  passager (TASK-037) — plus de dissymétrie entre les deux côtés pour ce
+  document. Reste non fait : `apps/mobile` (ni Revenus, ni facture).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

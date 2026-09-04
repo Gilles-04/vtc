@@ -2,7 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import { DriverOnboarding } from './DriverOnboarding'
-import type { ActiveRide, ActiveSubscription, DriverDocType, DriverRecord, PassengerPublicInfo, RideOffer, SubscriptionPayment, SubscriptionPlan } from '../lib/types'
+import type {
+  ActiveRide,
+  ActiveSubscription,
+  DriverDocType,
+  DriverPublicInfo,
+  DriverRecord,
+  PassengerPublicInfo,
+  RideHistoryRow,
+  RideInvoice,
+  RideOffer,
+  SubscriptionPayment,
+  SubscriptionPlan,
+} from '../lib/types'
 import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadge } from '../components/Badge'
 import { fcfa } from '../lib/format'
 
@@ -34,6 +46,9 @@ export function DriverHome() {
   const [busy, setBusy] = useState(false)
   const [uploadingType, setUploadingType] = useState<DriverDocType | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
+  const [rideHistory, setRideHistory] = useState<RideHistoryRow[]>([])
+  const [rideInvoicesByRide, setRideInvoicesByRide] = useState<Record<string, RideInvoice>>({})
+  const [earnings, setEarnings] = useState({ today: 0, week: 0, month: 0 })
 
   const activeRideRef = useRef<ActiveRide | null>(null)
   useEffect(() => {
@@ -149,10 +164,80 @@ export function DriverHome() {
     }
   }, [driver])
 
+  // Écran #18 (docs/05-ecrans.md) : historique de courses + gains
+  // jour/semaine/mois, net des frais de service (invoices.transport_amount_fcfa
+  // — jamais mélangé aux revenus d'abonnement, voir docs/10-paiements.md).
+  const loadRideHistoryAndEarnings = useCallback(async () => {
+    if (!driver || driver.status !== 'approved') return
+
+    const { data: historyData } = await supabase
+      .from('rides')
+      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, final_distance_km, requested_at')
+      .eq('driver_id', driver.id)
+      .in('status', ['completed', 'cancelled_by_passenger', 'cancelled_by_driver', 'cancelled_by_system'])
+      .order('requested_at', { ascending: false })
+      .limit(20)
+    const rows = (historyData as unknown as RideHistoryRow[]) ?? []
+    setRideHistory(rows)
+
+    if (rows.length > 0) {
+      const { data: invoicesData } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, ride_id, transport_amount_fcfa, platform_fee_fcfa, total_fcfa, payment_method, payment_reference, issued_at')
+        .eq('driver_id', driver.id)
+        .in(
+          'ride_id',
+          rows.map((r) => r.id),
+        )
+      const byRide: Record<string, RideInvoice> = {}
+      for (const inv of (invoicesData as unknown as RideInvoice[]) ?? []) byRide[inv.ride_id] = inv
+      setRideInvoicesByRide(byRide)
+    } else {
+      setRideInvoicesByRide({})
+    }
+
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const weekStart = new Date(todayStart.getTime() - 6 * 24 * 60 * 60 * 1000)
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const { data: earningsData } = await supabase
+      .from('invoices')
+      .select('transport_amount_fcfa, issued_at')
+      .eq('driver_id', driver.id)
+      .gte('issued_at', monthStart.toISOString())
+    const earningRows = (earningsData as { transport_amount_fcfa: number; issued_at: string }[]) ?? []
+    setEarnings({
+      today: earningRows.filter((r) => new Date(r.issued_at) >= todayStart).reduce((sum, r) => sum + r.transport_amount_fcfa, 0),
+      week: earningRows.filter((r) => new Date(r.issued_at) >= weekStart).reduce((sum, r) => sum + r.transport_amount_fcfa, 0),
+      month: earningRows.reduce((sum, r) => sum + r.transport_amount_fcfa, 0),
+    })
+  }, [driver])
+
+  // jsPDF chargé à la demande (voir §Reçus ci-dessous et TASK-037) — le
+  // chauffeur connaît déjà ses propres infos (pas besoin d'appeler
+  // get_ride_driver_public_info sur lui-même), seule l'identité du
+  // passager passe par la fonction dédiée (RLS, docs/11-securite.md).
+  async function downloadDriverInvoice(ride: RideHistoryRow) {
+    const invoice = rideInvoicesByRide[ride.id]
+    if (!invoice || !driver) return
+    const { data: info } = await supabase.rpc('get_ride_passenger_public_info', { _ride_id: ride.id }).maybeSingle()
+    const ownInfo: DriverPublicInfo = {
+      full_name: driverName,
+      rating_avg: driver.rating_avg,
+      vehicle_brand: driver.vehicles?.brand ?? null,
+      vehicle_model: driver.vehicles?.model ?? null,
+      vehicle_color: driver.vehicles?.color ?? null,
+      vehicle_plate: driver.vehicles?.plate_number ?? null,
+    }
+    const { generateRideInvoicePdf } = await import('../lib/invoice')
+    generateRideInvoicePdf(invoice, ride, ownInfo, (info as PassengerPublicInfo | null)?.full_name ?? null)
+  }
+
   useEffect(() => {
     loadSubscriptionData()
     loadOffersAndRide()
-  }, [loadSubscriptionData, loadOffersAndRide])
+    loadRideHistoryAndEarnings()
+  }, [loadSubscriptionData, loadOffersAndRide, loadRideHistoryAndEarnings])
 
   useEffect(() => {
     if (!driver || driver.status !== 'approved') return
@@ -164,13 +249,14 @@ export function DriverHome() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rides', filter: `driver_id=eq.${driver.id}` }, () => {
         loadOffersAndRide()
+        loadRideHistoryAndEarnings()
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [driver, loadOffersAndRide])
+  }, [driver, loadOffersAndRide, loadRideHistoryAndEarnings])
 
   // Position envoyée à update_driver_location (migration 2) pendant toute
   // la période où le chauffeur est disponible — condition nécessaire pour
@@ -455,6 +541,55 @@ export function DriverHome() {
                   </div>
                 </section>
               )}
+
+              <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-400">Revenus</h2>
+                <p className="mb-3 text-xs text-ink-400">Gains transport, net des frais de service — jamais mélangé à l'abonnement.</p>
+                <div className="mb-4 grid grid-cols-3 gap-2">
+                  <div className="rounded-xl border border-ink-100 p-3 text-center">
+                    <p className="text-xs text-ink-400">Aujourd'hui</p>
+                    <p className="text-sm font-semibold text-ink-800">{fcfa(earnings.today)}</p>
+                  </div>
+                  <div className="rounded-xl border border-ink-100 p-3 text-center">
+                    <p className="text-xs text-ink-400">7 derniers jours</p>
+                    <p className="text-sm font-semibold text-ink-800">{fcfa(earnings.week)}</p>
+                  </div>
+                  <div className="rounded-xl border border-ink-100 p-3 text-center">
+                    <p className="text-xs text-ink-400">Ce mois-ci</p>
+                    <p className="text-sm font-semibold text-ink-800">{fcfa(earnings.month)}</p>
+                  </div>
+                </div>
+
+                {rideHistory.length > 0 ? (
+                  <div className="space-y-2">
+                    {rideHistory.map((r) => (
+                      <div key={r.id} className="rounded-xl border border-ink-100 p-3">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <CategoryBadge category={r.category} />
+                          <RideStatusBadge status={r.status} />
+                        </div>
+                        <p className="text-sm text-ink-600">
+                          {r.pickup_address} → {r.dropoff_address}
+                        </p>
+                        <div className="mt-1 flex items-center justify-between text-xs text-ink-400">
+                          <span>{new Date(r.requested_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                          <span>{(r.final_fare_fcfa ?? r.estimated_fare_fcfa) != null ? fcfa((r.final_fare_fcfa ?? r.estimated_fare_fcfa) as number) : '—'}</span>
+                        </div>
+                        {rideInvoicesByRide[r.id] && (
+                          <button
+                            onClick={() => downloadDriverInvoice(r)}
+                            className="mt-2 rounded-lg border border-ink-200 px-3 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
+                          >
+                            Facture
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-ink-400">Aucune course dans votre historique pour le moment.</p>
+                )}
+              </section>
 
               {activeSub && !activeRide && (
                 <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">

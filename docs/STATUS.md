@@ -1,11 +1,12 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 4 septembre 2026 (les deux rendus PDF manquants —
-reçu d'abonnement chauffeur et facture de course — construits ; position
-du chauffeur câblée sur les deux plateformes, le matching peut
-fonctionner de bout en bout côté fourniture de position ; vrais tarifs
-câblés ; `apps/mobile` complet côté passager/chauffeur, rendu natif réel
-non vérifié — détail des tâches dans `docs/TASKS.md`)*
+*Dernière mise à jour : 4 septembre 2026 (écran Revenus + historique de
+courses chauffeur construit ; les deux rendus PDF manquants — reçu
+d'abonnement et facture de course — construits ; position du chauffeur
+câblée sur les deux plateformes, le matching peut fonctionner de bout en
+bout côté fourniture de position ; vrais tarifs câblés ; `apps/mobile`
+complet côté passager/chauffeur, rendu natif réel non vérifié — détail
+des tâches dans `docs/TASKS.md`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -127,10 +128,15 @@ paiement d'abonnement réussi, téléchargeable depuis le tableau de bord
 chauffeur (TASK-036 dans `docs/TASKS.md`).
 
 **Facture PDF de course** (`apps/web`, même `jsPDF`) — téléchargeable
-depuis l'historique passager pour chaque course facturée (TASK-037 dans
-`docs/TASKS.md`). Les deux rendus PDF ne couvrent que `apps/web` — pas
-`apps/mobile`, et pas de bouton côté chauffeur (pas d'écran d'historique
-de courses sur son tableau de bord web à ce jour).
+depuis l'historique passager (TASK-037) **et** depuis l'écran Revenus du
+chauffeur (TASK-038, ci-dessous) pour chaque course facturée. Les deux
+rendus PDF ne couvrent que `apps/web`, pas `apps/mobile`.
+
+**Écran Revenus + historique de courses chauffeur** (`apps/web`,
+`docs/05-ecrans.md` écran #18) — gains transport jour/7 jours/mois
+(`invoices.transport_amount_fcfa`, net des frais de service par
+construction), historique des 20 dernières courses, bouton Facture
+(TASK-038 dans `docs/TASKS.md`).
 
 **5 Edge Functions déployées** (`payment-webhook-momo`,
 `phone-verification-start`/`-check`, `pricing-directions`,
@@ -191,7 +197,19 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-037) :
+**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-038) :
+**écran Revenus + historique de courses chauffeur construit**
+(`docs/05-ecrans.md` écran #18, jamais fait jusqu'ici) — tuiles de gains
+jour/7 jours/mois (`invoices.transport_amount_fcfa`, calculées côté
+client sur une seule requête bornée au mois), historique des 20
+dernières courses, bouton Facture réutilisant `generateRideInvoicePdf`
+(TASK-037) avec les infos chauffeur prises directement dans l'état local
+(pas d'appel RPC redondant sur soi-même) et le nom du passager via
+`get_ride_passenger_public_info`. Ferme au passage la dissymétrie notée
+en clôturant TASK-037 (le chauffeur n'avait aucun moyen d'accéder à la
+facture de ses propres courses).
+
+**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-037) :
 **facture PDF de course construite** — le deuxième des deux manques de
 rendu PDF identifiés ce jour (le premier, TASK-036, ci-dessous) ; celui-ci
 était un manque déjà connu et documenté (`docs/10-paiements.md`
