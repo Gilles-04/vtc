@@ -125,15 +125,22 @@ complète.
   `UPDATE ... WHERE id = $1 AND status = 'pending'` — si deux tentatives
   arrivent en même temps (ne devrait pas arriver avec le dispatch séquentiel,
   mais reste une garantie), une seule réussit.
-- L'expiration est gérée par `expire_ride_offers_and_dispatch()`, appelée
-  toutes les ~5 secondes par un petit processus à part toujours actif
-  (`services/matching-worker/`) — jamais par un minuteur côté client, pour
-  ne jamais dépendre de la connectivité du téléphone du chauffeur.
-  `pg_cron` a été envisagé puis écarté pour ce rôle précis : sa
-  granularité minimale est la minute, quatre fois plus lent que le délai
-  d'une offre (15 s) — voir le README du worker pour le détail. Vérifié
-  réellement : une offre expirée artificiellement a bien été balayée et
-  relancée au cycle suivant du worker contre un Postgres local.
+- L'expiration est gérée par `expire_ride_offers_and_dispatch()`, prévue
+  pour être appelée toutes les ~5 secondes par un petit processus à part
+  toujours actif (`services/matching-worker/`) — jamais par un minuteur
+  côté client, pour ne jamais dépendre de la connectivité du téléphone du
+  chauffeur. **Ce worker n'a jamais été déployé** (aucun VPS choisi pour
+  ce projet à ce jour) — en attendant, `expire_ride_offers_and_dispatch()`
+  est planifiée via `pg_cron` toutes les 5 secondes (migration
+  `00000000000017_interim_cron_offer_sweep.sql`). Correction d'une
+  affirmation fausse de ce document et du README du worker : `pg_cron`
+  avait été écarté en pensant sa granularité limitée à la minute — vérifié
+  directement contre le projet réel que c'est faux, un intervalle en
+  secondes est accepté et exécuté à la cadence exacte demandée (confirmé
+  par plusieurs exécutions consécutives dans `cron.job_run_details`,
+  espacées de 5 s pile). Solution de repli, pas un remplacement définitif
+  — le worker dédié reste la solution prévue une fois un serveur choisi
+  (gestion d'erreurs/redémarrage plus robuste, voir son README).
 - Toute annulation du passager pendant la recherche (avant acceptation)
   expire immédiatement l'offre `pending` en cours et arrête le dispatch.
 

@@ -1476,6 +1476,57 @@ libre).
 
 ---
 
+## TASK-040 — Repli `pg_cron` pour le balayage des offres expirées (worker jamais déployé)
+
+- **Objectif** : aucun demandé explicitement — découvert en creusant le
+  fonctionnement de `pg_cron` pour TASK-039. `services/matching-worker/`
+  (processus Node.js dédié censé appeler
+  `expire_ride_offers_and_dispatch()` toutes les ~5 s pour relancer le
+  dispatch quand une offre expire sans réponse du chauffeur) n'a **jamais
+  été déployé** — `docs/STATUS.md`/`docs/TASKS.md` (TASK-006) le
+  documentaient déjà comme « écrit, pas déployé », mais sans que la
+  gravité concrète soit mise en évidence : sans lui, une course dont le
+  chauffeur assigné ne répond jamais à l'offre (téléphone éteint, app
+  fermée) reste bloquée en `'searching'` **pour toujours** — rien ne
+  relance jamais le dispatch vers le candidat suivant. Un vrai trou de
+  production, pas un manque de finition esthétique.
+- **Statut** : Terminé (4 septembre 2026), en solution de repli — le
+  worker dédié reste à déployer.
+- **Fait** : `services/matching-worker/README.md` affirmait que `pg_cron`
+  ne pouvait pas descendre sous la minute (« sa granularité minimale est
+  la minute ») — raison invoquée pour justifier un processus séparé.
+  Vérifié directement contre le projet réel que c'est faux :
+  `cron.schedule(name, '5 seconds', ...)` est accepté et exécuté à la
+  cadence exacte demandée (testé en direct avec un job temporaire,
+  supprimé ensuite — quatre exécutions consécutives espacées exactement
+  de 10 s dans `cron.job_run_details`). Migration
+  `00000000000017_interim_cron_offer_sweep.sql` planifie
+  `expire_ride_offers_and_dispatch()` (déjà idempotente et sûre en
+  concurrence, `for update skip locked` — migration 2, aucune modification
+  nécessaire) toutes les 5 s via `pg_cron`.
+- **Décision prise avec le porteur du projet** : programmer une tâche
+  `pg_cron` supplémentaire qui modifie des données réelles en production
+  dépassait le périmètre de TASK-039 — confirmé via `AskUserQuestion`
+  avant d'agir (précédent du même type que l'activation de `pg_cron`
+  elle-même, TASK-039) plutôt que de décider seul. Solution de repli
+  explicitement temporaire, pas un remplacement du worker dédié — celui-ci
+  reste la solution prévue une fois un VPS choisi (boucle applicative
+  plus robuste, gestion d'erreurs/redémarrage `systemd`) ; les deux
+  peuvent tourner en parallèle sans risque le jour venu grâce au
+  `skip locked`, désactiver le repli n'est qu'une question de propreté.
+- **Vérifié** : appliqué au projet réel via MCP puis revérifié directement
+  dessus (pas seulement `{"success":true}`) — `cron.job` confirme la
+  tâche `sweep-expired-ride-offers` active, `cron.job_run_details`
+  confirme des exécutions réelles toutes les 5 s, statut `succeeded`.
+- **Résultat** : `docs/08-matching.md`, `services/matching-worker/README.md`
+  et `docs/STATUS.md` corrigés (l'affirmation fausse sur `pg_cron`
+  supprimée des deux premiers). Le matching ne peut plus rester bloqué
+  indéfiniment sur un chauffeur qui ne répond jamais — pire cas désormais
+  ~20 secondes (15 s d'expiration + jusqu'à 5 s de balayage) au lieu
+  d'indéfiniment.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

@@ -1,13 +1,15 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 4 septembre 2026 (`pg_cron` n'était jamais
-installé sur le projet réel — découvert et corrigé, `expire_subscriptions`/
-`cleanup_rate_limits` tournent enfin réellement, en plus du nouveau
-critère de fiabilité du matching qui en dépendait ; écran Revenus +
-historique de courses chauffeur construit ; les deux rendus PDF manquants
-— reçu d'abonnement et facture de course — construits ; position du
-chauffeur câblée sur les deux plateformes, le matching peut fonctionner
-de bout en bout côté fourniture de position ; vrais tarifs câblés ;
+*Dernière mise à jour : 4 septembre 2026 (deux vrais trous de production
+trouvés et corrigés en creusant `pg_cron` : l'extension n'était jamais
+installée — `expire_subscriptions`/`cleanup_rate_limits` ne tournaient
+jamais — **et** le worker de dispatch n'a jamais été déployé — une
+course dont le chauffeur ne répond jamais restait bloquée pour toujours,
+comblé par un repli `pg_cron` ; critère de fiabilité du matching
+construit ; écran Revenus + historique de courses chauffeur construit ;
+les deux rendus PDF manquants — reçu d'abonnement et facture de course —
+construits ; position du chauffeur câblée sur les deux plateformes ;
+vrais tarifs câblés ;
 `apps/mobile` complet côté passager/chauffeur, rendu natif réel non
 vérifié — détail des tâches dans `docs/TASKS.md`)*
 
@@ -89,7 +91,8 @@ pas contacter `*.supabase.co` directement depuis cet environnement.
 
 Reste à construire : notifications push et géolocalisation en arrière-plan
 côté `apps/mobile` (hors périmètre porté ce jour), le worker de dispatch
-(écrit, pas déployé).
+dédié (écrit, pas déployé — comblé en attendant par un repli `pg_cron`,
+voir §2 et §5).
 
 ## 2. Ce qui fonctionne
 
@@ -131,6 +134,22 @@ ci-dessous) programmées et vérifiées en train de tourner
 (`cron.job_run_details`, pas seulement `cron.job`). Aucun effet de bord
 au moment de l'activation (1 seul abonnement en base, non expiré ; 0
 ligne obsolète dans `rate_limit_counters`).
+
+**Le matching ne bloque plus indéfiniment sur un chauffeur muet** —
+découverte plus grave en creusant le sujet `pg_cron` ci-dessus : le
+worker dédié (`services/matching-worker/`) qui relance le dispatch
+quand une offre expire sans réponse (15 s) n'a **jamais été déployé**
+(aucun VPS choisi pour ce projet). Sans lui, une course dont le chauffeur
+assigné ne répond jamais restait bloquée en `'searching'` pour toujours.
+Vérifié directement contre le projet réel — contrairement à ce que
+`services/matching-worker/README.md` affirmait — que `pg_cron` accepte
+un intervalle en secondes, pas seulement la minute : `expire_ride_offers_and_dispatch()`
+y est désormais planifiée toutes les 5 s (migration
+`00000000000017_interim_cron_offer_sweep.sql`, confirmé avec le porteur
+du projet avant activation). Solution de repli, pas un remplacement — le
+worker dédié reste la solution prévue une fois un serveur choisi ; les
+deux peuvent tourner en parallèle sans risque le jour venu
+(`for update skip locked`).
 
 **Critère de fiabilité du matching** (`docs/08-matching.md`, migration
 16) — `drivers.acceptance_rate`/`cancellation_rate`, recalculés toutes
@@ -216,7 +235,29 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-039) :
+**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-040) :
+**le matching ne peut plus rester bloqué indéfiniment sur un chauffeur
+muet** — découvert en creusant le fonctionnement réel de `pg_cron`
+(TASK-039, juste en dessous) : `services/matching-worker/` (censé
+relancer le dispatch quand une offre expire sans réponse) n'a jamais été
+déployé, faute de VPS choisi pour ce projet. Sans lui, une course dont le
+chauffeur assigné ne répondait jamais restait bloquée en `'searching'`
+pour toujours — un vrai trou de production, pas un manque de finition.
+`services/matching-worker/README.md` affirmait `pg_cron` incapable de
+descendre sous la minute — vérifié directement contre le projet réel
+que c'est faux (`cron.schedule(name, '5 seconds', ...)`, confirmé par
+plusieurs exécutions consécutives espacées de 5 s pile dans
+`cron.job_run_details`). Confirmé avec le porteur du projet avant
+d'agir (`AskUserQuestion` — programmer une tâche pg_cron supplémentaire
+en production dépassait le périmètre de la tâche en cours) : migration
+`00000000000017_interim_cron_offer_sweep.sql` planifie désormais
+`expire_ride_offers_and_dispatch()` toutes les 5 s. Solution de repli,
+pas un remplacement — le worker dédié reste la solution prévue une fois
+un serveur choisi ; les deux peuvent tourner en parallèle sans risque
+(`for update skip locked`). Doc corrigée (`08-matching.md`,
+`services/matching-worker/README.md`, `docs/STATUS.md`).
+
+**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-039) :
 **critère de fiabilité du matching construit, `pg_cron` réellement activé
 en production** — demandé explicitement par le porteur du projet
 (`docs/08-matching.md` le documentait comme non fait au MVP). Migration
