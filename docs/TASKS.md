@@ -1188,6 +1188,55 @@ libre).
 
 ---
 
+## TASK-035 — Position du chauffeur (`update_driver_location`), web + mobile
+
+- **Objectif** : aucun demandé explicitement — découvert en vérifiant si
+  la RPC `update_driver_location` (existante et accordée depuis la
+  migration 2, condition nécessaire au matching via `dispatch_next_offer`
+  — voir `docs/08-matching.md`) était appelée depuis un client. Réponse :
+  nulle part, ni côté `apps/web` ni côté `apps/mobile`, sur aucune des
+  deux plateformes construites ce jour. Sans cet appel, aucun chauffeur
+  ne peut jamais être matché à une course en production, quel que soit
+  l'état de la clé Google Maps ou des tarifs — un blocage plus grave et
+  jusque-là invisible.
+- **Statut** : Terminé (4 septembre 2026).
+- **Fait** : suivi de position en continu, foreground uniquement (jamais
+  d'arrière-plan — hors périmètre, décision explicite), actif tant que
+  `driver.status === 'approved' && driver.is_available`, y compris
+  pendant une course en cours (`_ride_id` renseigné). Côté
+  `apps/web/src/pages/DriverHome.tsx` : `navigator.geolocation.watchPosition`
+  natif du navigateur. Côté `apps/mobile/app/chauffeur/accueil.tsx` :
+  `expo-location` (`watchPositionAsync`), plugin ajouté à `app.json` avec
+  le texte de permission `locationWhenInUsePermission`,
+  `isIosBackgroundLocationEnabled`/`isAndroidBackgroundLocationEnabled`
+  à `false`. Message d'erreur clair si la permission est refusée sur les
+  deux plateformes.
+- **Bug réel trouvé et corrigé au passage** : le premier appel
+  `supabase.rpc('update_driver_location', ...)` dans la callback de
+  position était une instruction nue, sans `await` ni `.then()` —
+  `supabase-js` (`PostgrestBuilder`) est un thenable paresseux, la
+  requête HTTP ne part que si `.then()`/`await` est effectivement invoqué
+  ; l'appel ne partait donc tout simplement jamais. Corrigé via
+  `void supabase.rpc(...).then(({ error }) => { ... })` (callback
+  synchrone, pas de fonction `async` disponible à cet endroit). Un grep
+  systématique de tous les appels `supabase.rpc(`/`supabase.from(` sur
+  les trois apps (~35 occurrences) a confirmé que c'était un cas isolé —
+  tous les autres étaient déjà correctement `await`és.
+- **Vérifié** : `tsc --noEmit`/`oxlint` propres sur les trois apps.
+  `expo-location` dispose d'une vraie implémentation web (API
+  navigateur), donc testable via Playwright contrairement à `Alert.alert`
+  — géolocalisation accordée (position simulée) → `update_driver_location`
+  appelé avec les bonnes coordonnées, sur web et mobile ; refusée →
+  message d'erreur clair affiché, aucun appel RPC déclenché. Testé dans
+  les deux sens sur les deux plateformes.
+- **Résultat** : le système de matching peut désormais fonctionner de
+  bout en bout côté fourniture de position — ce volet ne dépend plus que
+  de la clé Google Maps (estimation tarifaire) pour être utilisable en
+  conditions réelles. Reste non vérifiable depuis cet environnement :
+  rendu natif réel sur simulateur/appareil (§3/§7 de `docs/STATUS.md`).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

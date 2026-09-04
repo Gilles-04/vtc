@@ -1,8 +1,9 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 4 septembre 2026 (vrais tarifs câblés,
-`apps/mobile` complet côté passager/chauffeur — même périmètre
-fonctionnel qu'`apps/web`, rendu natif réel non vérifié)*
+*Dernière mise à jour : 4 septembre 2026 (position du chauffeur câblée
+sur les deux plateformes — le matching peut fonctionner de bout en bout
+côté fourniture de position — vrais tarifs câblés, `apps/mobile` complet
+côté passager/chauffeur, rendu natif réel non vérifié)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -50,6 +51,15 @@ Bloqué en usage réel par un seul point désormais (§3/§7) :
 (Edge Function) répond `not_configured`, l'écran de demande de course
 l'affiche clairement plutôt que d'échouer en silence. Les tarifs
 (`pricing_rules`) ne bloquent plus rien, câblés le 4 septembre (§5).
+
+**Le matching n'était en réalité pas fonctionnel jusqu'à aujourd'hui,
+sur aucune des deux plateformes** — indépendamment de la clé Google Maps
+et des tarifs. `dispatch_next_offer` exige une position chauffeur récente
+(`update_driver_location`, existante et accordée depuis la migration 2),
+mais aucun client ne l'appelait jamais. Corrigé le 4 septembre (TASK-035,
+§5) : suivi de position en continu (foreground uniquement) tant que le
+chauffeur est disponible, y compris pendant une course, sur `apps/web`
+et `apps/mobile`.
 
 **4 livrables** (révision du 3 septembre 2026, détail dans
 `docs/02-architecture-technique.md`) : Web, Android, iOS, Admin — chacun
@@ -103,6 +113,12 @@ Reste bloqué en usage réel uniquement par la clé Google Maps (§3).
 
 **`apps/mobile` complet côté code, même périmètre qu'`apps/web`** : voir
 §1. Rendu natif réel non vérifié dans cet environnement (§3).
+
+**Position du chauffeur envoyée en continu** (`update_driver_location`,
+foreground uniquement) sur `apps/web` (API géolocalisation du navigateur)
+et `apps/mobile` (`expo-location`) — condition nécessaire au matching
+(`dispatch_next_offer`), absente sur les deux plateformes jusqu'au
+4 septembre (TASK-035 dans `docs/TASKS.md`).
 
 **5 Edge Functions déployées** (`payment-webhook-momo`,
 `phone-verification-start`/`-check`, `pricing-directions`,
@@ -163,7 +179,26 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-034) :
+**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-035) :
+**position du chauffeur câblée sur les deux plateformes** — découvert en
+vérifiant si `update_driver_location` (existante depuis la migration 2,
+condition nécessaire au matching via `dispatch_next_offer`) était
+réellement appelée : elle ne l'était nulle part, ni côté `apps/web` ni
+côté `apps/mobile`. Sans cet appel le matching n'aurait jamais pu
+fonctionner en production, indépendamment de la clé Google Maps ou des
+tarifs. Corrigé : suivi de position en continu (foreground uniquement,
+jamais d'arrière-plan) tant que le chauffeur est disponible, y compris
+pendant une course. A aussi révélé et corrigé un vrai bug au passage :
+le premier appel `supabase.rpc(...)` dans la callback de position
+n'était ni `await` ni `.then()` — `supabase-js` expose un thenable
+paresseux, la requête ne partait donc jamais avant correction. Un grep
+systématique sur les trois apps a confirmé que c'était un cas isolé.
+Vérifié via Playwright (`expo-location` a une vraie implémentation web,
+contrairement à `Alert.alert`) : géolocalisation accordée → appel RPC
+avec les bonnes coordonnées ; refusée → message d'erreur clair, aucun
+appel. `tsc`/`oxlint` propres.
+
+**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-034) :
 **`apps/mobile` porté au même périmètre qu'`apps/web`** — tableau de bord
 chauffeur (onboarding, documents via `expo-file-system`, abonnement,
 disponibilité, offres, course en cours) et demande de course passager

@@ -41,6 +41,13 @@ Construit et vérifié réellement (voir §Vérification ci-dessous) :
   zone optionnelle via `SelectField` — un picker modal, React Native n'a
   pas de `<select>` — mode de paiement, estimation via l'Edge Function
   `pricing-directions` puis `create_ride_request`), historique.
+- **Position du chauffeur** (`expo-location`, foreground uniquement —
+  jamais d'arrière-plan) : envoyée en continu à `update_driver_location`
+  pendant que le chauffeur est disponible, y compris pendant une course.
+  Sans cet appel, `dispatch_next_offer` (docs/08-matching.md) ne peut
+  matcher aucun chauffeur — gap trouvé et corrigé le 4 septembre 2026,
+  absent aussi bien côté web que mobile jusque-là (voir
+  `docs/TASKS.md` TASK-035).
 
 **Limitation connue, spécifique au mode web de vérification** :
 `Alert.alert()` (React Native) est un no-op complet sur `react-native-web`
@@ -99,6 +106,15 @@ telle quelle) :
   option sélectionnée, erreur claire si tarification non configurée,
   estimation puis confirmation de la demande, carte de suivi affichée,
   historique affiché.
+- Position chauffeur : `expo-location` a une implémentation web réelle
+  (API navigateur), donc vérifiable ici — géolocalisation accordée
+  (Playwright, position simulée) → `update_driver_location` bien appelé
+  avec les coordonnées simulées ; refusée → message d'erreur clair,
+  aucun appel. A révélé un vrai bug au passage : le premier appel RPC
+  dans la callback de position n'était ni `await` ni `.then()` —
+  `supabase-js` expose un thenable paresseux (`PostgrestBuilder`), la
+  requête ne part que si `.then()`/`await` est invoqué, donc l'appel ne
+  partait tout simplement jamais avant correction (`void ... .then(...)`).
 
 `tsc --noEmit` et `oxlint` propres. **Non vérifié** : rendu natif réel sur
 un simulateur/appareil Android ou iOS, upload de document réel, et les
