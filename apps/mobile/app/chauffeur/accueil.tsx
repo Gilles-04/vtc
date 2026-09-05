@@ -21,6 +21,7 @@ import { NotificationsButton } from '../../src/components/Notifications'
 import { SupportButton } from '../../src/components/Support'
 import { RatingModal } from '../../src/components/RatingModal'
 import { registerForPushNotifications } from '../../src/lib/pushNotifications'
+import { registerDeviceFingerprint } from '../../src/lib/deviceFingerprint'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
 import type {
@@ -90,6 +91,7 @@ export default function DriverHome() {
     }
     setUserId(uid)
     registerForPushNotifications(uid)
+    registerDeviceFingerprint(uid)
 
     const { data, error } = await supabase
       .from('drivers')

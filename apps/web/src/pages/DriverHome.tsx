@@ -23,6 +23,7 @@ import { NotificationsBell } from '../components/Notifications'
 import { SupportButton } from '../components/Support'
 import { RatingModal } from '../components/RatingModal'
 import { fcfa } from '../lib/format'
+import { registerDeviceFingerprint } from '../lib/deviceFingerprint'
 
 const REPORT_CATEGORIES = [
   { value: 'comportement_passager', label: 'Comportement du passager' },
@@ -77,6 +78,7 @@ export function DriverHome() {
     const uid = userData.user?.id
     if (!uid) return
     setUserId(uid)
+    registerDeviceFingerprint(uid)
 
     const { data, error } = await supabase
       .from('drivers')

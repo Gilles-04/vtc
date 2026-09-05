@@ -11,6 +11,7 @@ import { NotificationsBell } from '../components/Notifications'
 import { SupportButton } from '../components/Support'
 import { RatingModal } from '../components/RatingModal'
 import { fcfa } from '../lib/format'
+import { registerDeviceFingerprint } from '../lib/deviceFingerprint'
 
 const EMPTY_LOCATION: LocationValue = { address: '', lat: '', lng: '' }
 
@@ -150,6 +151,7 @@ export function PassengerHome() {
       setUserId(uid)
       loadActiveRide(uid)
       loadHistory(uid)
+      registerDeviceFingerprint(uid)
       supabase
         .from('profiles')
         .select('full_name, language')

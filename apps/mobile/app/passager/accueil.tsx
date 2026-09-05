@@ -22,6 +22,7 @@ import { NotificationsButton } from '../../src/components/Notifications'
 import { SupportButton } from '../../src/components/Support'
 import { RatingModal } from '../../src/components/RatingModal'
 import { registerForPushNotifications } from '../../src/lib/pushNotifications'
+import { registerDeviceFingerprint } from '../../src/lib/deviceFingerprint'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
 import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRide, PaymentMethodType, RideHistoryRow, Zone } from '../../src/lib/types'
@@ -148,6 +149,7 @@ export default function PassengerHome() {
       loadActiveRide(uid)
       loadHistory(uid)
       registerForPushNotifications(uid)
+      registerDeviceFingerprint(uid)
       supabase
         .from('profiles')
         .select('full_name, language')
