@@ -1,29 +1,17 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 5 septembre 2026 (support client construit —
-écran transverse « Support » documenté depuis le début pour les deux
-apps mais jamais livré, `support_tickets` prête côté RLS/RPC depuis le
-tout premier jour mais jamais utilisée ; découvert au passage que
-`support_tickets.user_id` avait le même bug d'embedding PostgREST déjà
-corrigé 5 fois ailleurs (FK manquante vers `profiles`), corrigé de la
-même façon (TASK-048) ; juste avant, notation post-course construite —
-dernier écran MVP documenté (`docs/05-ecrans.md` écran #11) jamais
-livré, `ratings` prête côté RLS/trigger depuis le tout premier jour mais
-à 0 ligne malgré des courses terminées (TASK-047) ; avant ça, audit des
-notifications push ayant révélé qu'aucun client n'a jamais lu la table
-`notifications` elle-même (prête depuis le premier jour) — boîte de
-notifications in-app construite partout (TASK-046) ; le jeton push,
-jamais enregistré par aucun client, enfin câblé côté mobile (TASK-045,
-bloqué en pratique par un projet Expo manquant) ; le porteur du projet a
-testé `apps/web` en local pour la première fois — a validé le parcours de
-bout en bout et fait remonter un vrai besoin : remplacer la saisie
-manuelle de coordonnées par géolocalisation + carte (TASK-043/044), ce qui
-a aussi révélé et corrigé deux bugs d'affichage réels de la carte ; avant
-ça, audit honnête de tous les écrans documentés dans `docs/05-ecrans.md`
-avait révélé 7 zones manquantes, toutes construites le jour même
-(TASK-042) ; clé Google Maps câblée plus tôt dans la journée, dernier
-blocage réel du parcours passager levé — détail des tâches dans
-`docs/TASKS.md`)*
+*Dernière mise à jour : 5 septembre 2026 (audit systématique
+« backend prêt, jamais appelé » poursuivi sur toute la base — après
+notifications (TASK-046), jeton push (TASK-045), notation post-course
+(TASK-047) et support client (TASK-048), même méthode appliquée à
+`device_fingerprints` : le mécanisme anti-fraude « appareils partagés »,
+testé en local dès la migration 1, n'avait jamais reçu une seule ligne
+en production faute d'appel client — enfin câblé, best-effort
+(TASK-049) ; ces cinq tâches, plus les 7 zones transverses/admin
+trouvées le même jour (TASK-042) et le sélecteur géolocalisation+carte
+demandé par le porteur du projet après son premier test réel en local
+(TASK-043/044), couvrent tout ce qui a été construit le 5 septembre —
+détail complet dans `docs/TASKS.md`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -132,6 +120,15 @@ PostgREST déjà rencontré 5 fois (FK `user_id` manquante vers `profiles`).
 Avec cette tâche, **les 24+ écrans documentés dans `docs/05-ecrans.md`
 sont désormais tous construits, sur les trois plateformes.**
 
+**L'empreinte d'appareil anti-fraude est désormais câblée** (5 septembre
+2026, TASK-049) : `device_fingerprints` avait sa RLS, sa contrainte
+unique et son trigger `flag_device_duplicate` testés en local depuis la
+migration 1, mais aucun client n'avait jamais inséré la moindre ligne —
+un des trois mécanismes anti-fraude documentés du projet n'avait donc
+jamais pu se déclencher en production. Identifiant persistant côté
+client (`localStorage`/`AsyncStorage`), enregistré une fois après
+connexion, best-effort.
+
 Reste à construire : l'autocomplétion d'adresse Google Places (§3, non
 bloquant), géolocalisation en arrière-plan côté `apps/mobile` (hors
 périmètre porté ce jour), le worker de dispatch dédié (écrit, pas
@@ -143,6 +140,16 @@ seul ne suffit plus pour recevoir un push distant sur Android depuis le
 SDK 53), voir §3/§7.
 
 ## 2. Ce qui fonctionne
+
+**Empreinte d'appareil anti-fraude (5 septembre 2026, TASK-049)** —
+`device_fingerprints` (RLS + contrainte unique `(user_id, device_id)` +
+trigger `flag_device_duplicate` vers `fraud_flags`) testée en local
+depuis la migration 1 mais jamais alimentée par un client : un des
+trois mécanismes anti-fraude documentés (`docs/11-securite.md`) n'avait
+donc jamais pu se déclencher en production. Identifiant persistant
+(`localStorage` web / `AsyncStorage` mobile) enregistré une fois après
+connexion, passager et chauffeur, web et mobile — best-effort, aucune
+migration nécessaire.
 
 **Support client (5 septembre 2026, TASK-048)** — écran transverse
 « Support », documenté depuis le début pour passager et chauffeur mais
@@ -390,6 +397,27 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
+
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-049) :
+**empreinte d'appareil anti-fraude câblée** — découverte par la même
+méthode que TASK-045/046/047/048 (pas une demande explicite) :
+`device_fingerprints` a sa RLS, sa contrainte unique `(user_id,
+device_id)` et son trigger `flag_device_duplicate` (écrit dans
+`fraud_flags` dès qu'un même appareil sert à plusieurs comptes) testés
+en local dès la migration 1 (`docs/11-securite.md` cite un test réel
+concluant), mais aucun client n'avait jamais inséré la moindre ligne —
+0 ligne dans `device_fingerprints` **et** dans `fraud_flags` en
+production. `registerDeviceFingerprint()` : identifiant persistant
+généré côté client (`localStorage` sur web, `AsyncStorage` sur mobile —
+déjà une dépendance du projet, aucune nouvelle lib native), enregistré
+une fois après connexion, passager et chauffeur, web et mobile.
+Best-effort strict : erreur de contrainte unique (déjà enregistré)
+ignorée silencieusement, toute autre erreur seulement journalisée,
+jamais remontée à l'utilisateur. **Aucune migration nécessaire** — RLS/
+contrainte/trigger déjà en place, seul le frontend manquait. Vérifié :
+tsc/build/lint propres sur `apps/web` et `apps/mobile`. Pas de test en
+conditions réelles possible depuis ce sandbox (mêmes limitations réseau
+connues).
 
 **5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-048) :
 **support client construit (écran transverse, web + mobile + admin)** —

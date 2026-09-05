@@ -1915,6 +1915,50 @@ libre).
 
 ---
 
+## TASK-049 — Empreinte d'appareil anti-fraude (jamais appelée)
+
+- **Objectif** : découverte par la même méthode que TASK-045/046/047/048
+  — `device_fingerprints` a sa RLS (insert/select « own »), sa contrainte
+  unique `(user_id, device_id)` et son trigger `flag_device_duplicate`
+  (écrit dans `fraud_flags` dès qu'un même appareil sert à plusieurs
+  comptes) prêts et vérifiés en local depuis la migration 1
+  (`docs/11-securite.md` §Anti-fraude cite un test réel : deux comptes
+  déclarant le même appareil produisent bien un signalement) — mais
+  aucun client (web ou mobile) n'a jamais inséré la moindre ligne, un
+  des trois mécanismes anti-fraude documentés du projet n'a donc jamais
+  pu se déclencher en production (0 ligne dans `device_fingerprints`
+  **et** dans `fraud_flags`).
+- **Statut** : Terminé (5 septembre 2026).
+- **Fait** :
+  - `apps/web/src/lib/deviceFingerprint.ts` et
+    `apps/mobile/src/lib/deviceFingerprint.ts` (`registerDeviceFingerprint`) :
+    identifiant persistant généré côté client (`localStorage` sur web,
+    `AsyncStorage` sur mobile — déjà une dépendance du projet, pas de
+    nouvelle lib native) et enregistré une fois après connexion.
+  - Appelé au même endroit que `registerForPushNotifications` (mobile)
+    et juste après résolution de l'utilisateur (web) : passager et
+    chauffeur, web et mobile (4 points d'appel).
+  - Best-effort strict, jamais bloquant : erreur `23505` (contrainte
+    unique déjà satisfaite — appareil déjà enregistré pour ce compte)
+    ignorée silencieusement, toute autre erreur seulement journalisée
+    (`console.warn`), jamais remontée à l'utilisateur.
+  - **Aucune migration nécessaire** — RLS/contrainte/trigger déjà en
+    place et déjà testés (en local) depuis la migration 1, aucune
+    politique `UPDATE` requise : un simple insert par paire suffit au
+    mécanisme (pas de suivi précis de `last_seen_at`, hors périmètre).
+- **Vérifié** : `tsc --noEmit`, `oxlint` et `npm run build` propres sur
+  `apps/web` ; `tsc --noEmit` et `oxlint` propres sur `apps/mobile`. Pas
+  de vérification en conditions réelles possible depuis ce sandbox
+  (réseau Supabase bloqué pour les outils navigateur, pas d'émulateur
+  mobile) — RLS/trigger inchangés, déjà testés en local à l'écriture de
+  la migration, aucun risque de sécurité nouveau introduit ici.
+- **Résultat** : le mécanisme anti-fraude « appareils partagés »,
+  documenté et testé depuis le début mais jamais alimenté par un vrai
+  client, peut enfin détecter un cas réel de comptes multiples sur un
+  même appareil (fraude au parrainage, contournement de suspension).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
