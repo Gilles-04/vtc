@@ -1,17 +1,18 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 4 septembre 2026 (deux vrais trous de production
-trouvés et corrigés en creusant `pg_cron` : l'extension n'était jamais
-installée — `expire_subscriptions`/`cleanup_rate_limits` ne tournaient
-jamais — **et** le worker de dispatch n'a jamais été déployé — une
-course dont le chauffeur ne répond jamais restait bloquée pour toujours,
-comblé par un repli `pg_cron` ; critère de fiabilité du matching
-construit ; écran Revenus + historique de courses chauffeur construit ;
-les deux rendus PDF manquants — reçu d'abonnement et facture de course —
-construits ; position du chauffeur câblée sur les deux plateformes ;
-vrais tarifs câblés ;
-`apps/mobile` complet côté passager/chauffeur, rendu natif réel non
-vérifié — détail des tâches dans `docs/TASKS.md`)*
+*Dernière mise à jour : 5 septembre 2026 (clé Google Maps obtenue et
+câblée — dernier blocage réel du parcours passager levé, l'estimation de
+prix fonctionne de bout en bout avec de vraies données Google Directions,
+vérifié en conditions réelles ; deux vrais trous de production trouvés et
+corrigés en creusant `pg_cron` : l'extension n'était jamais installée —
+`expire_subscriptions`/`cleanup_rate_limits` ne tournaient jamais — et le
+worker de dispatch n'a jamais été déployé, comblé par un repli `pg_cron` ;
+critère de fiabilité du matching construit ; écran Revenus + historique
+de courses chauffeur construit ; les deux rendus PDF manquants — reçu
+d'abonnement et facture de course — construits ; position du chauffeur
+câblée sur les deux plateformes ; vrais tarifs câblés ; `apps/mobile`
+complet côté passager/chauffeur, rendu natif réel non vérifié — détail
+des tâches dans `docs/TASKS.md`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -96,7 +97,7 @@ voir §2 et §5).
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (16 migrations, vérifiées en local puis déployées,
+**Base de données** (17 migrations, vérifiées en local puis déployées,
 comptage confirmé identique) : cycle complet d'une course par catégorie
 (matching, cash/Mobile Money), frais de service 2,5 % jamais mélangés à
 l'abonnement, facturation/règlement/remboursement automatiques, reporting
@@ -118,7 +119,23 @@ passager et la table `zones` est vide sur le projet réel).
 Code React 19 + Vite + TanStack Router, même stack que `apps/web`.
 
 **`apps/web` complet des deux côtés** (passager et chauffeur) : voir §1.
-Reste bloqué en usage réel uniquement par la clé Google Maps (§3).
+
+**Clé Google Maps obtenue et câblée (5 septembre 2026)** — dernier
+blocage réel du parcours passager. Deux clés créées séparément (voir
+`.env.example` racine) : clé serveur (`GOOGLE_MAPS_API_KEY`, Directions
+API uniquement, aucune restriction de referrer, secret Supabase Edge
+Function) et clé client (`VITE_GOOGLE_MAPS_API_KEY`/
+`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, Places API (New) + Maps JavaScript
+API, restreinte par referrer HTTP). **Vérifié en conditions réelles**,
+pas seulement supposé configuré : appel direct de l'Edge Function
+`pricing-directions` via `net.http_post` (le sandbox ne peut toujours
+pas contacter `*.supabase.co` directement) — réponse `HTTP 200` avec de
+vraies données Google Directions (`distance_km`, `duration_min`) puis
+tarif calculé correctement par `estimate_ride_fare` (tarif minimum
+voiture 700 FCFA appliqué quand le calcul au km tombe en dessous).
+L'estimation/demande de course fonctionne désormais de bout en bout.
+Reste à construire (pas bloquant, saisie manuelle des coordonnées en
+attendant, §3) : l'autocomplétion d'adresse avec la clé client.
 
 **`apps/mobile` complet côté code, même périmètre qu'`apps/web`** : voir
 §1. Rendu natif réel non vérifié dans cet environnement (§3).
@@ -193,8 +210,12 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 
 ## 3. Ce qui pose problème / limites connues
 
-- **Clé API Google Maps manquante** — bloque l'estimation/demande de
-  course (§7). Seul point bloquant restant sur ce parcours.
+- **Autocomplétion d'adresse (Google Places) pas encore construite** —
+  la clé client est en place (`VITE_GOOGLE_MAPS_API_KEY`/
+  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, §2) mais `PassengerHome.tsx` (web et
+  mobile) utilise encore une saisie manuelle des coordonnées lat/lng en
+  attendant. Pas bloquant : la demande de course fonctionne déjà de bout
+  en bout avec cette saisie manuelle.
 - **`apps/mobile` jamais lancé sur un simulateur/appareil réel** — cet
   environnement n'a ni SDK Android ni Xcode, uniquement vérifié via le
   mode web d'Expo. Trois confirmations (`Alert.alert`, achat d'abonnement/
@@ -235,7 +256,26 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-040) :
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-041) :
+**clé Google Maps obtenue et câblée, dernier blocage réel du parcours
+passager levé.** Le porteur du projet a créé les deux clés dans Google
+Cloud Console (guidé pas à pas, captures d'écran à l'appui) : clé
+serveur (Directions API, sans restriction de referrer) et clé client
+(Places API (New) + Maps JavaScript API, restreinte par referrer). Clé
+client mise en place directement (`apps/web/.env`, `apps/mobile/.env`,
+jamais commitée — vérifié) ; clé serveur transmise pour configuration en
+secret Supabase (aucun outil MCP ne permet de gérer les secrets Edge
+Function, seul le porteur du projet peut le faire depuis le Dashboard).
+**Vérifié en conditions réelles**, pas seulement supposé configuré :
+`pricing-directions` appelée via `net.http_post` depuis la base (le
+sandbox ne peut pas contacter `*.supabase.co` directement) — `HTTP 200`,
+vraies données Google Directions, tarif calculé correctement (minimum
+voiture 700 FCFA appliqué). L'estimation/demande de course fonctionne
+désormais de bout en bout avec de vraies données. Reste à construire,
+non bloquant : l'autocomplétion d'adresse (Google Places) côté
+formulaire, actuellement une saisie manuelle des coordonnées.
+
+**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-040) :
 **le matching ne peut plus rester bloqué indéfiniment sur un chauffeur
 muet** — découvert en creusant le fonctionnement réel de `pg_cron`
 (TASK-039, juste en dessous) : `services/matching-worker/` (censé
@@ -417,17 +457,6 @@ attente d'une décision technique de mon côté.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
-- **Clé API Google Maps** (fournisseur décidé le 3 septembre 2026) —
-  console.cloud.google.com, activer *Directions API*, *Places API* et
-  *Maps JavaScript API* sur un même projet, puis créer deux clés :
-  1. Une clé **sans restriction de referrer**, avec seulement
-     *Directions API* activée — c'est `GOOGLE_MAPS_API_KEY`, le secret
-     Edge Function déjà en attente.
-  2. Une clé **restreinte par referrer HTTP** (votre domaine, ou
-     `localhost` pour tester) avec *Places API* + *Maps JavaScript API*
-     — celle-ci sera visible côté navigateur par construction (comme
-     toute clé Maps JS), la restriction de referrer est ce qui la
-     protège d'un usage détourné.
 - **Tester `apps/mobile` sur votre téléphone** (optionnel, quand vous
   voulez) : `cd apps/mobile && npm install && npx expo start`, puis
   scanner le QR code avec l'app **Expo Go** (Android/iOS, gratuite) — pas

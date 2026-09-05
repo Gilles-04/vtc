@@ -1527,6 +1527,53 @@ libre).
 
 ---
 
+## TASK-041 — Clé Google Maps obtenue et câblée
+
+- **Objectif** : dernier blocage réel documenté du parcours passager
+  (§3/§7 de `docs/STATUS.md` depuis TASK-016) — obtenir et câbler les
+  clés Google Maps décidées le 3 septembre 2026.
+- **Statut** : Terminé (5 septembre 2026).
+- **Fait** :
+  - Guidé le porteur du projet pas à pas dans Google Cloud Console
+    (captures d'écran à l'appui, plusieurs allers-retours — l'interface a
+    changé depuis la doc de TASK-016 : "Places API (New)" plutôt que
+    l'ancienne "Places API", un menu déroulant plutôt qu'une section
+    dédiée pour restreindre les API d'une clé).
+  - Deux clés créées : **serveur** (Directions API uniquement, aucune
+    restriction de referrer) et **client** (Places API (New) + Maps
+    JavaScript API, restreinte par referrer HTTP).
+  - Clé client mise en place directement — `apps/web/.env` et
+    `apps/mobile/.env` (`VITE_GOOGLE_MAPS_API_KEY`/
+    `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, noms nouveaux, ajoutés aux
+    `.env.example` correspondants), jamais commitée (vérifié
+    `git check-ignore`). `.env.example` racine mis à jour pour clarifier
+    la séparation des deux clés (le commentaire précédent disait
+    « décision à confirmer », périmé depuis le 3 septembre).
+  - Clé serveur **transmise au porteur du projet pour configuration** —
+    aucun outil MCP Supabase ne permet de gérer les secrets Edge
+    Function (seuls `apply_migration`/`execute_sql`/`deploy_edge_function`
+    disponibles, aucun equivalent `set_secret`) ; à faire uniquement
+    depuis le Dashboard (Edge Functions → Secrets), comme documenté pour
+    `PAYMENT_WEBHOOK_SECRET` en `docs/STATUS.md` §3.
+- **Vérifié en conditions réelles**, pas seulement supposé configuré une
+  fois le secret renseigné : le sandbox ne peut toujours pas contacter
+  `*.supabase.co` directement (`curl` échoue à la connexion via le proxy
+  agent) — contourné en appelant `pricing-directions` depuis la base
+  elle-même via `net.http_post` (même technique que la vérification
+  `push-notifications-dispatch` de TASK-006), réponse lue dans
+  `net._http_response` plutôt que supposée. Résultat : `HTTP 200`, vraies
+  données Google Directions (`distance_km`, `duration_min`), tarif
+  calculé correctement par `estimate_ride_fare` (1,6 km à 250 FCFA/km
+  ferait ~650 FCFA, le minimum voiture de 700 FCFA s'applique bien).
+- **Résultat** : l'estimation/demande de course fonctionne désormais de
+  bout en bout avec de vraies données, sur le projet réel. `docs/STATUS.md`
+  §2/§3/§7 mis à jour (le blocage retiré de §3/§7, le succès documenté en
+  §2). Reste à construire, non bloquant : l'autocomplétion d'adresse
+  (Google Places) côté formulaire — `PassengerHome.tsx` (web et mobile)
+  utilise encore une saisie manuelle des coordonnées lat/lng.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
