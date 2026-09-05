@@ -1733,6 +1733,52 @@ libre).
 
 ---
 
+## TASK-045 — Enregistrement du jeton push (apps/mobile) — jamais fait jusqu'ici
+
+- **Objectif** : découverte en auditant les notifications push (pas une
+  demande explicite) — le pipeline serveur existe et « fonctionne »
+  depuis des mois (`push-notifications-dispatch`, vérifié par un test
+  `net.http_post` en TASK-006) mais aucun client n'a jamais écrit
+  `profiles.push_token` (colonne prête depuis la migration 4, accordée
+  en écriture depuis le premier jour). Vérifié sur le projet réel : 0
+  profil sur 6 avec un jeton — aucune notification n'a donc jamais pu
+  être livrée à un vrai appareil, malgré la fonctionnalité documentée
+  comme fonctionnelle.
+- **Statut** : Terminé côté code (5 septembre 2026) — bloqué en pratique
+  par deux points externes (voir ci-dessous).
+- **Fait** :
+  - `apps/mobile/src/lib/pushNotifications.ts` :
+    `registerForPushNotifications(userId)` — permission
+    (`expo-notifications`), jeton (`getExpoPushTokenAsync`), écriture sur
+    `profiles.push_token`. Appelé une fois après connexion, écran
+    d'accueil passager et chauffeur.
+  - Best-effort strict : toute erreur (permission refusée, projet Expo
+    absent) est journalisée (`console.warn`) et n'interrompt jamais le
+    reste de l'app — une fonctionnalité annexe ne doit pas bloquer le
+    parcours principal.
+  - `expo-notifications` ajouté aux dépendances et aux `plugins` de
+    `app.json` (configuration Android/iOS correcte pour un futur build
+    natif).
+- **Bloqué par (externe, pas du code)** :
+  1. **`EXPO_PUBLIC_PROJECT_ID` jamais fourni** — aucun projet Expo créé
+     pour ce produit sur expo.dev. Sans cette valeur,
+     `registerForPushNotifications` abandonne silencieusement (pas
+     d'erreur visible, juste aucun jeton enregistré). Nécessite un compte
+     Expo gratuit + `npx eas init`.
+  2. **Limite propre à Expo, pas à ce projet** : depuis le SDK 53, Expo
+     Go ne reçoit plus les notifications push distantes sur Android — un
+     build de développement (`eas build --profile development`) sera
+     nécessaire pour tester la réception réelle une fois le jeton obtenu,
+     Expo Go seul ne suffira plus à ce stade-là.
+- **Vérifié** : `tsc`/`oxlint` propres. Aucun test réel possible depuis ce
+  sandbox (pas de projet Expo à utiliser, aucun émulateur).
+- **Résultat** : le pipeline push est maintenant réellement câblé de bout
+  en bout côté code ; reste un point de configuration (compte Expo) et
+  un test réel (build de développement) avant qu'une notification puisse
+  effectivement arriver sur un téléphone.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

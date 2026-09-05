@@ -102,10 +102,14 @@ Toutes construites et vérifiées (tsc/build/lint) le jour même — détail
 complet en §5.
 
 Reste à construire : l'autocomplétion d'adresse Google Places (§3, non
-bloquant), notifications push et géolocalisation en arrière-plan côté
-`apps/mobile` (hors périmètre porté ce jour), le worker de dispatch
-dédié (écrit, pas déployé — comblé en attendant par un repli `pg_cron`,
-voir §2 et §5).
+bloquant), géolocalisation en arrière-plan côté `apps/mobile` (hors
+périmètre porté ce jour), le worker de dispatch dédié (écrit, pas
+déployé — comblé en attendant par un repli `pg_cron`, voir §2 et §5).
+**Notifications push câblées côté code (TASK-045)** mais pas encore
+livrables à un vrai téléphone — aucun projet Expo créé
+(`EXPO_PUBLIC_PROJECT_ID` manquant) ni build de développement (Expo Go
+seul ne suffit plus pour recevoir un push distant sur Android depuis le
+SDK 53), voir §3/§7.
 
 ## 2. Ce qui fonctionne
 
@@ -244,6 +248,15 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 
 ## 3. Ce qui pose problème / limites connues
 
+- **Notifications push jamais réellement livrées à un appareil (TASK-045)**
+  — le pipeline serveur tourne depuis des mois mais aucun client n'a
+  jamais écrit `profiles.push_token` (vérifié : 0 profil sur 6). Câblage
+  client fait le 5 septembre, mais deux points externes empêchent encore
+  un vrai test : aucun projet Expo créé (`EXPO_PUBLIC_PROJECT_ID`
+  manquant, §7) et, une fois obtenu, Expo Go seul ne suffira plus pour
+  recevoir un push distant sur Android (limite Expo depuis le SDK 53,
+  pas de ce projet) — il faudra un build de développement
+  (`eas build --profile development`).
 - **Carte live admin (`/carte`) non vérifiée avec de vraies données** —
   navigation réelle confirmée (Chromium headless, route/auth guard OK,
   aucune erreur JS), mais le rendu de la carte avec des marqueurs réels
@@ -306,6 +319,25 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
+
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-045) :
+**enregistrement du jeton push câblé (`apps/mobile`)** — découverte en
+auditant les notifications push (pas une demande explicite) : le
+pipeline serveur (trigger sur `notifications` → `push-notifications-dispatch`
+→ API Expo) tourne réellement depuis des mois, vérifié fonctionnel dès
+TASK-006, mais `profiles.push_token` (colonne prête depuis la migration
+4) n'avait jamais été écrite par aucun client — 0 profil sur 6 avec un
+jeton, vérifié directement sur le projet réel. Aucune notification n'a
+donc jamais pu être livrée à un vrai appareil malgré la fonctionnalité
+documentée comme opérationnelle. `registerForPushNotifications()` :
+permission + jeton (`expo-notifications`) + écriture sur
+`profiles.push_token`, appelé une fois après connexion (passager et
+chauffeur), best-effort strict (jamais bloquant). Reste bloqué par deux
+points externes, pas du code : aucun projet Expo créé
+(`EXPO_PUBLIC_PROJECT_ID` manquant, §7) et, une fois obtenu, un push
+distant Android ne peut plus être testé via Expo Go seul depuis le SDK
+53 (limite Expo, pas de ce projet) — un build de développement sera
+nécessaire.
 
 **5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-044) :
 **sélecteur géolocalisation + carte porté vers `apps/mobile`**, en
@@ -590,8 +622,16 @@ décision technique de mon côté.
 - **Mobile Money** : Flooz, TMoney (direct) ou Semoa Togo (agrégateur) —
   non bloquant. Détermine aussi la réponse à la question de custody des
   fonds notée en §3.
-- **Comptes développeur mobile** (Expo/EAS, Play Console, Apple
-  Developer) — non bloquant avant la Phase 9.
+- **Créer un projet Expo (compte gratuit)** pour activer les
+  notifications push (TASK-045) : `cd apps/mobile && npx eas init` (invite
+  à se connecter/créer un compte sur expo.dev) puis renseigner l'identifiant
+  obtenu dans `EXPO_PUBLIC_PROJECT_ID` (`.env`). Sans ça, le code déjà en
+  place n'enregistre jamais de jeton (échoue silencieusement, pas
+  d'erreur visible). Un vrai test de réception demandera ensuite un build
+  de développement (`eas build --profile development`) — Expo Go seul ne
+  reçoit plus les push distants sur Android depuis le SDK 53.
+- **Comptes développeur mobile** (Play Console, Apple Developer) — non
+  bloquant avant la Phase 9.
 - **Régime fiscal togolais** (facturation pour compte du chauffeur) et
   **statut réglementaire de la collecte Mobile Money pour compte de
   tiers** — à valider avant production réelle (voir
