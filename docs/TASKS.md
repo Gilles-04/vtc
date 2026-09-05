@@ -1574,6 +1574,82 @@ libre).
 
 ---
 
+## TASK-042 — Écrans manquants construits (SOS, signalement, profil, onboarding, facturation détail, carte live)
+
+- **Objectif** : audit honnête (grep sur le code réel, pas la mémoire ni
+  la documentation) contre l'inventaire complet des écrans
+  (`docs/05-ecrans.md`) a révélé 7 zones manquantes malgré des mois de
+  travail — demandé explicitement par le porteur du projet de tout
+  construire d'un coup plutôt que les traiter une par une.
+- **Statut** : Terminé (5 septembre 2026).
+- **Fait** (un commit par sous-partie, `git log` pour le détail exact) :
+  - **SOS** (`trigger_sos`, migration 18, RPC déjà testée localement à 5
+    scénarios avant application) — bouton transverse dans l'en-tête
+    passager/chauffeur (pas seulement pendant une course), web et mobile,
+    confirmation puis géolocalisation ponctuelle. Migration appliquée au
+    projet réel et revérifiée (grants `anon=false`/`authenticated=true`
+    sur les deux nouvelles fonctions) ; `trigger_sos` volontairement pas
+    testée en conditions réelles pour ne pas déclencher une vraie alerte
+    au staff (`notify_admins_on_sos`, trigger existant, migration 1),
+    seul `admin_active_rides_locations` (lecture seule) a été appelé pour
+    de vrai.
+  - **Signalement** (écran #14) — formulaire catégorie + description,
+    depuis la course en cours ou l'historique, `reports` (insert direct,
+    RLS déjà permissive depuis la migration 1, aucune RPC nécessaire),
+    web et mobile, passager et chauffeur.
+  - **Fiabilité chauffeur** — `acceptance_rate`/`cancellation_rate`
+    (calculés depuis TASK-039, migration 16, jamais affichés) enfin
+    montrés sur le tableau de bord chauffeur, web et mobile.
+  - **Profil/Paramètres** (écran transverse) — édition nom/langue via
+    `profiles` (colonnes déjà ouvertes en écriture par
+    `profiles_update_own`, migration 1), accessible même avant
+    approbation du dossier chauffeur, web et mobile, passager et
+    chauffeur.
+  - **Onboarding + Profil initial passager** (écrans #1/#4) — écran
+    d'accueil (logo/proposition de valeur) avant la saisie email ;
+    capture nom/langue après le tout premier code vérifié, seulement si
+    `profiles.full_name` est encore `null` (`handle_new_user`, migration
+    1, ne le renseigne jamais) — un compte déjà complété passe
+    directement au tableau de bord. Chauffeur non touché : son propre
+    onboarding (catégorie/documents/véhicule) existe déjà.
+  - **Admin Facturation — détail** (écran #16) — route
+    `/facturation/$invoiceId` : montants, mode/référence de paiement,
+    trajet facturé (embed `rides`).
+  - **Admin Carte live des courses** (écran #10) — Leaflet + tuiles
+    OpenStreetMap plutôt que Google Maps (usage interne staff, pas besoin
+    de Places/Directions, évite une troisième clé Google Maps) ; s'appuie
+    sur `admin_active_rides_locations()` (migration 18) ; sondage 10 s
+    (RPC calculée, pas une table sur laquelle s'abonner en Realtime) ;
+    icônes emoji personnalisées plutôt que les marqueurs par défaut de
+    Leaflet (chemins d'image cassés une fois packagés par Vite).
+  - **Explicitement laissé de côté** : « Moyens de paiement » (écran
+    transverse listé dans `docs/05-ecrans.md`) — aucun moyen de paiement
+    n'est enregistré dans ce système, le mode (cash/Mobile Money) est
+    choisi à chaque course, pas de quoi construire un écran dédié tant
+    que cette conception ne change pas.
+- **Vérifié** :
+  - `apps/web`, `apps/mobile`, `apps/admin` : `tsc`/`build`/`oxlint`
+    propres après chaque sous-partie (pas un seul passage global à la
+    fin).
+  - Migration 18 : revérifiée directement contre le projet réel (grants
+    + appel réel sur la fonction en lecture seule), pas seulement
+    `{"success":true}`.
+  - Carte live : navigation réelle vers `/carte` en Chromium headless —
+    redirection correcte vers `/login` en l'absence de session, aucune
+    erreur JS au chargement du module (confirme que Leaflet/react-leaflet
+    ne casse pas le bundle).
+  - **Non vérifiable depuis ce sandbox** : rendu réel de la carte avec
+    des données (pas de mot de passe admin utilisable, réseau bloqué vers
+    `*.supabase.co` — limitation déjà documentée, pas nouvelle) ;
+    Facturation détail sur une vraie facture (aucune n'existe encore en
+    production, aucune course payée terminée à ce jour).
+- **Résultat** : les 7 zones identifiées par l'audit sont construites.
+  `docs/05-ecrans.md` est désormais couvert en quasi-totalité côté code
+  (l'autocomplétion d'adresse Google Places reste la seule pièce
+  visuelle non construite, non bloquante, voir TASK-041).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

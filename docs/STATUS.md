@@ -1,18 +1,15 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 5 septembre 2026 (clé Google Maps obtenue et
-câblée — dernier blocage réel du parcours passager levé, l'estimation de
-prix fonctionne de bout en bout avec de vraies données Google Directions,
-vérifié en conditions réelles ; deux vrais trous de production trouvés et
-corrigés en creusant `pg_cron` : l'extension n'était jamais installée —
-`expire_subscriptions`/`cleanup_rate_limits` ne tournaient jamais — et le
-worker de dispatch n'a jamais été déployé, comblé par un repli `pg_cron` ;
-critère de fiabilité du matching construit ; écran Revenus + historique
-de courses chauffeur construit ; les deux rendus PDF manquants — reçu
-d'abonnement et facture de course — construits ; position du chauffeur
-câblée sur les deux plateformes ; vrais tarifs câblés ; `apps/mobile`
-complet côté passager/chauffeur, rendu natif réel non vérifié — détail
-des tâches dans `docs/TASKS.md`)*
+*Dernière mise à jour : 5 septembre 2026 (audit honnête de tous les
+écrans documentés dans `docs/05-ecrans.md` a révélé 7 zones manquantes —
+SOS, signalement, fiabilité chauffeur affichée, profil/paramètres,
+onboarding + profil initial passager, facturation détail admin, carte
+live admin — toutes construites le jour même, web + mobile + admin,
+détail dans `docs/TASKS.md` TASK-042 ; clé Google Maps câblée plus tôt
+dans la journée, dernier blocage réel du parcours passager levé ; deux
+vrais trous de production trouvés et corrigés en creusant `pg_cron` ;
+`apps/mobile` au même périmètre qu'`apps/web` — détail des tâches dans
+`docs/TASKS.md`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -20,8 +17,8 @@ des tâches dans `docs/TASKS.md`)*
 
 Le backend (schéma, logique métier, module financier complet, deux
 catégories voiture/moto-taxi) est **déployé pour de vrai** sur le projet
-Supabase dédié : 15 migrations + 5 Edge Functions en place et vérifiées
-(32 tables, 49 fonctions, 51 policies RLS, grants internes durcis).
+Supabase dédié : 18 migrations + 5 Edge Functions en place et vérifiées
+(32 tables, 52 fonctions, 51 policies RLS, grants internes durcis).
 **Les vrais tarifs sont câblés** (`pricing_rules` + `subscription_plans`,
 migration 15) — plus aucun tarif inventé ni manquant.
 
@@ -90,14 +87,49 @@ projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
 séparé de la politique réseau du sandbox : le navigateur ne peut toujours
 pas contacter `*.supabase.co` directement depuis cet environnement.
 
-Reste à construire : notifications push et géolocalisation en arrière-plan
-côté `apps/mobile` (hors périmètre porté ce jour), le worker de dispatch
+**Tous les écrans transverses et de sécurité manquants sont désormais
+construits** (5 septembre 2026, TASK-042 dans `docs/TASKS.md`) : un audit
+grep contre l'inventaire complet de `docs/05-ecrans.md` a trouvé 7 zones
+réellement absentes malgré des mois de travail — SOS (passager +
+chauffeur, web + mobile), Signalement (écran #14), fiabilité chauffeur
+(`acceptance_rate`/`cancellation_rate`, calculés depuis TASK-039 mais
+jamais montrés), Profil/Paramètres (transverse), Onboarding + Profil
+initial passager (écrans #1/#4), Facturation — détail admin (écran #16)
+et Carte live des courses admin (écran #10, Leaflet + OpenStreetMap).
+Toutes construites et vérifiées (tsc/build/lint) le jour même — détail
+complet en §5.
+
+Reste à construire : l'autocomplétion d'adresse Google Places (§3, non
+bloquant), notifications push et géolocalisation en arrière-plan côté
+`apps/mobile` (hors périmètre porté ce jour), le worker de dispatch
 dédié (écrit, pas déployé — comblé en attendant par un repli `pg_cron`,
 voir §2 et §5).
 
 ## 2. Ce qui fonctionne
 
-**Base de données** (17 migrations, vérifiées en local puis déployées,
+**Tous les écrans transverses/sécurité identifiés manquants sont
+construits (5 septembre 2026, TASK-042)** :
+- **SOS** — bouton transverse dans l'en-tête passager/chauffeur (`apps/web`
+  et `apps/mobile`), confirmation puis géolocalisation ponctuelle,
+  `trigger_sos` (migration 18) qui construit la position côté serveur
+  plutôt qu'un insert direct sur une colonne `geography`.
+- **Signalement** (écran #14) — catégorie + description, insert direct
+  sur `reports` (RLS déjà permissive), depuis la course en cours ou
+  l'historique, `apps/web` et `apps/mobile`.
+- **Fiabilité chauffeur affichée** — `acceptance_rate`/`cancellation_rate`
+  (calculés depuis TASK-039) enfin visibles sur le tableau de bord
+  chauffeur.
+- **Profil/Paramètres** — édition nom/langue (`profiles`), accessible
+  même avant approbation du dossier chauffeur, `apps/web` et `apps/mobile`.
+- **Onboarding + Profil initial passager** (écrans #1/#4) — écran
+  d'accueil avant la saisie email ; capture nom/langue après le tout
+  premier code vérifié, seulement pour un compte encore sans nom.
+- **Admin Facturation — détail** (écran #16, `/facturation/$invoiceId`).
+- **Admin Carte live des courses** (écran #10, `/carte`) — Leaflet +
+  OpenStreetMap (pas de clé Google Maps pour `apps/admin`, usage interne
+  staff), s'appuie sur `admin_active_rides_locations()` (migration 18).
+
+**Base de données** (18 migrations, vérifiées en local puis déployées,
 comptage confirmé identique) : cycle complet d'une course par catégorie
 (matching, cash/Mobile Money), frais de service 2,5 % jamais mélangés à
 l'abonnement, facturation/règlement/remboursement automatiques, reporting
@@ -210,6 +242,16 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 
 ## 3. Ce qui pose problème / limites connues
 
+- **Carte live admin (`/carte`) non vérifiée avec de vraies données** —
+  navigation réelle confirmée (Chromium headless, route/auth guard OK,
+  aucune erreur JS), mais le rendu de la carte avec des marqueurs réels
+  n'a pas pu être vérifié : pas de mot de passe admin utilisable, réseau
+  sandbox bloqué vers `*.supabase.co` (même limitation que la connexion
+  admin ci-dessous, pas un problème propre à cet écran).
+- **Facturation détail (`/facturation/$id`) non vérifiable sur une vraie
+  facture** — code/route corrects (tsc/build propres, même schéma de
+  requête que les écrans détail existants), mais aucune facture n'existe
+  encore en production (aucune course payée terminée à ce jour).
 - **Autocomplétion d'adresse (Google Places) pas encore construite** —
   la clé client est en place (`VITE_GOOGLE_MAPS_API_KEY`/
   `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, §2) mais `PassengerHome.tsx` (web et
@@ -255,6 +297,39 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
+
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-042) :
+**les 7 écrans/zones manquants identifiés par un audit honnête sont
+construits.** Demande explicite du porteur du projet après avoir demandé
+« as-tu fait toutes les interfaces ? » — réponse honnête (grep sur le
+code réel contre l'inventaire de `docs/05-ecrans.md`, pas la mémoire)
+révélant SOS et Signalement entièrement absents malgré des mois de
+travail, la fiabilité chauffeur calculée mais jamais affichée, aucun
+écran Profil/Paramètres, aucune capture de nom à l'inscription passager,
+et deux écrans admin jamais construits (Facturation détail, Carte live).
+Tout construit le jour même, un commit par sous-partie :
+- **SOS** : migration 18 (`trigger_sos`, `admin_active_rides_locations`)
+  appliquée au projet réel et revérifiée (grants réels, pas
+  `{"success":true}`) ; bouton transverse web + mobile, passager +
+  chauffeur, confirmation puis géolocalisation ponctuelle.
+- **Signalement** (écran #14) : formulaire catégorie + description sur
+  `reports`, web + mobile.
+- **Fiabilité chauffeur** : `acceptance_rate`/`cancellation_rate` enfin
+  affichés sur le tableau de bord chauffeur.
+- **Profil/Paramètres** : édition nom/langue, web + mobile.
+- **Onboarding + Profil initial passager** (écrans #1/#4) : écran
+  d'accueil + capture nom/langue pour un tout nouveau compte uniquement.
+- **Admin Facturation détail** (écran #16) : `/facturation/$invoiceId`.
+- **Admin Carte live des courses** (écran #10) : `/carte`, Leaflet +
+  OpenStreetMap (pas de clé Google Maps configurée pour `apps/admin`,
+  usage interne staff).
+Vérifié : tsc/build/lint propres sur les trois apps après chaque
+sous-partie ; migration revérifiée directement contre le projet réel ;
+navigation réelle vers `/carte` en Chromium headless. Non vérifiable
+depuis ce sandbox (limitations déjà connues, pas nouvelles) : rendu de
+la carte avec de vraies données, facturation détail sur une vraie
+facture (§3). `trigger_sos` volontairement pas appelée pour de vrai en
+production (déclencherait une vraie alerte au staff).
 
 **5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-041) :
 **clé Google Maps obtenue et câblée, dernier blocage réel du parcours
@@ -448,12 +523,21 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 Le code applicatif (dashboard admin, `apps/web` et `apps/mobile`,
 passager/chauffeur) est terminé pour le périmètre MVP documenté sur les
-trois plateformes. Ce qui reste est soit externe (décisions/comptes qui
-vous appartiennent, §7), soit une vérification que je ne peux pas faire
-depuis cet environnement (rendu natif réel d'`apps/mobile` sur un
-simulateur/appareil Android ou iOS, upload de document, les trois
-confirmations `Alert.alert`). Aucun chantier de code n'est bloqué en
-attente d'une décision technique de mon côté.
+trois plateformes, écrans transverses/sécurité inclus (TASK-042). Seule
+pièce visuelle non construite, non bloquante : l'autocomplétion d'adresse
+Google Places (§3). « Moyens de paiement » (écran transverse listé dans
+`docs/05-ecrans.md`) reste délibérément non construit : aucun moyen de
+paiement n'est enregistré dans ce système, le mode est choisi à chaque
+course — pas de quoi construire un écran tant que cette conception ne
+change pas.
+
+Ce qui reste est soit externe (décisions/comptes qui vous appartiennent,
+§7), soit une vérification que je ne peux pas faire depuis cet
+environnement (rendu natif réel d'`apps/mobile` sur un simulateur/appareil
+Android ou iOS, upload de document, les trois confirmations `Alert.alert`,
+rendu réel de la carte live et de la facturation détail sur des données
+réelles, §3). Aucun chantier de code n'est bloqué en attente d'une
+décision technique de mon côté.
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
