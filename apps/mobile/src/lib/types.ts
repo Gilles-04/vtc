@@ -43,6 +43,10 @@ export interface DriverRecord {
   rating_avg: number
   rating_count: number
   total_rides: number
+  // `null` = pas d'historique récent (30 derniers jours), traité comme
+  // neutre par le dispatch — pas 0 (voir migration 16).
+  acceptance_rate: number | null
+  cancellation_rate: number | null
   vehicles: Vehicle | null
   driver_documents: DriverDocument[]
 }

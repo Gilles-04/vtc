@@ -14,6 +14,8 @@ import * as Location from 'expo-location'
 import { supabase } from '../../src/lib/supabase'
 import { DriverOnboarding } from '../../src/components/DriverOnboarding'
 import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadge } from '../../src/components/Badge'
+import { SosButton } from '../../src/components/Sos'
+import { ReportModal } from '../../src/components/Report'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
 import type {
@@ -25,6 +27,13 @@ import type {
   RideOffer,
   SubscriptionPlan,
 } from '../../src/lib/types'
+
+const REPORT_CATEGORIES = [
+  { value: 'comportement_passager', label: 'Comportement du passager' },
+  { value: 'securite', label: 'Sécurité' },
+  { value: 'paiement', label: 'Litige de paiement' },
+  { value: 'autre', label: 'Autre' },
+]
 
 // Port direct de apps/web/src/pages/DriverHome.tsx — mêmes RPC, mêmes
 // requêtes, même logique de statut. Seule différence réelle : l'upload de
@@ -55,6 +64,7 @@ export default function DriverHome() {
   const [busy, setBusy] = useState(false)
   const [uploadingType, setUploadingType] = useState<DriverDocType | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
+  const [reportRideId, setReportRideId] = useState<string | null>(null)
 
   const activeRideRef = useRef<ActiveRide | null>(null)
   useEffect(() => {
@@ -73,7 +83,7 @@ export default function DriverHome() {
     const { data, error } = await supabase
       .from('drivers')
       .select(
-        'id, category, status, city, is_available, rating_avg, rating_count, total_rides, vehicles(brand, model, color, plate_number, year), driver_documents(id, doc_type, file_path, status, rejection_reason, created_at)',
+        'id, category, status, city, is_available, rating_avg, rating_count, total_rides, acceptance_rate, cancellation_rate, vehicles(brand, model, color, plate_number, year), driver_documents(id, doc_type, file_path, status, rejection_reason, created_at)',
       )
       .eq('id', uid)
       .maybeSingle()
@@ -351,9 +361,12 @@ export default function DriverHome() {
           </View>
           <Text style={styles.brand}>VTC Togo</Text>
         </View>
-        <Pressable onPress={handleSignOut}>
-          <Text style={styles.signOut}>Se déconnecter</Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          <SosButton rideId={activeRide?.id ?? null} />
+          <Pressable onPress={handleSignOut}>
+            <Text style={styles.signOut}>Se déconnecter</Text>
+          </Pressable>
+        </View>
       </View>
 
       {error && (
@@ -385,6 +398,23 @@ export default function DriverHome() {
               </View>
             )}
           </View>
+
+          {(driver.acceptance_rate != null || driver.cancellation_rate != null) && (
+            <View style={styles.reliabilityRow}>
+              {driver.acceptance_rate != null && (
+                <View style={styles.reliabilityCard}>
+                  <Text style={styles.reliabilityLabel}>Taux d'acceptation (30j)</Text>
+                  <Text style={styles.reliabilityValue}>{driver.acceptance_rate.toFixed(0)}%</Text>
+                </View>
+              )}
+              {driver.cancellation_rate != null && (
+                <View style={styles.reliabilityCard}>
+                  <Text style={styles.reliabilityLabel}>Taux d'annulation (30j)</Text>
+                  <Text style={styles.reliabilityValue}>{driver.cancellation_rate.toFixed(0)}%</Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {driver.status !== 'approved' && driver.status !== 'suspended' && (
             <View style={styles.card}>
@@ -546,11 +576,24 @@ export default function DriverHome() {
                           : 'Terminer la course'}
                     </Text>
                   </Pressable>
+                  <Pressable onPress={() => setReportRideId(activeRide.id)} style={styles.reportButton}>
+                    <Text style={styles.reportButtonText}>Signaler un problème</Text>
+                  </Pressable>
                 </View>
               )}
             </>
           )}
         </ScrollView>
+      )}
+
+      {driver && (
+        <ReportModal
+          visible={reportRideId !== null}
+          rideId={reportRideId}
+          reporterId={driver.id}
+          categories={REPORT_CATEGORIES}
+          onClose={() => setReportRideId(null)}
+        />
       )}
     </View>
   )
@@ -561,6 +604,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: colors.ink50, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logo: { height: 36, width: 36, borderRadius: 10, backgroundColor: colors.navy600, alignItems: 'center', justifyContent: 'center' },
   logoEmoji: { fontSize: 18 },
   brand: { fontSize: 18, fontWeight: '700', color: colors.ink900, marginLeft: 8 },
@@ -573,6 +617,12 @@ const styles = StyleSheet.create({
   vehicleText: { marginTop: 8, fontSize: 13, color: colors.ink600 },
   statsRow: { marginTop: 8, alignItems: 'flex-end' },
   statsText: { fontSize: 13, color: colors.ink600 },
+  reliabilityRow: { flexDirection: 'row', gap: 8 },
+  reliabilityCard: { flex: 1, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.ink100, borderRadius: 12, padding: 12, alignItems: 'center' },
+  reliabilityLabel: { fontSize: 11, color: colors.ink400, textAlign: 'center' },
+  reliabilityValue: { fontSize: 14, fontWeight: '700', color: colors.ink800, marginTop: 4 },
+  reportButton: { marginTop: 8, borderWidth: 1, borderColor: colors.ink100, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  reportButtonText: { fontSize: 12, fontWeight: '500', color: colors.ink400 },
   sectionTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, color: colors.ink400, marginBottom: 12 },
   docRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.ink100, borderRadius: 12, padding: 12, marginBottom: 8 },
   docInfo: { flex: 1, marginRight: 12 },

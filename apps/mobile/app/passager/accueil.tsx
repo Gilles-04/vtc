@@ -15,9 +15,20 @@ import {
 import { supabase } from '../../src/lib/supabase'
 import { Badge, CategoryBadge, RideStatusBadge } from '../../src/components/Badge'
 import { SelectField } from '../../src/components/SelectField'
+import { SosButton } from '../../src/components/Sos'
+import { ReportModal } from '../../src/components/Report'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
 import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRide, PaymentMethodType, RideHistoryRow, Zone } from '../../src/lib/types'
+
+const REPORT_CATEGORIES = [
+  { value: 'comportement_chauffeur', label: 'Comportement du chauffeur' },
+  { value: 'securite', label: 'Sécurité' },
+  { value: 'etat_vehicule', label: 'État du véhicule' },
+  { value: 'itineraire', label: 'Itinéraire / détour' },
+  { value: 'paiement', label: 'Litige de paiement' },
+  { value: 'autre', label: 'Autre' },
+]
 
 // Port direct de apps/web/src/pages/PassengerHome.tsx — mêmes RPC/Edge
 // Function, même logique. Le <select> HTML (zone) devient SelectField
@@ -53,6 +64,7 @@ export default function PassengerHome() {
   const [zones, setZones] = useState<Zone[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [reportRideId, setReportRideId] = useState<string | null>(null)
 
   const [category, setCategory] = useState<DriverCategory>('car')
   const [pickupAddress, setPickupAddress] = useState('')
@@ -246,9 +258,12 @@ export default function PassengerHome() {
           </View>
           <Text style={styles.brand}>VTC Togo</Text>
         </View>
-        <Pressable onPress={handleSignOut}>
-          <Text style={styles.signOut}>Se déconnecter</Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          <SosButton rideId={activeRide?.id ?? null} />
+          <Pressable onPress={handleSignOut}>
+            <Text style={styles.signOut}>Se déconnecter</Text>
+          </Pressable>
+        </View>
       </View>
 
       {error && (
@@ -293,6 +308,9 @@ export default function PassengerHome() {
                   <Text style={styles.dangerButtonText}>Annuler la course</Text>
                 </Pressable>
               )}
+              <Pressable onPress={() => setReportRideId(activeRide.id)} style={styles.reportButton}>
+                <Text style={styles.reportButtonText}>Signaler un problème</Text>
+              </Pressable>
             </View>
           )}
 
@@ -442,6 +460,9 @@ export default function PassengerHome() {
                       {(r.final_fare_fcfa ?? r.estimated_fare_fcfa) != null ? fcfa((r.final_fare_fcfa ?? r.estimated_fare_fcfa) as number) : '—'}
                     </Text>
                   </View>
+                  <Pressable onPress={() => setReportRideId(r.id)} style={styles.historyReportButton}>
+                    <Text style={styles.historyReportButtonText}>Signaler</Text>
+                  </Pressable>
                 </View>
               ))}
             </View>
@@ -454,6 +475,16 @@ export default function PassengerHome() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {userId && (
+        <ReportModal
+          visible={reportRideId !== null}
+          rideId={reportRideId}
+          reporterId={userId}
+          categories={REPORT_CATEGORIES}
+          onClose={() => setReportRideId(null)}
+        />
+      )}
     </View>
   )
 }
@@ -463,6 +494,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logo: { height: 36, width: 36, borderRadius: 10, backgroundColor: colors.navy600, alignItems: 'center', justifyContent: 'center' },
   logoEmoji: { fontSize: 18 },
   brand: { fontSize: 18, fontWeight: '700', color: colors.ink900, marginLeft: 8 },
@@ -482,6 +514,10 @@ const styles = StyleSheet.create({
   rideFare: { marginTop: 4, fontSize: 13, color: colors.ink600 },
   dangerButton: { marginTop: 14, backgroundColor: colors.red50, borderRadius: 10, paddingVertical: 13, alignItems: 'center' },
   dangerButtonText: { color: colors.red700, fontSize: 15, fontWeight: '600' },
+  reportButton: { marginTop: 8, borderWidth: 1, borderColor: colors.ink100, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  reportButtonText: { fontSize: 12, fontWeight: '500', color: colors.ink400 },
+  historyReportButton: { marginTop: 8, alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.ink100, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  historyReportButtonText: { fontSize: 11, fontWeight: '500', color: colors.ink400 },
   formHint: { fontSize: 11, color: colors.ink400, marginBottom: 16 },
   toggleRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   toggle: { flex: 1, borderWidth: 1, borderColor: colors.ink100, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
