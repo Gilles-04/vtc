@@ -3,7 +3,18 @@ import { useNavigate } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRide, PaymentMethodType, RideHistoryRow, RideInvoice, Zone } from '../lib/types'
 import { Badge, CategoryBadge, RideStatusBadge } from '../components/Badge'
+import { SosButton } from '../components/Sos'
+import { ReportModal } from '../components/Report'
 import { fcfa } from '../lib/format'
+
+const REPORT_CATEGORIES = [
+  { value: 'comportement_chauffeur', label: 'Comportement du chauffeur' },
+  { value: 'securite', label: 'Sécurité' },
+  { value: 'etat_vehicule', label: 'État du véhicule' },
+  { value: 'itineraire', label: 'Itinéraire / détour' },
+  { value: 'paiement', label: 'Litige de paiement' },
+  { value: 'autre', label: 'Autre' },
+]
 
 const CANCELLABLE_STATUSES = ['requested', 'searching', 'accepted', 'driver_arriving', 'driver_arrived']
 const ACTIVE_STATUSES = ['requested', 'searching', 'accepted', 'driver_arriving', 'driver_arrived', 'in_progress']
@@ -38,6 +49,7 @@ export function PassengerHome() {
   const [zones, setZones] = useState<Zone[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [reportRideId, setReportRideId] = useState<string | null>(null)
 
   const [category, setCategory] = useState<DriverCategory>('car')
   const [pickupAddress, setPickupAddress] = useState('')
@@ -257,9 +269,12 @@ export function PassengerHome() {
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-navy-600 text-lg">🚕</span>
           <span className="font-display text-lg font-bold text-ink-900">VTC Togo</span>
         </div>
-        <button onClick={handleSignOut} className="text-sm font-medium text-ink-600 hover:underline">
-          Se déconnecter
-        </button>
+        <div className="flex items-center gap-4">
+          <SosButton rideId={activeRide?.id ?? null} />
+          <button onClick={handleSignOut} className="text-sm font-medium text-ink-600 hover:underline">
+            Se déconnecter
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -305,6 +320,12 @@ export function PassengerHome() {
                 Annuler la course
               </button>
             )}
+            <button
+              onClick={() => setReportRideId(activeRide.id)}
+              className="mt-2 w-full rounded-lg border border-ink-100 py-2 text-xs font-medium text-ink-500 hover:bg-ink-50"
+            >
+              Signaler un problème
+            </button>
           </section>
         )}
 
@@ -485,14 +506,22 @@ export function PassengerHome() {
                     <span>{new Date(r.requested_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                     <span>{(r.final_fare_fcfa ?? r.estimated_fare_fcfa) != null ? fcfa((r.final_fare_fcfa ?? r.estimated_fare_fcfa) as number) : '—'}</span>
                   </div>
-                  {invoicesByRide[r.id] && (
+                  <div className="mt-2 flex gap-2">
+                    {invoicesByRide[r.id] && (
+                      <button
+                        onClick={() => downloadInvoice(r)}
+                        className="rounded-lg border border-ink-200 px-3 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
+                      >
+                        Facture
+                      </button>
+                    )}
                     <button
-                      onClick={() => downloadInvoice(r)}
-                      className="mt-2 rounded-lg border border-ink-200 px-3 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
+                      onClick={() => setReportRideId(r.id)}
+                      className="rounded-lg border border-ink-200 px-3 py-1 text-xs font-medium text-ink-500 hover:bg-ink-50"
                     >
-                      Facture
+                      Signaler
                     </button>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -505,6 +534,15 @@ export function PassengerHome() {
           </p>
         )}
       </main>
+
+      {reportRideId && userId && (
+        <ReportModal
+          rideId={reportRideId}
+          reporterId={userId}
+          categories={REPORT_CATEGORIES}
+          onClose={() => setReportRideId(null)}
+        />
+      )}
     </div>
   )
 }

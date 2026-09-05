@@ -16,7 +16,16 @@ import type {
   SubscriptionPlan,
 } from '../lib/types'
 import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadge } from '../components/Badge'
+import { SosButton } from '../components/Sos'
+import { ReportModal } from '../components/Report'
 import { fcfa } from '../lib/format'
+
+const REPORT_CATEGORIES = [
+  { value: 'comportement_passager', label: 'Comportement du passager' },
+  { value: 'securite', label: 'Sécurité' },
+  { value: 'paiement', label: 'Litige de paiement' },
+  { value: 'autre', label: 'Autre' },
+]
 
 function documentStoragePath(userId: string, docType: DriverDocType, fileName: string): string {
   return `${userId}/${docType}-${Date.now()}-${fileName}`
@@ -49,6 +58,7 @@ export function DriverHome() {
   const [rideHistory, setRideHistory] = useState<RideHistoryRow[]>([])
   const [rideInvoicesByRide, setRideInvoicesByRide] = useState<Record<string, RideInvoice>>({})
   const [earnings, setEarnings] = useState({ today: 0, week: 0, month: 0 })
+  const [reportRideId, setReportRideId] = useState<string | null>(null)
 
   const activeRideRef = useRef<ActiveRide | null>(null)
   useEffect(() => {
@@ -64,7 +74,7 @@ export function DriverHome() {
     const { data, error } = await supabase
       .from('drivers')
       .select(
-        'id, category, status, city, is_available, rating_avg, rating_count, total_rides, vehicles(brand, model, color, plate_number, year), driver_documents(id, doc_type, file_path, status, rejection_reason, created_at)',
+        'id, category, status, city, is_available, rating_avg, rating_count, total_rides, acceptance_rate, cancellation_rate, vehicles(brand, model, color, plate_number, year), driver_documents(id, doc_type, file_path, status, rejection_reason, created_at)',
       )
       .eq('id', uid)
       .maybeSingle()
@@ -396,9 +406,12 @@ export function DriverHome() {
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-navy-600 text-lg">🚕</span>
           <span className="font-display text-lg font-bold text-ink-900">VTC Togo</span>
         </div>
-        <button onClick={handleSignOut} className="text-sm font-medium text-ink-600 hover:underline">
-          Se déconnecter
-        </button>
+        <div className="flex items-center gap-4">
+          <SosButton rideId={activeRide?.id ?? null} />
+          <button onClick={handleSignOut} className="text-sm font-medium text-ink-600 hover:underline">
+            Se déconnecter
+          </button>
+        </div>
       </header>
 
       {error && (
@@ -430,6 +443,23 @@ export function DriverHome() {
               </div>
             )}
           </div>
+
+          {(driver.acceptance_rate != null || driver.cancellation_rate != null) && (
+            <div className="mb-6 grid grid-cols-2 gap-2">
+              {driver.acceptance_rate != null && (
+                <div className="rounded-xl border border-ink-100 bg-white p-3 text-center">
+                  <p className="text-xs text-ink-400">Taux d'acceptation (30j)</p>
+                  <p className="text-sm font-semibold text-ink-800">{driver.acceptance_rate.toFixed(0)}%</p>
+                </div>
+              )}
+              {driver.cancellation_rate != null && (
+                <div className="rounded-xl border border-ink-100 bg-white p-3 text-center">
+                  <p className="text-xs text-ink-400">Taux d'annulation (30j)</p>
+                  <p className="text-sm font-semibold text-ink-800">{driver.cancellation_rate.toFixed(0)}%</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {driver.status !== 'approved' && driver.status !== 'suspended' && (
             <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
@@ -575,14 +605,22 @@ export function DriverHome() {
                           <span>{new Date(r.requested_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                           <span>{(r.final_fare_fcfa ?? r.estimated_fare_fcfa) != null ? fcfa((r.final_fare_fcfa ?? r.estimated_fare_fcfa) as number) : '—'}</span>
                         </div>
-                        {rideInvoicesByRide[r.id] && (
+                        <div className="mt-2 flex gap-2">
+                          {rideInvoicesByRide[r.id] && (
+                            <button
+                              onClick={() => downloadDriverInvoice(r)}
+                              className="rounded-lg border border-ink-200 px-3 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
+                            >
+                              Facture
+                            </button>
+                          )}
                           <button
-                            onClick={() => downloadDriverInvoice(r)}
-                            className="mt-2 rounded-lg border border-ink-200 px-3 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
+                            onClick={() => setReportRideId(r.id)}
+                            className="rounded-lg border border-ink-200 px-3 py-1 text-xs font-medium text-ink-500 hover:bg-ink-50"
                           >
-                            Facture
+                            Signaler
                           </button>
-                        )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -669,11 +707,26 @@ export function DriverHome() {
                         ? 'Démarrer la course'
                         : 'Terminer la course'}
                   </button>
+                  <button
+                    onClick={() => setReportRideId(activeRide.id)}
+                    className="mt-2 w-full rounded-lg border border-ink-100 py-2 text-xs font-medium text-ink-500 hover:bg-ink-50"
+                  >
+                    Signaler un problème
+                  </button>
                 </section>
               )}
             </>
           )}
         </main>
+      )}
+
+      {reportRideId && driver && (
+        <ReportModal
+          rideId={reportRideId}
+          reporterId={driver.id}
+          categories={REPORT_CATEGORIES}
+          onClose={() => setReportRideId(null)}
+        />
       )}
     </div>
   )
