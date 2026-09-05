@@ -1,14 +1,16 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 5 septembre 2026 (audit honnête de tous les
-écrans documentés dans `docs/05-ecrans.md` a révélé 7 zones manquantes —
-SOS, signalement, fiabilité chauffeur affichée, profil/paramètres,
-onboarding + profil initial passager, facturation détail admin, carte
-live admin — toutes construites le jour même, web + mobile + admin,
-détail dans `docs/TASKS.md` TASK-042 ; clé Google Maps câblée plus tôt
-dans la journée, dernier blocage réel du parcours passager levé ; deux
-vrais trous de production trouvés et corrigés en creusant `pg_cron` ;
-`apps/mobile` au même périmètre qu'`apps/web` — détail des tâches dans
+*Dernière mise à jour : 5 septembre 2026 (le porteur du projet a testé
+`apps/web` en local pour la première fois — a validé le parcours de bout
+en bout et fait remonter un vrai besoin : remplacer la saisie manuelle
+de coordonnées par géolocalisation + carte (TASK-043), ce qui a aussi
+révélé et corrigé deux bugs d'affichage réels de la carte ; avant ça,
+audit honnête de tous les écrans documentés dans `docs/05-ecrans.md`
+avait révélé 7 zones manquantes — SOS, signalement, fiabilité chauffeur
+affichée, profil/paramètres, onboarding + profil initial passager,
+facturation détail admin, carte live admin — toutes construites le jour
+même (TASK-042) ; clé Google Maps câblée plus tôt dans la journée,
+dernier blocage réel du parcours passager levé — détail des tâches dans
 `docs/TASKS.md`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
@@ -252,12 +254,16 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
   facture** — code/route corrects (tsc/build propres, même schéma de
   requête que les écrans détail existants), mais aucune facture n'existe
   encore en production (aucune course payée terminée à ce jour).
-- **Autocomplétion d'adresse (Google Places) pas encore construite** —
-  la clé client est en place (`VITE_GOOGLE_MAPS_API_KEY`/
-  `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, §2) mais `PassengerHome.tsx` (web et
-  mobile) utilise encore une saisie manuelle des coordonnées lat/lng en
-  attendant. Pas bloquant : la demande de course fonctionne déjà de bout
-  en bout avec cette saisie manuelle.
+- **`apps/mobile` toujours en saisie manuelle de coordonnées** — le
+  sélecteur géolocalisation + carte (TASK-043) ne couvre que `apps/web`
+  pour l'instant. Pas bloquant : la demande de course fonctionne déjà de
+  bout en bout côté mobile avec cette saisie manuelle.
+- **Auto-complétion d'adresse (Google Places) délibérément pas
+  construite** (TASK-043) — la clé client le permettrait, mais la
+  compatibilité du composant `Autocomplete` historique avec une clé
+  restreinte à « Places API (New) » n'est pas garantie, et beaucoup de
+  lieux au Togo ne sont pas indexés de toute façon. Remplacé par
+  géolocalisation + carte, qui répond mieux au besoin réel.
 - **`apps/mobile` jamais lancé sur un simulateur/appareil réel** — cet
   environnement n'a ni SDK Android ni Xcode, uniquement vérifié via le
   mode web d'Expo. Trois confirmations (`Alert.alert`, achat d'abonnement/
@@ -297,6 +303,21 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
+
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-043) :
+**sélecteur géolocalisation + carte pour la demande de course**
+(`apps/web`). Premier test réel du porteur du projet sur `apps/web` en
+local — a fait remonter que la saisie manuelle de coordonnées ne
+correspond pas à la réalité togolaise (adresses/coordonnées peu
+maîtrisées). `LocationPicker` : bouton « Ma position », carte Google Maps
+avec repère déplaçable, remplace les champs latitude/longitude de
+`PassengerHome.tsx`. Deux bugs d'affichage réels trouvés et corrigés
+grâce à ses captures d'écran (carte réduite à une vignette minuscule —
+cause réelle : le reset Tailwind sur `<img>` s'appliquait aux tuiles
+Google Maps, corrigé par `.gm-style img { max-width: none }`), aucun des
+deux non détectable depuis ce sandbox (accès direct à
+`maps.googleapis.com` bloqué par la politique réseau). Ne couvre que
+`apps/web` — `apps/mobile` reste en saisie manuelle.
 
 **5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-042) :
 **les 7 écrans/zones manquants identifiés par un audit honnête sont

@@ -1650,6 +1650,50 @@ libre).
 
 ---
 
+## TASK-043 — Sélecteur de position sur carte (géolocalisation) — apps/web
+
+- **Objectif** : demande explicite du porteur du projet en testant
+  `apps/web` en local — au Togo, la plupart des gens ne maîtrisent pas
+  les coordonnées latitude/longitude. Remplacer la saisie manuelle par
+  une géolocalisation + un point choisi sur une carte.
+- **Statut** : Terminé (5 septembre 2026).
+- **Fait** :
+  - `LocationPicker` (`apps/web/src/components/LocationPicker.tsx`) :
+    bouton « Ma position » (`navigator.geolocation`), carte Google Maps
+    (Maps JavaScript API, clé client déjà obtenue TASK-041) avec repère
+    déplaçable, clic sur la carte pour ajuster le point. Remplace les 6
+    champs texte (adresse + latitude + longitude ×2) de
+    `PassengerHome.tsx` par deux `LocationPicker` (départ/destination).
+  - **Décision** : pas d'auto-complétion Google Places malgré la clé déjà
+    configurée pour ça — la compatibilité du composant `Autocomplete`
+    historique avec une clé restreinte à « Places API (New) » n'est pas
+    garantie, et beaucoup de lieux au Togo ne sont de toute façon pas
+    indexés. Le texte d'adresse reste un champ libre (jamais écrasé une
+    fois tapé à la main), préconfiguré par géocodage inverse en
+    best-effort seulement.
+  - **Deux bugs réels trouvés par le porteur du projet en testant** (pas
+    par moi, mon sandbox ne peut pas contacter `maps.googleapis.com`,
+    voir Vérifié ci-dessous) :
+    1. Carte visible uniquement en minuscule vignette au centre du
+       cadre. Premier correctif tenté (`ResizeObserver` +
+       `google.maps.event.trigger(map, 'resize')`) insuffisant.
+    2. **Vraie cause** : le reset Tailwind (`img { max-width: 100% }`)
+       s'applique aux `<img>` internes que Google Maps utilise pour ses
+       tuiles. Correctif standard documenté par Google :
+       `.gm-style img { max-width: none }` (`apps/web/src/index.css`).
+- **Vérifié** : `tsc`/`build`/`oxlint` propres à chaque étape. Le
+  chargement réel du script Maps JavaScript API n'est pas vérifiable
+  depuis ce sandbox — `$HTTPS_PROXY/__agentproxy/status` confirme des
+  tunnels fermés côté proxy vers `maps.googleapis.com` (même catégorie de
+  blocage que `*.supabase.co`), alors qu'un `curl` simple obtient une
+  vraie réponse. Testé et corrigé en conditions réelles uniquement grâce
+  aux retours du porteur du projet (captures d'écran).
+- **Résultat** : demande de course utilisable sans connaître de
+  coordonnées. Ne couvre que `apps/web` — `apps/mobile` reste en saisie
+  manuelle (voir TASK-044 si porté).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
