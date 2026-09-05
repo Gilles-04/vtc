@@ -34,6 +34,7 @@ export function LocationPicker({ label, placeholder, value, onChange, initialCen
   const mapRef = useRef<google.maps.Map | null>(null)
   const markerRef = useRef<google.maps.Marker | null>(null)
   const geocoderRef = useRef<google.maps.Geocoder | null>(null)
+  const resizeObserverRef = useRef<ResizeObserver | null>(null)
   const valueRef = useRef(value)
   valueRef.current = value
 
@@ -94,11 +95,25 @@ export function LocationPicker({ label, placeholder, value, onChange, initialCen
         map.addListener('click', (e: google.maps.MapMouseEvent) => {
           if (e.latLng) applyPosition(e.latLng.lat(), e.latLng.lng())
         })
+
+        // Google Maps calcule sa taille interne au moment de `new Map(...)`
+        // — si le conteneur n'a pas encore sa taille finale à cet instant
+        // (mise en page Tailwind pas totalement stabilisée), la carte ne
+        // se dessine que sur une petite partie du cadre. `resize` + un
+        // recentrage (le resize seul décale la vue) corrige ça à chaque
+        // changement de taille réel du conteneur.
+        const resizeObserver = new ResizeObserver(() => {
+          g.maps.event.trigger(map, 'resize')
+          map.setCenter(marker.getPosition() ?? start)
+        })
+        resizeObserver.observe(mapDivRef.current)
+        resizeObserverRef.current = resizeObserver
       })
       .catch(() => setMapError('Impossible de charger la carte — vérifiez votre connexion.'))
 
     return () => {
       cancelled = true
+      resizeObserverRef.current?.disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
