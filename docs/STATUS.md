@@ -1,17 +1,19 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 5 septembre 2026 (le porteur du projet a testé
-`apps/web` en local pour la première fois — a validé le parcours de bout
-en bout et fait remonter un vrai besoin : remplacer la saisie manuelle
-de coordonnées par géolocalisation + carte (TASK-043), ce qui a aussi
-révélé et corrigé deux bugs d'affichage réels de la carte ; avant ça,
-audit honnête de tous les écrans documentés dans `docs/05-ecrans.md`
-avait révélé 7 zones manquantes — SOS, signalement, fiabilité chauffeur
-affichée, profil/paramètres, onboarding + profil initial passager,
-facturation détail admin, carte live admin — toutes construites le jour
-même (TASK-042) ; clé Google Maps câblée plus tôt dans la journée,
-dernier blocage réel du parcours passager levé — détail des tâches dans
-`docs/TASKS.md`)*
+*Dernière mise à jour : 5 septembre 2026 (audit des notifications push a
+révélé qu'aucun client n'a jamais lu la table `notifications` elle-même
+(prête depuis le premier jour) — boîte de notifications in-app construite
+partout (TASK-046) ; le jeton push, jamais enregistré par aucun client,
+enfin câblé côté mobile (TASK-045, bloqué en pratique par un projet Expo
+manquant) ; le porteur du projet a testé `apps/web` en local pour la
+première fois — a validé le parcours de bout en bout et fait remonter un
+vrai besoin : remplacer la saisie manuelle de coordonnées par
+géolocalisation + carte (TASK-043/044), ce qui a aussi révélé et corrigé
+deux bugs d'affichage réels de la carte ; avant ça, audit honnête de tous
+les écrans documentés dans `docs/05-ecrans.md` avait révélé 7 zones
+manquantes, toutes construites le jour même (TASK-042) ; clé Google Maps
+câblée plus tôt dans la journée, dernier blocage réel du parcours
+passager levé — détail des tâches dans `docs/TASKS.md`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -112,6 +114,23 @@ seul ne suffit plus pour recevoir un push distant sur Android depuis le
 SDK 53), voir §3/§7.
 
 ## 2. Ce qui fonctionne
+
+**Boîte de notifications in-app (5 septembre 2026, TASK-046)** — cloche
+avec badge non-lu + liste, web et mobile, passager et chauffeur. La table
+`notifications` (RLS/grants complets) était prête depuis le premier jour
+et alimentée par une dizaine de déclencheurs (course, matching,
+abonnement, fiabilité, SOS) mais jamais lue par aucun client — le push
+était le seul canal envisagé, et il n'a jamais fonctionné avant
+aujourd'hui (TASK-045) faute de jeton enregistré. Aucune migration
+nécessaire, uniquement du frontend sur un schéma déjà éprouvé.
+
+**Jeton push mobile enfin enregistré (5 septembre 2026, TASK-045)** —
+`registerForPushNotifications()` écrit `profiles.push_token` après
+connexion (passager et chauffeur). Le pipeline serveur tournait déjà
+(vérifié TASK-006) mais 0 profil sur 6 avait un jeton en production
+avant ce jour. Bloqué en pratique par deux points externes (§3/§7) :
+aucun projet Expo créé, et Expo Go seul ne suffit plus pour un push
+distant Android depuis le SDK 53 (limite Expo, pas de ce projet).
 
 **Tous les écrans transverses/sécurité identifiés manquants sont
 construits (5 septembre 2026, TASK-042)** :
@@ -319,6 +338,22 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
+
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-046) :
+**boîte de notifications in-app construite (web + mobile, passager +
+chauffeur)** — découverte en auditant TASK-045 (pas une demande
+explicite) : `public.notifications` (RLS + grants complets, chacun lit
+les siennes et peut marquer comme lu) est prête depuis la toute première
+migration et alimentée par une dizaine de déclencheurs (statuts de
+course, matching, abonnement, fiabilité, SOS), mais aucun client ne
+l'avait jamais lue — le push était le seul canal envisagé, et il n'a
+jamais fonctionné avant aujourd'hui (TASK-045). Cloche avec badge
+non-lu + liste (realtime sur les nouvelles insertions), marquer un ou
+tous comme lus. **Aucune migration nécessaire** — uniquement du
+frontend sur un schéma RLS déjà éprouvé (même famille que
+`profiles`/`reports`), pas de risque de sécurité nouveau. Vérifié :
+tsc/build/lint propres sur les deux apps ; pas de test en conditions
+réelles possible depuis ce sandbox (mêmes limitations réseau connues).
 
 **5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-045) :
 **enregistrement du jeton push câblé (`apps/mobile`)** — découverte en

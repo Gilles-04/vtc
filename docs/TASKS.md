@@ -1779,6 +1779,43 @@ libre).
 
 ---
 
+## TASK-046 — Boîte de notifications in-app (jamais construite)
+
+- **Objectif** : découverte en auditant TASK-045 — `public.notifications`
+  (RLS + grants complets : chacun lit les siennes, peut marquer comme lu)
+  est prête depuis la toute première migration et alimentée par une
+  dizaine de déclencheurs (statuts de course, matching, abonnement,
+  fiabilité, SOS), mais aucun client (web, mobile, admin) ne l'a jamais
+  lue. Le push était le seul canal de diffusion envisagé — sans lui
+  (jamais livré avant TASK-045), ces événements n'avaient tout simplement
+  aucune vitrine, y compris pour un utilisateur web qui ne recevra jamais
+  de push Expo de toute façon.
+- **Statut** : Terminé (5 septembre 2026).
+- **Fait** :
+  - `apps/web/src/components/Notifications.tsx` (`NotificationsBell`) et
+    `apps/mobile/src/components/Notifications.tsx`
+    (`NotificationsButton`) : cloche avec badge non-lu dans l'en-tête,
+    liste des 30 dernières notifications (realtime sur les nouvelles
+    insertions via `postgres_changes`), marquer une ou toutes comme lues
+    (`read_at`).
+  - Web : panneau déroulant (comme les menus admin existants). Mobile :
+    `Modal` en bas d'écran (même famille que `ReportModal`/`ProfileModal`).
+  - Ajouté dans les 4 en-têtes (passager/chauffeur, web/mobile).
+  - **Aucune migration nécessaire** — RLS (`notifications_select_own`/
+    `notifications_update_own`) et grants (`select`, `update (read_at)`)
+    déjà en place depuis la migration 1, seul le frontend manquait.
+- **Vérifié** : `tsc`/`build`/`oxlint` propres sur `apps/web` et
+  `apps/mobile`. Pas de vérification en conditions réelles possible
+  depuis ce sandbox (mêmes limitations que d'habitude — réseau
+  Supabase/Google bloqué, pas d'émulateur mobile) ; le schéma RLS/grants
+  utilisé est inchangé et déjà éprouvé ailleurs dans ce projet
+  (`profiles`, `reports`), pas de risque de sécurité nouveau.
+- **Résultat** : les notifications déjà générées côté serveur sont enfin
+  visibles quelque part, indépendamment du sort des notifications push
+  (TASK-045, toujours bloquées par un projet Expo manquant).
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
