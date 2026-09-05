@@ -39,3 +39,12 @@ body {
 h1, h2, h3, h4 {
   font-family: var(--font-display);
 }
+
+/* Google Maps rend ses tuiles avec des <img> internes dimensionnées en
+   pixels absolus — le reset Tailwind (`img { max-width: 100% }`) les
+   réduit à une vignette minuscule flottant au centre du conteneur.
+   `.gm-style` est la classe posée par Maps JS sur son propre conteneur,
+   correctif standard documenté par Google pour ce conflit. */
+.gm-style img {
+  max-width: none;
+}
