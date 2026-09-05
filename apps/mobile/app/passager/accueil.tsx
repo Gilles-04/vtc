@@ -18,6 +18,7 @@ import { SosButton } from '../../src/components/Sos'
 import { ReportModal } from '../../src/components/Report'
 import { ProfileModal } from '../../src/components/Profile'
 import { LocationPicker, type LocationValue } from '../../src/components/LocationPicker'
+import { registerForPushNotifications } from '../../src/lib/pushNotifications'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
 import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRide, PaymentMethodType, RideHistoryRow, Zone } from '../../src/lib/types'
@@ -120,6 +121,7 @@ export default function PassengerHome() {
       setUserId(uid)
       loadActiveRide(uid)
       loadHistory(uid)
+      registerForPushNotifications(uid)
       supabase
         .from('profiles')
         .select('full_name, language')

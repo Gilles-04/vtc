@@ -17,6 +17,7 @@ import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadg
 import { SosButton } from '../../src/components/Sos'
 import { ReportModal } from '../../src/components/Report'
 import { ProfileModal } from '../../src/components/Profile'
+import { registerForPushNotifications } from '../../src/lib/pushNotifications'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
 import type {
@@ -83,6 +84,7 @@ export default function DriverHome() {
       return
     }
     setUserId(uid)
+    registerForPushNotifications(uid)
 
     const { data, error } = await supabase
       .from('drivers')
