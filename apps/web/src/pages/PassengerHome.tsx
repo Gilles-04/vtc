@@ -6,7 +6,10 @@ import { Badge, CategoryBadge, RideStatusBadge } from '../components/Badge'
 import { SosButton } from '../components/Sos'
 import { ReportModal } from '../components/Report'
 import { ProfileModal } from '../components/Profile'
+import { LocationPicker, type LocationValue } from '../components/LocationPicker'
 import { fcfa } from '../lib/format'
+
+const EMPTY_LOCATION: LocationValue = { address: '', lat: '', lng: '' }
 
 const REPORT_CATEGORIES = [
   { value: 'comportement_chauffeur', label: 'Comportement du chauffeur' },
@@ -55,12 +58,8 @@ export function PassengerHome() {
   const [reportRideId, setReportRideId] = useState<string | null>(null)
 
   const [category, setCategory] = useState<DriverCategory>('car')
-  const [pickupAddress, setPickupAddress] = useState('')
-  const [pickupLat, setPickupLat] = useState('6.1319')
-  const [pickupLng, setPickupLng] = useState('1.2228')
-  const [dropoffAddress, setDropoffAddress] = useState('')
-  const [dropoffLat, setDropoffLat] = useState('')
-  const [dropoffLng, setDropoffLng] = useState('')
+  const [pickup, setPickup] = useState<LocationValue>(EMPTY_LOCATION)
+  const [dropoff, setDropoff] = useState<LocationValue>(EMPTY_LOCATION)
   const [zoneId, setZoneId] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('cash')
   const [estimate, setEstimate] = useState<FareEstimate | null>(null)
@@ -169,16 +168,16 @@ export function PassengerHome() {
     e.preventDefault()
     setEstimateError(null)
     setEstimate(null)
-    if (!pickupAddress.trim() || !dropoffAddress.trim()) {
-      setEstimateError('Renseignez une adresse de départ et de destination.')
+    if (!pickup.lat || !pickup.lng || !dropoff.lat || !dropoff.lng) {
+      setEstimateError('Choisissez un point de départ et une destination sur la carte (ou via « Ma position »).')
       return
     }
-    const pLat = Number(pickupLat)
-    const pLng = Number(pickupLng)
-    const dLat = Number(dropoffLat)
-    const dLng = Number(dropoffLng)
+    const pLat = Number(pickup.lat)
+    const pLng = Number(pickup.lng)
+    const dLat = Number(dropoff.lat)
+    const dLng = Number(dropoff.lng)
     if ([pLat, pLng, dLat, dLng].some((v) => Number.isNaN(v))) {
-      setEstimateError('Coordonnées invalides — utilisez des nombres décimaux (ex : 6.1319).')
+      setEstimateError('Coordonnées invalides — réessayez de sélectionner les points sur la carte.')
       return
     }
 
@@ -220,12 +219,12 @@ export function PassengerHome() {
     setBusy(true)
     const { error: rpcError } = await supabase.rpc('create_ride_request', {
       _category: category,
-      _pickup_lat: Number(pickupLat),
-      _pickup_lng: Number(pickupLng),
-      _pickup_address: pickupAddress.trim(),
-      _dropoff_lat: Number(dropoffLat),
-      _dropoff_lng: Number(dropoffLng),
-      _dropoff_address: dropoffAddress.trim(),
+      _pickup_lat: Number(pickup.lat),
+      _pickup_lng: Number(pickup.lng),
+      _pickup_address: pickup.address.trim() || `${pickup.lat}, ${pickup.lng}`,
+      _dropoff_lat: Number(dropoff.lat),
+      _dropoff_lng: Number(dropoff.lng),
+      _dropoff_address: dropoff.address.trim() || `${dropoff.lat}, ${dropoff.lng}`,
       _distance_km: estimate.distance_km,
       _duration_min: estimate.duration_min,
       _payment_method: paymentMethod,
@@ -237,10 +236,8 @@ export function PassengerHome() {
       return
     }
     setEstimate(null)
-    setPickupAddress('')
-    setDropoffAddress('')
-    setDropoffLat('')
-    setDropoffLng('')
+    setPickup(EMPTY_LOCATION)
+    setDropoff(EMPTY_LOCATION)
     loadActiveRide(userId)
   }
 
@@ -340,11 +337,7 @@ export function PassengerHome() {
 
         {activeRide === null && (
           <section className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
-            <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-ink-400">Demander une course</h2>
-            <p className="mb-4 text-xs text-ink-400">
-              Saisie manuelle des coordonnées en attendant l'auto-complétion d'adresse (Google Places) — indiquez la
-              latitude/longitude approximative des points de départ et d'arrivée.
-            </p>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-ink-400">Demander une course</h2>
 
             <form onSubmit={estimateFare}>
               <div className="mb-4 grid grid-cols-2 gap-2">
@@ -368,59 +361,20 @@ export function PassengerHome() {
                 </button>
               </div>
 
-              <label className="mb-1 block text-sm font-medium text-ink-800">Adresse de départ</label>
-              <input
-                type="text"
-                value={pickupAddress}
-                onChange={(e) => setPickupAddress(e.target.value)}
+              <LocationPicker
+                label="Adresse de départ"
                 placeholder="Ex : Grand Marché, Lomé"
-                className="mb-2 w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
+                value={pickup}
+                onChange={setPickup}
               />
-              <div className="mb-4 grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={pickupLat}
-                  onChange={(e) => setPickupLat(e.target.value)}
-                  placeholder="Latitude"
-                  className="w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
-                />
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={pickupLng}
-                  onChange={(e) => setPickupLng(e.target.value)}
-                  placeholder="Longitude"
-                  className="w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
-                />
-              </div>
 
-              <label className="mb-1 block text-sm font-medium text-ink-800">Destination</label>
-              <input
-                type="text"
-                value={dropoffAddress}
-                onChange={(e) => setDropoffAddress(e.target.value)}
+              <LocationPicker
+                label="Destination"
                 placeholder="Ex : Aéroport de Lomé"
-                className="mb-2 w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
+                value={dropoff}
+                onChange={setDropoff}
+                initialCenter={pickup.lat && pickup.lng ? { lat: Number(pickup.lat), lng: Number(pickup.lng) } : undefined}
               />
-              <div className="mb-4 grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={dropoffLat}
-                  onChange={(e) => setDropoffLat(e.target.value)}
-                  placeholder="Latitude"
-                  className="w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
-                />
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={dropoffLng}
-                  onChange={(e) => setDropoffLng(e.target.value)}
-                  placeholder="Longitude"
-                  className="w-full rounded-lg border border-ink-100 px-3 py-2 text-sm outline-none focus:border-navy-500 focus:ring-1 focus:ring-navy-500"
-                />
-              </div>
 
               {zones.length > 0 && (
                 <>
