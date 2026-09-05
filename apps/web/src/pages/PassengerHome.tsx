@@ -7,6 +7,7 @@ import { SosButton } from '../components/Sos'
 import { ReportModal } from '../components/Report'
 import { ProfileModal } from '../components/Profile'
 import { LocationPicker, type LocationValue } from '../components/LocationPicker'
+import { NotificationsBell } from '../components/Notifications'
 import { fcfa } from '../lib/format'
 
 const EMPTY_LOCATION: LocationValue = { address: '', lat: '', lng: '' }
@@ -273,6 +274,7 @@ export function PassengerHome() {
           <span className="font-display text-lg font-bold text-ink-900">VTC Togo</span>
         </div>
         <div className="flex items-center gap-4">
+          {userId && <NotificationsBell userId={userId} />}
           <SosButton rideId={activeRide?.id ?? null} />
           <button onClick={() => setProfileOpen(true)} className="text-sm font-medium text-ink-600 hover:underline">
             Profil

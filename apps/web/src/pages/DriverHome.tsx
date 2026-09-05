@@ -19,6 +19,7 @@ import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadg
 import { SosButton } from '../components/Sos'
 import { ReportModal } from '../components/Report'
 import { ProfileModal } from '../components/Profile'
+import { NotificationsBell } from '../components/Notifications'
 import { fcfa } from '../lib/format'
 
 const REPORT_CATEGORIES = [
@@ -423,6 +424,7 @@ export function DriverHome() {
           <span className="font-display text-lg font-bold text-ink-900">VTC Togo</span>
         </div>
         <div className="flex items-center gap-4">
+          {userId && <NotificationsBell userId={userId} />}
           <SosButton rideId={activeRide?.id ?? null} />
           <button onClick={() => setProfileOpen(true)} className="text-sm font-medium text-ink-600 hover:underline">
             Profil

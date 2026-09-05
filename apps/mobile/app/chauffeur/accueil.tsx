@@ -17,6 +17,7 @@ import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadg
 import { SosButton } from '../../src/components/Sos'
 import { ReportModal } from '../../src/components/Report'
 import { ProfileModal } from '../../src/components/Profile'
+import { NotificationsButton } from '../../src/components/Notifications'
 import { registerForPushNotifications } from '../../src/lib/pushNotifications'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
@@ -383,6 +384,7 @@ export default function DriverHome() {
           <Text style={styles.brand}>VTC Togo</Text>
         </View>
         <View style={styles.headerRight}>
+          {userId && <NotificationsButton userId={userId} />}
           <SosButton rideId={activeRide?.id ?? null} />
           <Pressable onPress={() => setProfileOpen(true)}>
             <Text style={styles.signOut}>Profil</Text>

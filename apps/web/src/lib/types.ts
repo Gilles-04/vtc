@@ -17,6 +17,19 @@ export type RideStatus =
 export type RideOfferStatus = 'pending' | 'accepted' | 'rejected' | 'expired'
 export type PaymentMethodType = 'cash' | 'mobile_money'
 
+// Table `notifications` (migration 1) — alimentée par une dizaine de
+// déclencheurs (statuts de course, matching, abonnement, fiabilité,
+// SOS) mais jamais lue par aucun client jusqu'ici (voir TASK-046).
+export interface NotificationRow {
+  id: string
+  type: string
+  title: string
+  body: string
+  data: Record<string, unknown>
+  sent_at: string
+  read_at: string | null
+}
+
 export interface Vehicle {
   brand: string
   model: string
