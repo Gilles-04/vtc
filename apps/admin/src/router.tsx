@@ -8,6 +8,7 @@ import { Rides } from './pages/Rides'
 import { RideDetail } from './pages/RideDetail'
 import { Payments } from './pages/Payments'
 import { Invoices } from './pages/Invoices'
+import { InvoiceDetail } from './pages/InvoiceDetail'
 import { Subscriptions } from './pages/Subscriptions'
 import { SubscriptionPlans } from './pages/SubscriptionPlans'
 import { Settlements } from './pages/Settlements'
@@ -105,6 +106,17 @@ const invoicesRoute = createRoute({
   component: () => (
     <Shell>
       <Invoices />
+    </Shell>
+  ),
+})
+
+const invoiceDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/facturation/$invoiceId',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <InvoiceDetail />
     </Shell>
   ),
 })
@@ -250,6 +262,7 @@ const routeTree = rootRoute.addChildren([
   rideDetailRoute,
   paymentsRoute,
   invoicesRoute,
+  invoiceDetailRoute,
   subscriptionsRoute,
   subscriptionPlansRoute,
   settlementsRoute,

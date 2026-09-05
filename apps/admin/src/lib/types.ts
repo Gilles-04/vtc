@@ -120,6 +120,24 @@ export interface InvoiceListRow {
   drivers: { profiles: { phone: string | null; full_name: string | null } | null } | null
 }
 
+// Écran #16 (docs/05-ecrans.md) — mêmes montants que InvoiceListRow, plus
+// la référence de paiement et le trajet facturé (embed rides, jamais
+// exposé sur la liste pour ne pas alourdir la requête paginée).
+export interface InvoiceDetailRow {
+  id: string
+  invoice_number: string
+  ride_id: string
+  transport_amount_fcfa: number
+  platform_fee_fcfa: number
+  total_fcfa: number
+  payment_method: PaymentMethodType
+  payment_reference: string | null
+  issued_at: string
+  profiles: { phone: string | null; full_name: string | null } | null
+  drivers: { profiles: { phone: string | null; full_name: string | null } | null } | null
+  rides: { category: DriverCategory; pickup_address: string; dropoff_address: string; requested_at: string; completed_at: string | null } | null
+}
+
 export interface SubscriptionPlan {
   id: string
   code: string

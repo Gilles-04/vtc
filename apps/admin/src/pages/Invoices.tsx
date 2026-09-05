@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { supabase } from '../lib/supabase'
 import type { InvoiceListRow, PaymentMethodType } from '../lib/types'
 import { fcfa } from '../lib/format'
@@ -121,7 +122,11 @@ export function Invoices() {
               <tbody>
                 {invoices.map((i) => (
                   <tr key={i.id} className="border-b border-ink-100 last:border-0 hover:bg-ink-50">
-                    <td className="px-4 py-3 font-medium text-navy-700">{i.invoice_number}</td>
+                    <td className="px-4 py-3 font-medium text-navy-700">
+                      <Link to="/facturation/$invoiceId" params={{ invoiceId: i.id }} className="hover:underline">
+                        {i.invoice_number}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-ink-800">{i.profiles?.full_name || i.profiles?.phone || '—'}</td>
                     <td className="px-4 py-3 text-ink-600">
                       {i.drivers?.profiles?.full_name || i.drivers?.profiles?.phone || '—'}
