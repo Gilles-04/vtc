@@ -21,6 +21,20 @@ export type SubscriptionStatus = 'active' | 'expired' | 'cancelled'
 export type SettlementStatus = 'pending' | 'settled'
 export type AppUserRole = 'passenger' | 'driver'
 
+// Renvoyé par `admin_active_rides_locations()` (migration 18) — jamais une
+// lecture directe de `rides`/`drivers` : la RPC extrait déjà les
+// coordonnées des colonnes `geography`, jamais exposées telles quelles
+// (docs/11-securite.md).
+export interface ActiveRideLocation {
+  id: string
+  category: DriverCategory
+  status: RideStatus
+  pickup_lat: number
+  pickup_lng: number
+  driver_lat: number | null
+  driver_lng: number | null
+}
+
 export interface DriverListRow {
   id: string
   category: DriverCategory

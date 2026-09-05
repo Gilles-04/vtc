@@ -22,6 +22,7 @@ const NAV_GROUPS: NavGroupDef[] = [
       { to: '/chauffeurs', label: 'Chauffeurs' },
       { to: '/vehicules', label: 'Véhicules' },
       { to: '/courses', label: 'Courses' },
+      { to: '/carte', label: 'Carte live' },
     ],
   },
   {

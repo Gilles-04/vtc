@@ -6,6 +6,7 @@ import { Drivers } from './pages/Drivers'
 import { DriverDetail } from './pages/DriverDetail'
 import { Rides } from './pages/Rides'
 import { RideDetail } from './pages/RideDetail'
+import { LiveMap } from './pages/LiveMap'
 import { Payments } from './pages/Payments'
 import { Invoices } from './pages/Invoices'
 import { InvoiceDetail } from './pages/InvoiceDetail'
@@ -84,6 +85,17 @@ const rideDetailRoute = createRoute({
   component: () => (
     <Shell>
       <RideDetail />
+    </Shell>
+  ),
+})
+
+const liveMapRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/carte',
+  beforeLoad: requireSession,
+  component: () => (
+    <Shell>
+      <LiveMap />
     </Shell>
   ),
 })
@@ -260,6 +272,7 @@ const routeTree = rootRoute.addChildren([
   driverDetailRoute,
   ridesRoute,
   rideDetailRoute,
+  liveMapRoute,
   paymentsRoute,
   invoicesRoute,
   invoiceDetailRoute,
