@@ -1,7 +1,13 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 5 septembre 2026 (notation post-course construite
-— dernier écran MVP documenté (`docs/05-ecrans.md` écran #11) jamais
+*Dernière mise à jour : 5 septembre 2026 (support client construit —
+écran transverse « Support » documenté depuis le début pour les deux
+apps mais jamais livré, `support_tickets` prête côté RLS/RPC depuis le
+tout premier jour mais jamais utilisée ; découvert au passage que
+`support_tickets.user_id` avait le même bug d'embedding PostgREST déjà
+corrigé 5 fois ailleurs (FK manquante vers `profiles`), corrigé de la
+même façon (TASK-048) ; juste avant, notation post-course construite —
+dernier écran MVP documenté (`docs/05-ecrans.md` écran #11) jamais
 livré, `ratings` prête côté RLS/trigger depuis le tout premier jour mais
 à 0 ligne malgré des courses terminées (TASK-047) ; avant ça, audit des
 notifications push ayant révélé qu'aucun client n'a jamais lu la table
@@ -114,6 +120,18 @@ migration 1 mais restait à 0 ligne. Modale étoiles + commentaire
 proposée automatiquement après une course terminée non encore notée,
 web et mobile, passager et chauffeur.
 
+**Le support client (écran transverse « Support ») est désormais
+construit lui aussi** (5 septembre 2026, TASK-048) : `support_tickets`/
+`support_ticket_messages` avaient leurs RLS et RPC complètes depuis la
+migration 1 mais aucun client n'avait jamais ouvert de ticket. Ticket +
+fil de messages côté passager/chauffeur (web et mobile), traitement
+(prise en charge, réponse, résolution) intégré à l'écran admin
+Réclamations & SOS. A aussi révélé et corrigé le même bug d'embedding
+PostgREST déjà rencontré 5 fois (FK `user_id` manquante vers `profiles`).
+
+Avec cette tâche, **les 24+ écrans documentés dans `docs/05-ecrans.md`
+sont désormais tous construits, sur les trois plateformes.**
+
 Reste à construire : l'autocomplétion d'adresse Google Places (§3, non
 bloquant), géolocalisation en arrière-plan côté `apps/mobile` (hors
 périmètre porté ce jour), le worker de dispatch dédié (écrit, pas
@@ -125,6 +143,20 @@ seul ne suffit plus pour recevoir un push distant sur Android depuis le
 SDK 53), voir §3/§7.
 
 ## 2. Ce qui fonctionne
+
+**Support client (5 septembre 2026, TASK-048)** — écran transverse
+« Support », documenté depuis le début pour passager et chauffeur mais
+jamais construit : ouverture de ticket (catégorie, sujet, message) et
+fil de messages, web et mobile ; traitement (prise en charge, réponse,
+résolution) intégré à l'écran admin Réclamations & SOS.
+`support_tickets`/`support_ticket_messages` (RLS + RPC
+`create_support_ticket`/`admin_assign_support_ticket`/
+`admin_resolve_support_ticket`) prêtes depuis la migration 1 mais
+jamais utilisées — `admin_stats_overview.open_support_tickets` était
+même déjà affiché sur la Vue d'ensemble admin sans qu'aucun ticket ne
+puisse exister. A aussi révélé et corrigé le même bug d'embedding
+PostgREST déjà rencontré 5 fois (FK `support_tickets.user_id` manquante
+vers `profiles`, migration `support_tickets_profile_embed_fk`).
 
 **Notation post-course (5 septembre 2026, TASK-047)** — étoiles 1-5 +
 commentaire optionnel, proposée automatiquement après la course la plus
@@ -358,6 +390,32 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
+
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-048) :
+**support client construit (écran transverse, web + mobile + admin)** —
+découverte par la même méthode que TASK-045/046/047 (pas une demande
+explicite) : `support_tickets`/`support_ticket_messages` ont leurs RLS
+et trois RPC (`create_support_ticket`, `admin_assign_support_ticket`,
+`admin_resolve_support_ticket`) prêtes depuis la migration 1, et
+« Support » est documenté comme écran transverse pour les deux apps
+dans `docs/05-ecrans.md`, mais aucun client n'avait jamais ouvert de
+ticket — `admin_stats_overview.open_support_tickets` était même déjà
+affiché sur la Vue d'ensemble admin sans qu'aucun ticket ne puisse
+exister pour l'alimenter. `SupportButton` (liste des tickets, création,
+fil de messages avec réponse) côté passager/chauffeur, web et mobile ;
+nouvelle section « Tickets support » dans l'écran admin Réclamations &
+SOS (prise en charge, réponse, résolution). **Découverte significative
+en câblant l'embed PostgREST admin** : `support_tickets.user_id` ne
+référençait que `auth.users`, pas `profiles` — exactement le même bug
+déjà corrigé 5 fois (`payments`, `invoices`, `user_roles`, `reports`,
+`sos_alerts`, début septembre). FK ajoutée (migration
+`support_tickets_profile_embed_fk`, table à 0 ligne au moment de
+l'ajout, aucun risque). Avec cette tâche, les 24+ écrans documentés
+dans `docs/05-ecrans.md` sont désormais tous construits, sur les trois
+plateformes. Vérifié : tsc/build/lint propres sur les trois apps ; FK
+vérifiée directement sur le projet réel après application. Pas de test
+en conditions réelles du flux complet possible depuis ce sandbox
+(mêmes limitations réseau connues).
 
 **5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-047) :
 **notation post-course construite (écran #11, web + mobile, passager +
@@ -667,11 +725,11 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 Le code applicatif (dashboard admin, `apps/web` et `apps/mobile`,
 passager/chauffeur) est terminé pour le périmètre MVP documenté sur les
-trois plateformes, écrans transverses/sécurité inclus (TASK-042) et
-notation post-course incluse (TASK-047) — les 24+ écrans de
-`docs/05-ecrans.md` sont désormais tous construits. Seule pièce visuelle
-non construite, non bloquante : l'autocomplétion d'adresse Google Places
-(§3). « Moyens de paiement » (écran transverse listé dans
+trois plateformes, écrans transverses/sécurité inclus (TASK-042),
+notation post-course incluse (TASK-047) et support client inclus
+(TASK-048) — les 24+ écrans de `docs/05-ecrans.md` sont désormais tous
+construits. Seule pièce visuelle non construite, non bloquante :
+l'autocomplétion d'adresse Google Places (§3). « Moyens de paiement » (écran transverse listé dans
 `docs/05-ecrans.md`) reste délibérément non construit : aucun moyen de
 paiement n'est enregistré dans ce système, le mode est choisi à chaque
 course — pas de quoi construire un écran tant que cette conception ne

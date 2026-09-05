@@ -1863,6 +1863,58 @@ libre).
 
 ---
 
+## TASK-048 — Support client (écran transverse, jamais construit)
+
+- **Objectif** : découverte par la même méthode que TASK-045/046/047 —
+  `support_tickets`/`support_ticket_messages` (migration 1) ont leurs
+  RLS et trois RPC (`create_support_ticket`, `admin_assign_support_ticket`,
+  `admin_resolve_support_ticket`) prêtes depuis le tout premier jour, et
+  « Support » est documenté comme écran transverse pour les deux apps
+  dans `docs/05-ecrans.md`, mais aucun client n'a jamais ouvert de ticket
+  — `admin_stats_overview.open_support_tickets` était même déjà affiché
+  sur la Vue d'ensemble admin (`Overview.tsx`) sans qu'aucun ticket ne
+  puisse jamais exister pour l'alimenter.
+- **Statut** : Terminé (5 septembre 2026).
+- **Fait** :
+  - `apps/web/src/components/Support.tsx` et
+    `apps/mobile/src/components/Support.tsx` (`SupportButton`) : liste
+    des tickets de l'utilisateur, création (catégorie/sujet/message via
+    `create_support_ticket`), fil de messages avec réponse tant que le
+    ticket n'est pas résolu/fermé, realtime sur les nouveaux messages
+    (`postgres_changes`). Bouton dans l'en-tête passager/chauffeur, web
+    et mobile (4 écrans).
+  - `apps/admin/src/pages/Complaints.tsx` (« Réclamations & SOS ») :
+    nouvelle section « Tickets support » — liste, fil de conversation,
+    prise en charge (`admin_assign_support_ticket`), réponse (insert
+    direct `sender_type='staff'`, permis par RLS pour les rôles
+    admin/support), résolution (`admin_resolve_support_ticket`).
+  - `SupportTicketStatusBadge` ajouté aux trois `Badge.tsx` (web,
+    mobile, admin), même convention que les badges de statut existants.
+  - **Migration** (`support_tickets_profile_embed_fk`) : en câblant
+    l'embed PostgREST admin (`profiles(phone, full_name)`), découvert
+    que `support_tickets.user_id` ne référence que `auth.users`, pas
+    `profiles` — exactement le même bug déjà corrigé sur
+    `payments`/`invoices`/`user_roles`/`reports`/`sos_alerts` début
+    septembre (migrations `payments_profile_embed_fk` et suivantes).
+    FK `support_tickets_user_id_profiles_fkey` ajoutée ; table à 0 ligne
+    au moment de l'ajout, aucun risque de casser une donnée existante.
+- **Vérifié** : `tsc --noEmit`, `oxlint` et `npm run build` propres sur
+  les trois apps (`apps/web`, `apps/mobile`, `apps/admin`). FK vérifiée
+  directement sur le projet réel après application (`pg_get_constraintdef`).
+  Pas de vérification en conditions réelles du flux complet possible
+  depuis ce sandbox (réseau Supabase/Google bloqué pour les outils
+  navigateur, pas d'émulateur mobile) — les RLS utilisées
+  (`support_tickets_insert_own`/`_select`, `support_ticket_messages_insert`/
+  `_select`) sont inchangées depuis la migration 1, pas de risque de
+  sécurité nouveau introduit ici.
+- **Résultat** : l'écran transverse « Support », documenté depuis le
+  début pour les deux apps mais jamais construit, existe enfin — les
+  passagers et chauffeurs peuvent ouvrir un ticket et échanger avec le
+  support, et l'équipe (rôles admin/support/super_admin) peut le
+  traiter depuis le dashboard admin.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
