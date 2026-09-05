@@ -9,7 +9,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native'
 import { supabase } from '../../src/lib/supabase'
@@ -18,9 +17,12 @@ import { SelectField } from '../../src/components/SelectField'
 import { SosButton } from '../../src/components/Sos'
 import { ReportModal } from '../../src/components/Report'
 import { ProfileModal } from '../../src/components/Profile'
+import { LocationPicker, type LocationValue } from '../../src/components/LocationPicker'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
 import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRide, PaymentMethodType, RideHistoryRow, Zone } from '../../src/lib/types'
+
+const EMPTY_LOCATION: LocationValue = { address: '', lat: '', lng: '' }
 
 const REPORT_CATEGORIES = [
   { value: 'comportement_chauffeur', label: 'Comportement du chauffeur' },
@@ -33,7 +35,7 @@ const REPORT_CATEGORIES = [
 
 // Port direct de apps/web/src/pages/PassengerHome.tsx — mêmes RPC/Edge
 // Function, même logique. Le <select> HTML (zone) devient SelectField
-// (Modal), les champs texte deviennent des TextInput.
+// (Modal) ; départ/destination via LocationPicker (WebView, TASK-044).
 
 const CANCELLABLE_STATUSES = ['requested', 'searching', 'accepted', 'driver_arriving', 'driver_arrived']
 const ACTIVE_STATUSES = ['requested', 'searching', 'accepted', 'driver_arriving', 'driver_arrived', 'in_progress']
@@ -71,12 +73,8 @@ export default function PassengerHome() {
   const [passengerLanguage, setPassengerLanguage] = useState('fr')
 
   const [category, setCategory] = useState<DriverCategory>('car')
-  const [pickupAddress, setPickupAddress] = useState('')
-  const [pickupLat, setPickupLat] = useState('6.1319')
-  const [pickupLng, setPickupLng] = useState('1.2228')
-  const [dropoffAddress, setDropoffAddress] = useState('')
-  const [dropoffLat, setDropoffLat] = useState('')
-  const [dropoffLng, setDropoffLng] = useState('')
+  const [pickup, setPickup] = useState<LocationValue>(EMPTY_LOCATION)
+  const [dropoff, setDropoff] = useState<LocationValue>(EMPTY_LOCATION)
   const [zoneId, setZoneId] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodType>('cash')
   const [estimate, setEstimate] = useState<FareEstimate | null>(null)
@@ -165,16 +163,16 @@ export default function PassengerHome() {
   async function estimateFare() {
     setEstimateError(null)
     setEstimate(null)
-    if (!pickupAddress.trim() || !dropoffAddress.trim()) {
-      setEstimateError('Renseignez une adresse de départ et de destination.')
+    if (!pickup.lat || !pickup.lng || !dropoff.lat || !dropoff.lng) {
+      setEstimateError('Choisissez un point de départ et une destination sur la carte (ou via « Ma position »).')
       return
     }
-    const pLat = Number(pickupLat)
-    const pLng = Number(pickupLng)
-    const dLat = Number(dropoffLat)
-    const dLng = Number(dropoffLng)
+    const pLat = Number(pickup.lat)
+    const pLng = Number(pickup.lng)
+    const dLat = Number(dropoff.lat)
+    const dLng = Number(dropoff.lng)
     if ([pLat, pLng, dLat, dLng].some((v) => Number.isNaN(v))) {
-      setEstimateError('Coordonnées invalides — utilisez des nombres décimaux (ex : 6.1319).')
+      setEstimateError('Coordonnées invalides — réessayez de sélectionner les points sur la carte.')
       return
     }
 
@@ -216,12 +214,12 @@ export default function PassengerHome() {
     setBusy(true)
     const { error: rpcError } = await supabase.rpc('create_ride_request', {
       _category: category,
-      _pickup_lat: Number(pickupLat),
-      _pickup_lng: Number(pickupLng),
-      _pickup_address: pickupAddress.trim(),
-      _dropoff_lat: Number(dropoffLat),
-      _dropoff_lng: Number(dropoffLng),
-      _dropoff_address: dropoffAddress.trim(),
+      _pickup_lat: Number(pickup.lat),
+      _pickup_lng: Number(pickup.lng),
+      _pickup_address: pickup.address.trim() || `${pickup.lat}, ${pickup.lng}`,
+      _dropoff_lat: Number(dropoff.lat),
+      _dropoff_lng: Number(dropoff.lng),
+      _dropoff_address: dropoff.address.trim() || `${dropoff.lat}, ${dropoff.lng}`,
       _distance_km: estimate.distance_km,
       _duration_min: estimate.duration_min,
       _payment_method: paymentMethod,
@@ -233,10 +231,8 @@ export default function PassengerHome() {
       return
     }
     setEstimate(null)
-    setPickupAddress('')
-    setDropoffAddress('')
-    setDropoffLat('')
-    setDropoffLng('')
+    setPickup(EMPTY_LOCATION)
+    setDropoff(EMPTY_LOCATION)
     loadActiveRide(userId)
   }
 
@@ -333,10 +329,6 @@ export default function PassengerHome() {
           {activeRide === null && (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Demander une course</Text>
-              <Text style={styles.formHint}>
-                Saisie manuelle des coordonnées en attendant l'auto-complétion d'adresse (Google Places) — indiquez la
-                latitude/longitude approximative des points de départ et d'arrivée.
-              </Text>
 
               <View style={styles.toggleRow}>
                 <Pressable style={[styles.toggle, category === 'car' && styles.toggleActive]} onPress={() => setCategory('car')}>
@@ -347,59 +339,20 @@ export default function PassengerHome() {
                 </Pressable>
               </View>
 
-              <Text style={styles.label}>Adresse de départ</Text>
-              <TextInput
-                value={pickupAddress}
-                onChangeText={setPickupAddress}
+              <LocationPicker
+                label="Adresse de départ"
                 placeholder="Ex : Grand Marché, Lomé"
-                placeholderTextColor={colors.ink400}
-                style={styles.input}
+                value={pickup}
+                onChange={setPickup}
               />
-              <View style={styles.toggleRow}>
-                <TextInput
-                  value={pickupLat}
-                  onChangeText={setPickupLat}
-                  keyboardType="numbers-and-punctuation"
-                  placeholder="Latitude"
-                  placeholderTextColor={colors.ink400}
-                  style={[styles.input, styles.half]}
-                />
-                <TextInput
-                  value={pickupLng}
-                  onChangeText={setPickupLng}
-                  keyboardType="numbers-and-punctuation"
-                  placeholder="Longitude"
-                  placeholderTextColor={colors.ink400}
-                  style={[styles.input, styles.half]}
-                />
-              </View>
 
-              <Text style={styles.label}>Destination</Text>
-              <TextInput
-                value={dropoffAddress}
-                onChangeText={setDropoffAddress}
+              <LocationPicker
+                label="Destination"
                 placeholder="Ex : Aéroport de Lomé"
-                placeholderTextColor={colors.ink400}
-                style={styles.input}
+                value={dropoff}
+                onChange={setDropoff}
+                initialCenter={pickup.lat && pickup.lng ? { lat: Number(pickup.lat), lng: Number(pickup.lng) } : undefined}
               />
-              <View style={styles.toggleRow}>
-                <TextInput
-                  value={dropoffLat}
-                  onChangeText={setDropoffLat}
-                  keyboardType="numbers-and-punctuation"
-                  placeholder="Latitude"
-                  placeholderTextColor={colors.ink400}
-                  style={[styles.input, styles.half]}
-                />
-                <TextInput
-                  value={dropoffLng}
-                  onChangeText={setDropoffLng}
-                  keyboardType="numbers-and-punctuation"
-                  placeholder="Longitude"
-                  placeholderTextColor={colors.ink400}
-                  style={[styles.input, styles.half]}
-                />
-              </View>
 
               {zones.length > 0 && (
                 <>
