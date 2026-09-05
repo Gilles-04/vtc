@@ -90,3 +90,21 @@ const docStatusLabel: Record<string, string> = {
 export function DocStatusBadge({ status }: { status: string }) {
   return <Badge tone={docStatusTone[status] ?? 'default'}>{docStatusLabel[status] ?? status}</Badge>
 }
+
+const supportTicketStatusTone: Record<string, BadgeProps['tone']> = {
+  open: 'gold',
+  pending: 'navy',
+  resolved: 'green',
+  closed: 'default',
+}
+
+const supportTicketStatusLabel: Record<string, string> = {
+  open: 'Ouvert',
+  pending: 'En cours',
+  resolved: 'Résolu',
+  closed: 'Fermé',
+}
+
+export function SupportTicketStatusBadge({ status }: { status: string }) {
+  return <Badge tone={supportTicketStatusTone[status] ?? 'default'}>{supportTicketStatusLabel[status] ?? status}</Badge>
+}

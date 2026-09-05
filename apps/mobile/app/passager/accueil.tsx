@@ -19,6 +19,7 @@ import { ReportModal } from '../../src/components/Report'
 import { ProfileModal } from '../../src/components/Profile'
 import { LocationPicker, type LocationValue } from '../../src/components/LocationPicker'
 import { NotificationsButton } from '../../src/components/Notifications'
+import { SupportButton } from '../../src/components/Support'
 import { RatingModal } from '../../src/components/RatingModal'
 import { registerForPushNotifications } from '../../src/lib/pushNotifications'
 import { fcfa } from '../../src/lib/format'
@@ -297,6 +298,7 @@ export default function PassengerHome() {
         <View style={styles.headerRight}>
           {userId && <NotificationsButton userId={userId} />}
           <SosButton rideId={activeRide?.id ?? null} />
+          {userId && <SupportButton userId={userId} />}
           <Pressable onPress={() => setProfileOpen(true)}>
             <Text style={styles.signOut}>Profil</Text>
           </Pressable>

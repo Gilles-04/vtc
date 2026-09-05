@@ -180,6 +180,24 @@ export function ReportStatusBadge({ status }: { status: string }) {
   return <Badge tone={reportStatusTone[status] ?? 'default'}>{reportStatusLabel[status] ?? status}</Badge>
 }
 
+const supportTicketStatusTone: Record<string, BadgeProps['tone']> = {
+  open: 'gold',
+  pending: 'navy',
+  resolved: 'green',
+  closed: 'default',
+}
+
+const supportTicketStatusLabel: Record<string, string> = {
+  open: 'Ouvert',
+  pending: 'En cours',
+  resolved: 'Résolu',
+  closed: 'Fermé',
+}
+
+export function SupportTicketStatusBadge({ status }: { status: string }) {
+  return <Badge tone={supportTicketStatusTone[status] ?? 'default'}>{supportTicketStatusLabel[status] ?? status}</Badge>
+}
+
 const fraudFlagStatusTone: Record<string, BadgeProps['tone']> = {
   open: 'gold',
   reviewing: 'navy',

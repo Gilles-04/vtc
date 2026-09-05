@@ -84,6 +84,22 @@ export function DocStatusBadge({ status }: { status: string }) {
   return <Badge tone={docStatusTone[status] ?? 'default'}>{docStatusLabel[status] ?? status}</Badge>
 }
 
+const supportTicketStatusTone: Record<string, Tone> = {
+  open: 'gold',
+  pending: 'navy',
+  resolved: 'green',
+  closed: 'default',
+}
+const supportTicketStatusLabel: Record<string, string> = {
+  open: 'Ouvert',
+  pending: 'En cours',
+  resolved: 'Résolu',
+  closed: 'Fermé',
+}
+export function SupportTicketStatusBadge({ status }: { status: string }) {
+  return <Badge tone={supportTicketStatusTone[status] ?? 'default'}>{supportTicketStatusLabel[status] ?? status}</Badge>
+}
+
 const styles = StyleSheet.create({
   badge: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   text: { fontSize: 12, fontWeight: '600' },

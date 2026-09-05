@@ -20,6 +20,7 @@ import { SosButton } from '../components/Sos'
 import { ReportModal } from '../components/Report'
 import { ProfileModal } from '../components/Profile'
 import { NotificationsBell } from '../components/Notifications'
+import { SupportButton } from '../components/Support'
 import { RatingModal } from '../components/RatingModal'
 import { fcfa } from '../lib/format'
 
@@ -448,6 +449,7 @@ export function DriverHome() {
         <div className="flex items-center gap-4">
           {userId && <NotificationsBell userId={userId} />}
           <SosButton rideId={activeRide?.id ?? null} />
+          {userId && <SupportButton userId={userId} />}
           <button onClick={() => setProfileOpen(true)} className="text-sm font-medium text-ink-600 hover:underline">
             Profil
           </button>

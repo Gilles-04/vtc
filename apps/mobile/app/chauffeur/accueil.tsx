@@ -18,6 +18,7 @@ import { SosButton } from '../../src/components/Sos'
 import { ReportModal } from '../../src/components/Report'
 import { ProfileModal } from '../../src/components/Profile'
 import { NotificationsButton } from '../../src/components/Notifications'
+import { SupportButton } from '../../src/components/Support'
 import { RatingModal } from '../../src/components/RatingModal'
 import { registerForPushNotifications } from '../../src/lib/pushNotifications'
 import { fcfa } from '../../src/lib/format'
@@ -424,6 +425,7 @@ export default function DriverHome() {
         <View style={styles.headerRight}>
           {userId && <NotificationsButton userId={userId} />}
           <SosButton rideId={activeRide?.id ?? null} />
+          {userId && <SupportButton userId={userId} />}
           <Pressable onPress={() => setProfileOpen(true)}>
             <Text style={styles.signOut}>Profil</Text>
           </Pressable>

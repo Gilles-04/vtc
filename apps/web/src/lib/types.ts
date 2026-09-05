@@ -16,6 +16,9 @@ export type RideStatus =
   | 'cancelled_by_system'
 export type RideOfferStatus = 'pending' | 'accepted' | 'rejected' | 'expired'
 export type PaymentMethodType = 'cash' | 'mobile_money'
+export type SupportTicketCategory = 'paiement' | 'course' | 'compte' | 'document' | 'autre'
+export type SupportTicketStatus = 'open' | 'pending' | 'resolved' | 'closed'
+export type SupportSenderType = 'user' | 'staff'
 
 // Table `notifications` (migration 1) — alimentée par une dizaine de
 // déclencheurs (statuts de course, matching, abonnement, fiabilité,
@@ -193,4 +196,28 @@ export interface FareEstimate {
   is_night: boolean
   distance_km: number
   duration_min: number
+}
+
+// Tables `support_tickets`/`support_ticket_messages` (migration 1) — RLS +
+// RPC (`create_support_ticket`/`admin_assign_support_ticket`/
+// `admin_resolve_support_ticket`) prêtes depuis le tout premier jour,
+// écran transverse « Support » documenté (docs/05-ecrans.md) mais jamais
+// construit côté client (voir TASK-048).
+export interface SupportTicketRow {
+  id: string
+  category: SupportTicketCategory
+  subject: string
+  status: SupportTicketStatus
+  ride_id: string | null
+  created_at: string
+  resolved_at: string | null
+}
+
+export interface SupportMessageRow {
+  id: string
+  ticket_id: string
+  sender_id: string
+  sender_type: SupportSenderType
+  body: string
+  created_at: string
 }

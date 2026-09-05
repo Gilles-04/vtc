@@ -247,6 +247,8 @@ export interface PricingRule {
 
 export type ReportStatus = 'open' | 'investigating' | 'resolved' | 'dismissed'
 export type SosStatus = 'open' | 'acknowledged' | 'resolved'
+export type SupportTicketStatus = 'open' | 'pending' | 'resolved' | 'closed'
+export type SupportSenderType = 'user' | 'staff'
 export type FraudSubjectType = 'user' | 'driver' | 'device'
 export type FraudFlagStatus = 'open' | 'reviewing' | 'confirmed' | 'dismissed'
 export type FraudSeverity = 'low' | 'medium' | 'high'
@@ -271,6 +273,32 @@ export interface ReportRow {
   resolution_notes: string | null
   reporter: { phone: string | null; full_name: string | null } | null
   reported: { phone: string | null; full_name: string | null } | null
+}
+
+// `support_tickets`/`support_ticket_messages` (migration 1) — RLS/RPC
+// (`admin_assign_support_ticket`/`admin_resolve_support_ticket`) prêtes
+// depuis le tout premier jour, `admin_stats_overview.open_support_tickets`
+// déjà affiché sur la Vue d'ensemble, mais aucun écran pour les traiter
+// jusqu'ici (voir TASK-048).
+export interface SupportTicketRow {
+  id: string
+  category: string
+  subject: string
+  status: SupportTicketStatus
+  ride_id: string | null
+  assigned_to: string | null
+  created_at: string
+  resolved_at: string | null
+  profiles: { phone: string | null; full_name: string | null } | null
+}
+
+export interface SupportMessageRow {
+  id: string
+  ticket_id: string
+  sender_id: string
+  sender_type: SupportSenderType
+  body: string
+  created_at: string
 }
 
 export interface FraudFlagRow {
