@@ -8,6 +8,7 @@ import { ReportModal } from '../components/Report'
 import { ProfileModal } from '../components/Profile'
 import { LocationPicker, type LocationValue } from '../components/LocationPicker'
 import { NotificationsBell } from '../components/Notifications'
+import { RatingModal } from '../components/RatingModal'
 import { fcfa } from '../lib/format'
 
 const EMPTY_LOCATION: LocationValue = { address: '', lat: '', lng: '' }
@@ -57,6 +58,7 @@ export function PassengerHome() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [reportRideId, setReportRideId] = useState<string | null>(null)
+  const [rideToRate, setRideToRate] = useState<{ ride: RideHistoryRow; rateeName: string | null } | null>(null)
 
   const [category, setCategory] = useState<DriverCategory>('car')
   const [pickup, setPickup] = useState<LocationValue>(EMPTY_LOCATION)
@@ -88,13 +90,35 @@ export function PassengerHome() {
   const loadHistory = useCallback(async (uid: string) => {
     const { data } = await supabase
       .from('rides')
-      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, final_distance_km, requested_at')
+      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, final_distance_km, requested_at, driver_id')
       .eq('passenger_id', uid)
       .in('status', TERMINAL_STATUSES)
       .order('requested_at', { ascending: false })
       .limit(20)
     const rows = (data as unknown as RideHistoryRow[]) ?? []
     setHistory(rows)
+
+    // Écran #11 (Fin de course) : proposer la notation de la course la plus
+    // récente si elle est terminée avec succès et pas encore notée par ce
+    // passager — un avis par sens et par course (contrainte unique,
+    // migration 1), jamais construit jusqu'ici (voir TASK-047).
+    const latest = rows[0]
+    if (latest?.status === 'completed' && latest.driver_id) {
+      const { data: existingRating } = await supabase
+        .from('ratings')
+        .select('id')
+        .eq('ride_id', latest.id)
+        .eq('rater_id', uid)
+        .maybeSingle()
+      if (!existingRating) {
+        const { data: info } = await supabase.rpc('get_ride_driver_public_info', { _ride_id: latest.id }).maybeSingle()
+        setRideToRate({ ride: latest, rateeName: (info as DriverPublicInfo | null)?.full_name ?? null })
+      } else {
+        setRideToRate(null)
+      }
+    } else {
+      setRideToRate(null)
+    }
 
     // Une facture n'existe que pour une course `completed` avec paiement
     // réussi (trigger `generate_invoice_on_ride_success`) — jamais pour
@@ -519,6 +543,17 @@ export function PassengerHome() {
             setPassengerName(fullName || null)
             setPassengerLanguage(language)
           }}
+        />
+      )}
+
+      {rideToRate && userId && rideToRate.ride.driver_id && (
+        <RatingModal
+          rideId={rideToRate.ride.id}
+          raterId={userId}
+          raterRole="passenger"
+          rateeId={rideToRate.ride.driver_id}
+          rateeName={rideToRate.rateeName}
+          onClose={() => setRideToRate(null)}
         />
       )}
     </div>

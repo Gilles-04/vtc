@@ -18,6 +18,7 @@ import { SosButton } from '../../src/components/Sos'
 import { ReportModal } from '../../src/components/Report'
 import { ProfileModal } from '../../src/components/Profile'
 import { NotificationsButton } from '../../src/components/Notifications'
+import { RatingModal } from '../../src/components/RatingModal'
 import { registerForPushNotifications } from '../../src/lib/pushNotifications'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
@@ -27,6 +28,7 @@ import type {
   DriverDocType,
   DriverRecord,
   PassengerPublicInfo,
+  RideHistoryRow,
   RideOffer,
   SubscriptionPlan,
 } from '../../src/lib/types'
@@ -71,6 +73,7 @@ export default function DriverHome() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [driverName, setDriverName] = useState<string | null>(null)
   const [driverLanguage, setDriverLanguage] = useState('fr')
+  const [rideToRate, setRideToRate] = useState<{ ride: RideHistoryRow; rateeName: string | null } | null>(null)
 
   const activeRideRef = useRef<ActiveRide | null>(null)
   useEffect(() => {
@@ -180,10 +183,44 @@ export default function DriverHome() {
     }
   }, [driver])
 
+  // Écran #11 (Fin de course) côté chauffeur — même logique que
+  // apps/web/src/pages/DriverHome.tsx (voir TASK-047). Pas d'écran
+  // « Revenus » côté mobile pour l'instant (#76 web uniquement) : requête
+  // dédiée, volontairement minimale, juste pour détecter la notation.
+  const loadRatingPrompt = useCallback(async () => {
+    if (!driver || driver.status !== 'approved') return
+
+    const { data } = await supabase
+      .from('rides')
+      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, requested_at, passenger_id')
+      .eq('driver_id', driver.id)
+      .eq('status', 'completed')
+      .order('requested_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const latest = data as unknown as RideHistoryRow | null
+
+    if (latest?.passenger_id) {
+      const { data: existingRating } = await supabase
+        .from('ratings')
+        .select('id')
+        .eq('ride_id', latest.id)
+        .eq('rater_id', driver.id)
+        .maybeSingle()
+      if (!existingRating) {
+        const { data: info } = await supabase.rpc('get_ride_passenger_public_info', { _ride_id: latest.id }).maybeSingle()
+        setRideToRate({ ride: latest, rateeName: (info as PassengerPublicInfo | null)?.full_name ?? null })
+        return
+      }
+    }
+    setRideToRate(null)
+  }, [driver])
+
   useEffect(() => {
     loadSubscriptionData()
     loadOffersAndRide()
-  }, [loadSubscriptionData, loadOffersAndRide])
+    loadRatingPrompt()
+  }, [loadSubscriptionData, loadOffersAndRide, loadRatingPrompt])
 
   useEffect(() => {
     if (!driver || driver.status !== 'approved') return
@@ -195,13 +232,14 @@ export default function DriverHome() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'rides', filter: `driver_id=eq.${driver.id}` }, () => {
         loadOffersAndRide()
+        loadRatingPrompt()
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [driver, loadOffersAndRide])
+  }, [driver, loadOffersAndRide, loadRatingPrompt])
 
   // Position envoyée à update_driver_location (migration 2) pendant toute
   // la période où le chauffeur est disponible — condition nécessaire pour
@@ -633,6 +671,18 @@ export default function DriverHome() {
             setDriverName(fullName || null)
             setDriverLanguage(language)
           }}
+        />
+      )}
+
+      {driver && rideToRate && rideToRate.ride.passenger_id && (
+        <RatingModal
+          visible
+          rideId={rideToRate.ride.id}
+          raterId={driver.id}
+          raterRole="driver"
+          rateeId={rideToRate.ride.passenger_id}
+          rateeName={rideToRate.rateeName}
+          onClose={() => setRideToRate(null)}
         />
       )}
     </View>

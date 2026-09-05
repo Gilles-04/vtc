@@ -19,6 +19,7 @@ import { ReportModal } from '../../src/components/Report'
 import { ProfileModal } from '../../src/components/Profile'
 import { LocationPicker, type LocationValue } from '../../src/components/LocationPicker'
 import { NotificationsButton } from '../../src/components/Notifications'
+import { RatingModal } from '../../src/components/RatingModal'
 import { registerForPushNotifications } from '../../src/lib/pushNotifications'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
@@ -73,6 +74,7 @@ export default function PassengerHome() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [passengerName, setPassengerName] = useState<string | null>(null)
   const [passengerLanguage, setPassengerLanguage] = useState('fr')
+  const [rideToRate, setRideToRate] = useState<{ ride: RideHistoryRow; rateeName: string | null } | null>(null)
 
   const [category, setCategory] = useState<DriverCategory>('car')
   const [pickup, setPickup] = useState<LocationValue>(EMPTY_LOCATION)
@@ -104,12 +106,34 @@ export default function PassengerHome() {
   const loadHistory = useCallback(async (uid: string) => {
     const { data } = await supabase
       .from('rides')
-      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, requested_at')
+      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, requested_at, driver_id')
       .eq('passenger_id', uid)
       .in('status', TERMINAL_STATUSES)
       .order('requested_at', { ascending: false })
       .limit(20)
-    setHistory((data as unknown as RideHistoryRow[]) ?? [])
+    const rows = (data as unknown as RideHistoryRow[]) ?? []
+    setHistory(rows)
+
+    // Écran #11 (Fin de course) : proposer la notation de la course la plus
+    // récente si elle est terminée avec succès et pas encore notée par ce
+    // passager (voir apps/web/src/pages/PassengerHome.tsx, TASK-047).
+    const latest = rows[0]
+    if (latest?.status === 'completed' && latest.driver_id) {
+      const { data: existingRating } = await supabase
+        .from('ratings')
+        .select('id')
+        .eq('ride_id', latest.id)
+        .eq('rater_id', uid)
+        .maybeSingle()
+      if (!existingRating) {
+        const { data: info } = await supabase.rpc('get_ride_driver_public_info', { _ride_id: latest.id }).maybeSingle()
+        setRideToRate({ ride: latest, rateeName: (info as DriverPublicInfo | null)?.full_name ?? null })
+      } else {
+        setRideToRate(null)
+      }
+    } else {
+      setRideToRate(null)
+    }
   }, [])
 
   useEffect(() => {
@@ -470,6 +494,18 @@ export default function PassengerHome() {
             setPassengerName(fullName || null)
             setPassengerLanguage(language)
           }}
+        />
+      )}
+
+      {userId && rideToRate && rideToRate.ride.driver_id && (
+        <RatingModal
+          visible
+          rideId={rideToRate.ride.id}
+          raterId={userId}
+          raterRole="passenger"
+          rateeId={rideToRate.ride.driver_id}
+          rateeName={rideToRate.rateeName}
+          onClose={() => setRideToRate(null)}
         />
       )}
     </View>

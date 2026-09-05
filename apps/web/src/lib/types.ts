@@ -129,6 +129,11 @@ export interface RideHistoryRow {
   estimated_fare_fcfa: number | null
   final_distance_km: number | null
   requested_at: string
+  // Déjà lisible directement sur sa propre ligne `rides` (RLS), pas besoin
+  // d'une RPC dédiée — utilisé uniquement pour l'insert `ratings`
+  // (`ratee_id` doit correspondre exactement, voir migration 1).
+  driver_id?: string | null
+  passenger_id?: string
 }
 
 // Facture générée automatiquement à la complétion d'une course payée

@@ -20,6 +20,7 @@ import { SosButton } from '../components/Sos'
 import { ReportModal } from '../components/Report'
 import { ProfileModal } from '../components/Profile'
 import { NotificationsBell } from '../components/Notifications'
+import { RatingModal } from '../components/RatingModal'
 import { fcfa } from '../lib/format'
 
 const REPORT_CATEGORIES = [
@@ -63,6 +64,7 @@ export function DriverHome() {
   const [rideInvoicesByRide, setRideInvoicesByRide] = useState<Record<string, RideInvoice>>({})
   const [earnings, setEarnings] = useState({ today: 0, week: 0, month: 0 })
   const [reportRideId, setReportRideId] = useState<string | null>(null)
+  const [rideToRate, setRideToRate] = useState<{ ride: RideHistoryRow; rateeName: string | null } | null>(null)
 
   const activeRideRef = useRef<ActiveRide | null>(null)
   useEffect(() => {
@@ -199,13 +201,33 @@ export function DriverHome() {
 
     const { data: historyData } = await supabase
       .from('rides')
-      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, final_distance_km, requested_at')
+      .select('id, category, status, pickup_address, dropoff_address, final_fare_fcfa, estimated_fare_fcfa, final_distance_km, requested_at, passenger_id')
       .eq('driver_id', driver.id)
       .in('status', ['completed', 'cancelled_by_passenger', 'cancelled_by_driver', 'cancelled_by_system'])
       .order('requested_at', { ascending: false })
       .limit(20)
     const rows = (historyData as unknown as RideHistoryRow[]) ?? []
     setRideHistory(rows)
+
+    // Écran #11 (Fin de course) côté chauffeur — même logique que
+    // PassengerHome.tsx (voir TASK-047).
+    const latest = rows[0]
+    if (latest?.status === 'completed' && latest.passenger_id) {
+      const { data: existingRating } = await supabase
+        .from('ratings')
+        .select('id')
+        .eq('ride_id', latest.id)
+        .eq('rater_id', driver.id)
+        .maybeSingle()
+      if (!existingRating) {
+        const { data: info } = await supabase.rpc('get_ride_passenger_public_info', { _ride_id: latest.id }).maybeSingle()
+        setRideToRate({ ride: latest, rateeName: (info as PassengerPublicInfo | null)?.full_name ?? null })
+      } else {
+        setRideToRate(null)
+      }
+    } else {
+      setRideToRate(null)
+    }
 
     if (rows.length > 0) {
       const { data: invoicesData } = await supabase
@@ -760,6 +782,17 @@ export function DriverHome() {
             setDriverName(fullName || null)
             setDriverLanguage(language)
           }}
+        />
+      )}
+
+      {rideToRate && driver && rideToRate.ride.passenger_id && (
+        <RatingModal
+          rideId={rideToRate.ride.id}
+          raterId={driver.id}
+          raterRole="driver"
+          rateeId={rideToRate.ride.passenger_id}
+          rateeName={rideToRate.rateeName}
+          onClose={() => setRideToRate(null)}
         />
       )}
     </div>

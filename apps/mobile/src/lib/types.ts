@@ -113,6 +113,11 @@ export interface RideHistoryRow {
   final_fare_fcfa: number | null
   estimated_fare_fcfa: number | null
   requested_at: string
+  // Déjà lisible directement sur sa propre ligne `rides` (RLS), pas besoin
+  // d'une RPC dédiée — utilisé uniquement pour l'insert `ratings`
+  // (`ratee_id` doit correspondre exactement, voir migration 1).
+  driver_id?: string | null
+  passenger_id?: string
 }
 
 // Renvoyées par les fonctions dédiées `get_ride_driver_public_info` /
