@@ -1694,6 +1694,45 @@ libre).
 
 ---
 
+## TASK-044 — Sélecteur de position sur carte porté vers apps/mobile
+
+- **Objectif** : même besoin que TASK-043, côté `apps/mobile`.
+- **Statut** : Terminé côté code (5 septembre 2026) — non vérifié en
+  conditions réelles (voir Vérifié ci-dessous).
+- **Fait** :
+  - `apps/mobile/src/components/LocationPicker.tsx` : `react-native-webview`
+    plutôt que `react-native-maps` — ce dernier demanderait un rebuild
+    natif (config plugin + dev client), hors du workflow Expo Go managé
+    utilisé pour ce projet jusqu'ici. La WebView charge une page HTML
+    embarquée qui utilise le même Maps JavaScript API que `apps/web`
+    (même clé cliente, `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`).
+  - « Ma position » utilise `expo-location` (déjà une dépendance,
+    permission déjà éprouvée ailleurs dans ce projet) plutôt que la
+    géolocalisation web du navigateur interne à la WebView — plus fiable
+    à câbler côté `react-native-webview`. Position poussée dans la
+    WebView via `postMessage` une fois obtenue côté natif.
+  - Contournement TypeScript nécessaire : `WebView<P = undefined>` de
+    cette librairie résout en props `never` une fois utilisé en JSX sans
+    generic explicite (bug de typage connu de la lib, sans rapport avec
+    ce projet) — recast une fois en haut du fichier plutôt qu'à chaque
+    usage.
+  - `PassengerHome` (mobile) : mêmes deux `LocationPicker` (départ/
+    destination) que la version web, remplaçant les 6 champs `TextInput`
+    (adresse + latitude + longitude ×2).
+- **Vérifié** : `tsc`/`oxlint` propres. **Non vérifiable depuis ce
+  sandbox** (aucun émulateur Android/iOS, et accès direct à
+  `maps.googleapis.com` bloqué par la politique réseau, voir TASK-043) :
+  le rendu réel de la carte dans la WebView, et la compatibilité de
+  `react-native-webview` avec Expo Go en mode managé (normalement
+  couverte par les modules natifs qu'Expo Go embarque, mais jamais
+  confirmée sur ce projet précis) restent à tester sur un vrai appareil
+  via Expo Go.
+- **Résultat** : parité de code avec `apps/web` pour ce besoin. À
+  confirmer par un test réel avant de considérer la fonctionnalité
+  utilisable côté mobile.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

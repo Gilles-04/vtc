@@ -254,10 +254,13 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
   facture** — code/route corrects (tsc/build propres, même schéma de
   requête que les écrans détail existants), mais aucune facture n'existe
   encore en production (aucune course payée terminée à ce jour).
-- **`apps/mobile` toujours en saisie manuelle de coordonnées** — le
-  sélecteur géolocalisation + carte (TASK-043) ne couvre que `apps/web`
-  pour l'instant. Pas bloquant : la demande de course fonctionne déjà de
-  bout en bout côté mobile avec cette saisie manuelle.
+- **Sélecteur géolocalisation + carte `apps/mobile` (TASK-044) non
+  vérifié en conditions réelles** — porté en `react-native-webview`
+  (`react-native-maps` demanderait un rebuild natif), `tsc`/`oxlint`
+  propres, mais ni le rendu réel de la carte ni la compatibilité de
+  `react-native-webview` avec Expo Go managé n'ont pu être testés depuis
+  ce sandbox (aucun émulateur, accès à `maps.googleapis.com` bloqué). À
+  tester sur un vrai appareil avant de le considérer utilisable.
 - **Auto-complétion d'adresse (Google Places) délibérément pas
   construite** (TASK-043) — la clé client le permettrait, mais la
   compatibilité du composant `Autocomplete` historique avec une clé
@@ -303,6 +306,19 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
+
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-044) :
+**sélecteur géolocalisation + carte porté vers `apps/mobile`**, en
+`react-native-webview` (page HTML embarquée chargeant le même Maps
+JavaScript API) plutôt que `react-native-maps` — ce dernier demanderait
+un rebuild natif hors du workflow Expo Go managé de ce projet.
+Géolocalisation via `expo-location`, poussée dans la WebView par
+`postMessage`. Contournement TypeScript nécessaire (bug de typage connu
+de la lib : `WebView<P = undefined>` résout en props `never` en JSX sans
+generic explicite). `tsc`/`oxlint` propres — **non vérifié en conditions
+réelles** (ni émulateur ni accès à `maps.googleapis.com` depuis ce
+sandbox), à tester sur un vrai appareil via Expo Go avant de considérer
+la fonctionnalité utilisable côté mobile.
 
 **5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-043) :
 **sélecteur géolocalisation + carte pour la demande de course**
