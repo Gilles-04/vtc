@@ -5,6 +5,7 @@ import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRid
 import { Badge, CategoryBadge, RideStatusBadge } from '../components/Badge'
 import { SosButton } from '../components/Sos'
 import { ReportModal } from '../components/Report'
+import { ProfileModal } from '../components/Profile'
 import { fcfa } from '../lib/format'
 
 const REPORT_CATEGORIES = [
@@ -46,6 +47,8 @@ export function PassengerHome() {
   const [history, setHistory] = useState<RideHistoryRow[]>([])
   const [invoicesByRide, setInvoicesByRide] = useState<Record<string, RideInvoice>>({})
   const [passengerName, setPassengerName] = useState<string | null>(null)
+  const [passengerLanguage, setPassengerLanguage] = useState('fr')
+  const [profileOpen, setProfileOpen] = useState(false)
   const [zones, setZones] = useState<Zone[]>([])
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -124,10 +127,13 @@ export function PassengerHome() {
       loadHistory(uid)
       supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, language')
         .eq('id', uid)
         .maybeSingle()
-        .then(({ data }) => setPassengerName(data?.full_name ?? null))
+        .then(({ data }) => {
+          setPassengerName(data?.full_name ?? null)
+          setPassengerLanguage(data?.language ?? 'fr')
+        })
     })
 
     supabase
@@ -271,6 +277,9 @@ export function PassengerHome() {
         </div>
         <div className="flex items-center gap-4">
           <SosButton rideId={activeRide?.id ?? null} />
+          <button onClick={() => setProfileOpen(true)} className="text-sm font-medium text-ink-600 hover:underline">
+            Profil
+          </button>
           <button onClick={handleSignOut} className="text-sm font-medium text-ink-600 hover:underline">
             Se déconnecter
           </button>
@@ -541,6 +550,19 @@ export function PassengerHome() {
           reporterId={userId}
           categories={REPORT_CATEGORIES}
           onClose={() => setReportRideId(null)}
+        />
+      )}
+
+      {profileOpen && userId && (
+        <ProfileModal
+          userId={userId}
+          initialFullName={passengerName}
+          initialLanguage={passengerLanguage}
+          onClose={() => setProfileOpen(false)}
+          onSaved={(fullName, language) => {
+            setPassengerName(fullName || null)
+            setPassengerLanguage(language)
+          }}
         />
       )}
     </div>

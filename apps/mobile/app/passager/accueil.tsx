@@ -17,6 +17,7 @@ import { Badge, CategoryBadge, RideStatusBadge } from '../../src/components/Badg
 import { SelectField } from '../../src/components/SelectField'
 import { SosButton } from '../../src/components/Sos'
 import { ReportModal } from '../../src/components/Report'
+import { ProfileModal } from '../../src/components/Profile'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
 import type { DriverCategory, DriverPublicInfo, FareEstimate, PassengerActiveRide, PaymentMethodType, RideHistoryRow, Zone } from '../../src/lib/types'
@@ -65,6 +66,9 @@ export default function PassengerHome() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [reportRideId, setReportRideId] = useState<string | null>(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [passengerName, setPassengerName] = useState<string | null>(null)
+  const [passengerLanguage, setPassengerLanguage] = useState('fr')
 
   const [category, setCategory] = useState<DriverCategory>('car')
   const [pickupAddress, setPickupAddress] = useState('')
@@ -118,6 +122,15 @@ export default function PassengerHome() {
       setUserId(uid)
       loadActiveRide(uid)
       loadHistory(uid)
+      supabase
+        .from('profiles')
+        .select('full_name, language')
+        .eq('id', uid)
+        .maybeSingle()
+        .then(({ data }) => {
+          setPassengerName(data?.full_name ?? null)
+          setPassengerLanguage(data?.language ?? 'fr')
+        })
     })
 
     supabase
@@ -260,6 +273,9 @@ export default function PassengerHome() {
         </View>
         <View style={styles.headerRight}>
           <SosButton rideId={activeRide?.id ?? null} />
+          <Pressable onPress={() => setProfileOpen(true)}>
+            <Text style={styles.signOut}>Profil</Text>
+          </Pressable>
           <Pressable onPress={handleSignOut}>
             <Text style={styles.signOut}>Se déconnecter</Text>
           </Pressable>
@@ -483,6 +499,20 @@ export default function PassengerHome() {
           reporterId={userId}
           categories={REPORT_CATEGORIES}
           onClose={() => setReportRideId(null)}
+        />
+      )}
+
+      {userId && (
+        <ProfileModal
+          visible={profileOpen}
+          userId={userId}
+          initialFullName={passengerName}
+          initialLanguage={passengerLanguage}
+          onClose={() => setProfileOpen(false)}
+          onSaved={(fullName, language) => {
+            setPassengerName(fullName || null)
+            setPassengerLanguage(language)
+          }}
         />
       )}
     </View>

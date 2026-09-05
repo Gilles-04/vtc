@@ -16,6 +16,7 @@ import { DriverOnboarding } from '../../src/components/DriverOnboarding'
 import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadge } from '../../src/components/Badge'
 import { SosButton } from '../../src/components/Sos'
 import { ReportModal } from '../../src/components/Report'
+import { ProfileModal } from '../../src/components/Profile'
 import { fcfa } from '../../src/lib/format'
 import { colors } from '../../src/theme'
 import type {
@@ -65,6 +66,9 @@ export default function DriverHome() {
   const [uploadingType, setUploadingType] = useState<DriverDocType | null>(null)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [reportRideId, setReportRideId] = useState<string | null>(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [driverName, setDriverName] = useState<string | null>(null)
+  const [driverLanguage, setDriverLanguage] = useState('fr')
 
   const activeRideRef = useRef<ActiveRide | null>(null)
   useEffect(() => {
@@ -98,6 +102,21 @@ export default function DriverHome() {
   useEffect(() => {
     loadDriver()
   }, [loadDriver])
+
+  // Profil (nom/langue) accessible même avant approbation (dossier en
+  // attente/refusé), pas seulement une fois `approved`.
+  useEffect(() => {
+    if (!driver) return
+    supabase
+      .from('profiles')
+      .select('full_name, language')
+      .eq('id', driver.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setDriverName(data?.full_name ?? null)
+        setDriverLanguage(data?.language ?? 'fr')
+      })
+  }, [driver])
 
   const loadSubscriptionData = useCallback(async () => {
     if (!driver || driver.status !== 'approved') return
@@ -363,6 +382,9 @@ export default function DriverHome() {
         </View>
         <View style={styles.headerRight}>
           <SosButton rideId={activeRide?.id ?? null} />
+          <Pressable onPress={() => setProfileOpen(true)}>
+            <Text style={styles.signOut}>Profil</Text>
+          </Pressable>
           <Pressable onPress={handleSignOut}>
             <Text style={styles.signOut}>Se déconnecter</Text>
           </Pressable>
@@ -593,6 +615,20 @@ export default function DriverHome() {
           reporterId={driver.id}
           categories={REPORT_CATEGORIES}
           onClose={() => setReportRideId(null)}
+        />
+      )}
+
+      {driver && (
+        <ProfileModal
+          visible={profileOpen}
+          userId={driver.id}
+          initialFullName={driverName}
+          initialLanguage={driverLanguage}
+          onClose={() => setProfileOpen(false)}
+          onSaved={(fullName, language) => {
+            setDriverName(fullName || null)
+            setDriverLanguage(language)
+          }}
         />
       )}
     </View>

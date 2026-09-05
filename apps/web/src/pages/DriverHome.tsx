@@ -18,6 +18,7 @@ import type {
 import { Badge, CategoryBadge, DocStatusBadge, DriverStatusBadge, RideStatusBadge } from '../components/Badge'
 import { SosButton } from '../components/Sos'
 import { ReportModal } from '../components/Report'
+import { ProfileModal } from '../components/Profile'
 import { fcfa } from '../lib/format'
 
 const REPORT_CATEGORIES = [
@@ -48,6 +49,8 @@ export function DriverHome() {
   const [activeSub, setActiveSub] = useState<ActiveSubscription | null>(null)
   const [subscriptionPayments, setSubscriptionPayments] = useState<SubscriptionPayment[]>([])
   const [driverName, setDriverName] = useState<string | null>(null)
+  const [driverLanguage, setDriverLanguage] = useState('fr')
+  const [profileOpen, setProfileOpen] = useState(false)
   const [offers, setOffers] = useState<RideOffer[]>([])
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null)
   const [passengerInfo, setPassengerInfo] = useState<PassengerPublicInfo | null>(null)
@@ -125,9 +128,22 @@ export function DriverHome() {
       .eq('status', 'success')
       .order('confirmed_at', { ascending: false })
     setSubscriptionPayments((paymentsData as unknown as SubscriptionPayment[]) ?? [])
+  }, [driver])
 
-    const { data: profileData } = await supabase.from('profiles').select('full_name').eq('id', driver.id).maybeSingle()
-    setDriverName(profileData?.full_name ?? null)
+  // Profil (nom/langue) chargé indépendamment de loadSubscriptionData —
+  // accessible même avant approbation (dossier en attente/refusé), pas
+  // seulement une fois `approved`.
+  useEffect(() => {
+    if (!driver) return
+    supabase
+      .from('profiles')
+      .select('full_name, language')
+      .eq('id', driver.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setDriverName(data?.full_name ?? null)
+        setDriverLanguage(data?.language ?? 'fr')
+      })
   }, [driver])
 
   // jsPDF embarque html2canvas/dompurify (plugin .html(), jamais utilisé
@@ -408,6 +424,9 @@ export function DriverHome() {
         </div>
         <div className="flex items-center gap-4">
           <SosButton rideId={activeRide?.id ?? null} />
+          <button onClick={() => setProfileOpen(true)} className="text-sm font-medium text-ink-600 hover:underline">
+            Profil
+          </button>
           <button onClick={handleSignOut} className="text-sm font-medium text-ink-600 hover:underline">
             Se déconnecter
           </button>
@@ -726,6 +745,19 @@ export function DriverHome() {
           reporterId={driver.id}
           categories={REPORT_CATEGORIES}
           onClose={() => setReportRideId(null)}
+        />
+      )}
+
+      {profileOpen && driver && (
+        <ProfileModal
+          userId={driver.id}
+          initialFullName={driverName}
+          initialLanguage={driverLanguage}
+          onClose={() => setProfileOpen(false)}
+          onSaved={(fullName, language) => {
+            setDriverName(fullName || null)
+            setDriverLanguage(language)
+          }}
         />
       )}
     </div>
