@@ -391,6 +391,18 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 - **Protection mots de passe compromis (HaveIBeenPwned) désactivée** —
   interrupteur dashboard (Authentication → Password protection), pas une
   migration. Deux minutes, quand vous voulez.
+- **RLS : `auth.uid()` réévalué ligne par ligne, pas seulement une fois
+  par requête** (avis performance Supabase, 36 policies concernées, sur
+  la quasi-totalité des tables) — recommandation standard Supabase :
+  écrire `(select auth.uid())` au lieu de `auth.uid()` dans une policy
+  pour que le planificateur l'évalue une seule fois. **Présent depuis la
+  toute première migration**, pas une régression récente ; sans impact
+  mesurable au volume actuel (quelques lignes par table), deviendrait
+  sensible à l'échelle. Corriger proprement demanderait de réécrire
+  ~36 policies dans une seule migration transverse — volontairement pas
+  fait ici (hors périmètre de l'audit en cours, risque de sécurité si
+  fait à la hâte) ; à traiter comme un chantier dédié le jour où le
+  volume réel le justifie.
 
 ## 4. En cours
 
