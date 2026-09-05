@@ -1959,6 +1959,83 @@ libre).
 
 ---
 
+## TASK-050 — Audit RPC complémentaire + vérification Playwright
+
+- **Objectif** : après TASK-045 à 049 (5 fonctionnalités backend-prêtes
+  jamais appelées, trouvées en croisant les tables réelles avec l'usage
+  client), pousser la même méthode à **toutes** les fonctions `public.`
+  (pas seulement celles liées à une table) pour vérifier qu'aucun autre
+  écran documenté ne dépend d'une RPC jamais appelée ; et combler un vrai
+  trou de rigueur — toutes les fonctionnalités construites depuis
+  TASK-043 (LocationPicker) n'avaient été vérifiées que par
+  `tsc`/`build`/`oxlint`, jamais par un rendu réel dans un navigateur
+  (contrairement à TASK-030–042, vérifiées via Playwright + mocks
+  REST/RPC), faute d'accès réseau à Supabase/Google depuis ce sandbox.
+- **Statut** : Terminé (5 septembre 2026).
+- **Fait** :
+  - **Audit RPC** : les 51 fonctions `public.` croisées contre l'usage
+    réel des trois apps. Toutes les fonctions à 0 appel client
+    s'expliquent : appelées uniquement par une Edge Function/webhook
+    (`confirm_ride_payment`, `confirm_subscription_payment`,
+    `estimate_ride_fare`), verrouillées à `service_role`
+    (`find_user_id_by_phone`, flux téléphone eSMS Africa déjà abandonné :
+    `request_phone_verification`/`record_phone_verification`/
+    `finalize_phone_verification`), ou triggers non-RPC
+    (`generate_referral_code`). **Découverte au passage** :
+    `passengers.referral_code`/`referred_by` (généré automatiquement à
+    l'inscription) n'a aucune logique de récompense ni RPC de saisie
+    associée nulle part dans la base ou les docs — contrairement à
+    `promotions` (explicitement « préparé, non actif au MVP » dans
+    `docs/03-sitemap.md`), aucun écran de `docs/05-ecrans.md` ne
+    mentionne de parrainage. Traité comme la même catégorie que
+    `promotions`/`zones` : scaffolding préparé pour plus tard, pas un
+    gap MVP — **volontairement pas construit** (inventer la logique de
+    récompense serait fabriquer une exigence métier jamais spécifiée).
+  - **Vérification Playwright** (nouvelle, contrairement à TASK-043–049) :
+    `apps/admin/dist` et `apps/web/dist` servis localement
+    (`serve -s`), Chromium piloté via `playwright-core` avec l'exécutable
+    déjà présent dans ce sandbox (`/opt/pw-browsers/chromium`), session
+    Supabase falsifiée directement dans `localStorage`
+    (`sb-<ref>-auth-token`) pour passer les gardes de route sans réseau
+    réel, et toutes les requêtes `rest/v1`/`auth/v1` interceptées
+    (`page.route`) avec des réponses JSON réalistes — la même approche
+    que TASK-030–042, jamais réappliquée depuis.
+    - **Admin** (`/reclamations`) : ticket support affiché avec le nom
+      du demandeur (confirme que la FK ajoutée en TASK-048 fonctionne
+      réellement via l'embed PostgREST, pas seulement en théorie SQL) ;
+      « Voir la conversation » charge le fil ; « Prendre en charge »
+      retire le badge non-assigné ; réponse envoyée et affichée ;
+      « Résoudre » met à jour le badge de statut. 8/8 vérifications OK.
+    - **Web passager** (`/passager/accueil`) : `RatingModal` s'ouvre
+      automatiquement pour une course terminée non notée, affiche le
+      nom du chauffeur (RPC `get_ride_driver_public_info`), sélection
+      d'étoiles + envoi ferme la modale ; cloche de notifications
+      affiche la notification simulée ; bouton Support affiche le
+      ticket simulé. 10/10 vérifications OK, aucune erreur console
+      inattendue (seules la police Google Fonts et le WebSocket
+      Realtime, tous deux bloqués par la politique réseau du sandbox,
+      génèrent du bruit attendu, filtré explicitement).
+    - Captures d'écran envoyées au porteur du projet pour preuve visuelle
+      directe, pas seulement une affirmation.
+  - Scripts de vérification écrits et exécutés dans le scratchpad de
+    session (jamais dans le dépôt), supprimés avec l'environnement en
+    fin de session — rien commité.
+- **Vérifié** : voir ci-dessus — c'est la vérification elle-même.
+  **Non couvert** : `DriverHome.tsx` (web) n'a pas été rejoué séparément
+  — mêmes composants (`RatingModal`, `NotificationsBell`,
+  `SupportButton`) déjà exercés côté passager, différence limitée au
+  câblage de props (déjà validé par `tsc`) ; `apps/mobile` reste non
+  vérifiable en rendu réel depuis ce sandbox (aucun émulateur, mode web
+  Expo non relancé pour cette passe).
+- **Résultat** : les cinq fonctionnalités de TASK-045 à 049 sont
+  désormais vérifiées par un rendu réel (pas seulement une compilation
+  qui passe) sur `apps/web` et `apps/admin` ; confirmation concrète que
+  la correction d'embedding PostgREST de TASK-048 fonctionne. Aucun
+  autre gap du même type (RPC prête, jamais appelée) trouvé dans le
+  reste de la base.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown

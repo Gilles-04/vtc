@@ -7,11 +7,19 @@ notifications (TASK-046), jeton push (TASK-045), notation post-course
 `device_fingerprints` : le mécanisme anti-fraude « appareils partagés »,
 testé en local dès la migration 1, n'avait jamais reçu une seule ligne
 en production faute d'appel client — enfin câblé, best-effort
-(TASK-049) ; ces cinq tâches, plus les 7 zones transverses/admin
-trouvées le même jour (TASK-042) et le sélecteur géolocalisation+carte
-demandé par le porteur du projet après son premier test réel en local
-(TASK-043/044), couvrent tout ce qui a été construit le 5 septembre —
-détail complet dans `docs/TASKS.md`)*
+(TASK-049) ; audit étendu à toutes les fonctions `public.` (TASK-050) :
+aucun autre gap du même type trouvé, `referral_code`/`referred_by`
+identifiés comme scaffolding délibérément non actif (même catégorie que
+`promotions`), pas construit. **Nouveau** : ces cinq fonctionnalités
+enfin vérifiées par un rendu réel (Playwright + Chromium + mocks
+REST/RPC, comme TASK-030–042) plutôt que la seule compilation — confirme
+notamment que la correction d'embedding PostgREST de TASK-048
+fonctionne vraiment ; captures d'écran envoyées au porteur du projet.
+Ces six tâches, plus les 7 zones transverses/admin trouvées le même
+jour (TASK-042) et le sélecteur géolocalisation+carte demandé par le
+porteur du projet après son premier test réel en local (TASK-043/044),
+couvrent tout ce qui a été construit le 5 septembre — détail complet
+dans `docs/TASKS.md`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -140,6 +148,18 @@ seul ne suffit plus pour recevoir un push distant sur Android depuis le
 SDK 53), voir §3/§7.
 
 ## 2. Ce qui fonctionne
+
+**Vérification par rendu réel des tâches 045-049 (5 septembre 2026,
+TASK-050)** — jusqu'ici seulement vérifiées par `tsc`/`build`/`oxlint`
+(pas de Playwright depuis TASK-042, faute d'y avoir repensé), rejouées
+dans Chromium (session Supabase falsifiée, requêtes REST/RPC
+interceptées avec des réponses réalistes, même méthode que
+TASK-030–042) : admin (`/reclamations`, section Tickets support) et web
+passager (`/passager/accueil`, notation + notifications + support) —
+18 vérifications, toutes passées. Confirme notamment que la correction
+d'embedding PostgREST de TASK-048 fonctionne réellement, pas seulement
+en théorie SQL. `apps/mobile` reste non vérifiable en rendu réel
+(aucun émulateur dans ce sandbox).
 
 **Empreinte d'appareil anti-fraude (5 septembre 2026, TASK-049)** —
 `device_fingerprints` (RLS + contrainte unique `(user_id, device_id)` +
@@ -409,6 +429,25 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
+
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-050) :
+**audit RPC complémentaire + vérification Playwright** — après
+TASK-045-049, audit étendu à toutes les fonctions `public.` (pas
+seulement les tables) : aucun autre gap trouvé, toutes les fonctions à
+0 appel client s'expliquent (Edge Function, `service_role` uniquement,
+ou flux téléphone déjà abandonné). Découverte au passage :
+`passengers.referral_code`/`referred_by` (auto-généré à l'inscription)
+n'a aucune logique de récompense ni RPC associée nulle part — même
+catégorie que `promotions` (scaffolding préparé, non actif au MVP),
+volontairement pas construit. **Vérification par rendu réel** (nouveau
+depuis TASK-042) : `apps/admin`/`apps/web` servis localement, Chromium
+piloté via Playwright avec session Supabase falsifiée et requêtes
+REST/RPC interceptées — 18 vérifications (ticket support pris en
+charge/répondu/résolu côté admin ; notation/notifications/support
+côté passager web), toutes passées, confirmant que la correction
+d'embedding PostgREST de TASK-048 fonctionne réellement. Captures
+d'écran envoyées. `apps/mobile` reste non vérifiable en rendu réel
+(aucun émulateur dans ce sandbox).
 
 **5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-049) :
 **empreinte d'appareil anti-fraude câblée** — découverte par la même
