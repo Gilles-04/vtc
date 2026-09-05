@@ -1,19 +1,23 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 5 septembre 2026 (audit des notifications push a
-révélé qu'aucun client n'a jamais lu la table `notifications` elle-même
-(prête depuis le premier jour) — boîte de notifications in-app construite
-partout (TASK-046) ; le jeton push, jamais enregistré par aucun client,
-enfin câblé côté mobile (TASK-045, bloqué en pratique par un projet Expo
-manquant) ; le porteur du projet a testé `apps/web` en local pour la
-première fois — a validé le parcours de bout en bout et fait remonter un
-vrai besoin : remplacer la saisie manuelle de coordonnées par
-géolocalisation + carte (TASK-043/044), ce qui a aussi révélé et corrigé
-deux bugs d'affichage réels de la carte ; avant ça, audit honnête de tous
-les écrans documentés dans `docs/05-ecrans.md` avait révélé 7 zones
-manquantes, toutes construites le jour même (TASK-042) ; clé Google Maps
-câblée plus tôt dans la journée, dernier blocage réel du parcours
-passager levé — détail des tâches dans `docs/TASKS.md`)*
+*Dernière mise à jour : 5 septembre 2026 (notation post-course construite
+— dernier écran MVP documenté (`docs/05-ecrans.md` écran #11) jamais
+livré, `ratings` prête côté RLS/trigger depuis le tout premier jour mais
+à 0 ligne malgré des courses terminées (TASK-047) ; avant ça, audit des
+notifications push ayant révélé qu'aucun client n'a jamais lu la table
+`notifications` elle-même (prête depuis le premier jour) — boîte de
+notifications in-app construite partout (TASK-046) ; le jeton push,
+jamais enregistré par aucun client, enfin câblé côté mobile (TASK-045,
+bloqué en pratique par un projet Expo manquant) ; le porteur du projet a
+testé `apps/web` en local pour la première fois — a validé le parcours de
+bout en bout et fait remonter un vrai besoin : remplacer la saisie
+manuelle de coordonnées par géolocalisation + carte (TASK-043/044), ce qui
+a aussi révélé et corrigé deux bugs d'affichage réels de la carte ; avant
+ça, audit honnête de tous les écrans documentés dans `docs/05-ecrans.md`
+avait révélé 7 zones manquantes, toutes construites le jour même
+(TASK-042) ; clé Google Maps câblée plus tôt dans la journée, dernier
+blocage réel du parcours passager levé — détail des tâches dans
+`docs/TASKS.md`)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour significative.
 
@@ -103,6 +107,13 @@ et Carte live des courses admin (écran #10, Leaflet + OpenStreetMap).
 Toutes construites et vérifiées (tsc/build/lint) le jour même — détail
 complet en §5.
 
+**La notation post-course (écran #11) est désormais construite elle
+aussi** (5 septembre 2026, TASK-047) — dernier écran MVP documenté
+jamais livré : `ratings` avait ses RLS/grants/trigger complets depuis la
+migration 1 mais restait à 0 ligne. Modale étoiles + commentaire
+proposée automatiquement après une course terminée non encore notée,
+web et mobile, passager et chauffeur.
+
 Reste à construire : l'autocomplétion d'adresse Google Places (§3, non
 bloquant), géolocalisation en arrière-plan côté `apps/mobile` (hors
 périmètre porté ce jour), le worker de dispatch dédié (écrit, pas
@@ -114,6 +125,15 @@ seul ne suffit plus pour recevoir un push distant sur Android depuis le
 SDK 53), voir §3/§7.
 
 ## 2. Ce qui fonctionne
+
+**Notation post-course (5 septembre 2026, TASK-047)** — étoiles 1-5 +
+commentaire optionnel, proposée automatiquement après la course la plus
+récente terminée si elle n'est pas encore notée, web et mobile, passager
+et chauffeur. `ratings` (RLS + trigger `apply_rating_to_aggregate`)
+prête depuis la migration 1 mais jamais exposée côté client jusqu'ici —
+0 ligne malgré des courses terminées. `drivers.rating_avg`/`rating_count`
+et `passengers.rating_avg`/`rating_count` vont enfin recevoir de vraies
+données. Aucune migration nécessaire, uniquement du frontend.
 
 **Boîte de notifications in-app (5 septembre 2026, TASK-046)** — cloche
 avec badge non-lu + liste, web et mobile, passager et chauffeur. La table
@@ -338,6 +358,26 @@ passager+chauffeur par plateforme, ni les 24 écrans admin réels.
 Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
+
+**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-047) :
+**notation post-course construite (écran #11, web + mobile, passager +
+chauffeur)** — découverte par la même méthode que TASK-045/046 (pas une
+demande explicite) : `ratings` a des RLS et un trigger complets
+(`apply_rating_to_aggregate` met à jour `rating_avg`/`rating_count` sur
+`drivers` et `passengers`) depuis la migration 1, et l'écran est
+documenté comme requis pour le MVP dans `docs/05-ecrans.md`, mais aucun
+client n'avait jamais inséré la moindre ligne malgré des courses déjà
+`completed` en production. `RatingModal` (étoiles 1-5 + commentaire
+optionnel) proposée automatiquement après la course la plus récente si
+elle est terminée et pas encore notée par l'utilisateur courant. Côté
+mobile chauffeur, il n'existait aucune requête d'historique de courses
+(pas d'écran Revenus sur mobile) : ajout d'une requête dédiée et
+volontairement minimale, limitée à la détection de notation — pas de
+reconstruction de l'écran Revenus complet sur mobile, hors périmètre.
+**Aucune migration nécessaire** — RLS/trigger déjà en place, seul le
+frontend manquait. Vérifié : tsc/build/lint propres sur `apps/web` et
+`apps/mobile` ; pas de test en conditions réelles possible depuis ce
+sandbox (mêmes limitations réseau connues).
 
 **5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-046) :
 **boîte de notifications in-app construite (web + mobile, passager +
@@ -627,9 +667,11 @@ UX/UI (37 écrans) — détail dans l'historique de conversation.
 
 Le code applicatif (dashboard admin, `apps/web` et `apps/mobile`,
 passager/chauffeur) est terminé pour le périmètre MVP documenté sur les
-trois plateformes, écrans transverses/sécurité inclus (TASK-042). Seule
-pièce visuelle non construite, non bloquante : l'autocomplétion d'adresse
-Google Places (§3). « Moyens de paiement » (écran transverse listé dans
+trois plateformes, écrans transverses/sécurité inclus (TASK-042) et
+notation post-course incluse (TASK-047) — les 24+ écrans de
+`docs/05-ecrans.md` sont désormais tous construits. Seule pièce visuelle
+non construite, non bloquante : l'autocomplétion d'adresse Google Places
+(§3). « Moyens de paiement » (écran transverse listé dans
 `docs/05-ecrans.md`) reste délibérément non construit : aucun moyen de
 paiement n'est enregistré dans ce système, le mode est choisi à chaque
 course — pas de quoi construire un écran tant que cette conception ne

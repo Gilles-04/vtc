@@ -1816,6 +1816,53 @@ libre).
 
 ---
 
+## TASK-047 — Notation post-course (écran #11, jamais construite)
+
+- **Objectif** : découverte par la même méthode que TASK-045/046 — la
+  table `ratings` (migration 1) a des RLS et un trigger complets
+  (`apply_rating_to_aggregate` met à jour `drivers.rating_avg`/
+  `rating_count` et `passengers.rating_avg`/`rating_count`) depuis le
+  premier jour, et l'écran #11 (« Fin de course ») est documenté dans
+  `docs/05-ecrans.md` comme requis pour le MVP, mais aucun client n'a
+  jamais inséré la moindre ligne — `ratings` est resté à 0 ligne alors
+  qu'au moins une course était déjà `completed` en production.
+- **Statut** : Terminé (5 septembre 2026).
+- **Fait** :
+  - `apps/web/src/components/RatingModal.tsx` et
+    `apps/mobile/src/components/RatingModal.tsx` : sélecteur d'étoiles
+    (1 à 5) + commentaire optionnel, insert dans `ratings`
+    (`ride_id`, `rater_id`, `ratee_id`, `rater_role`, `rating`,
+    `comment`), bouton « Plus tard » pour reporter sans bloquer l'écran.
+  - `PassengerHome.tsx`/`DriverHome.tsx` (web) et
+    `app/passager/accueil.tsx`/`app/chauffeur/accueil.tsx` (mobile) :
+    après chargement de l'historique, si la course la plus récente de
+    l'utilisateur est `completed` et qu'aucune ligne `ratings` n'existe
+    déjà pour `(ride_id, rater_id)`, la modale s'ouvre automatiquement
+    avec le nom du destinataire (`get_ride_driver_public_info`/
+    `get_ride_passenger_public_info`, jamais de lecture directe de
+    `drivers`/`profiles` — RLS bloquée entre passager et chauffeur).
+  - Côté mobile chauffeur (`app/chauffeur/accueil.tsx`), il n'existait
+    aucune requête d'historique de courses (pas d'écran « Revenus » sur
+    mobile, contrairement à l'écran #18 web/TASK-076) : ajout d'une
+    requête `loadRatingPrompt` dédiée et volontairement minimale,
+    limitée à la détection de notation — pas de reconstruction de
+    l'écran Revenus complet sur mobile, hors périmètre de cette tâche.
+  - **Aucune migration nécessaire** — RLS/grants/trigger déjà en place
+    depuis la migration 1, seul le frontend manquait, comme TASK-046.
+- **Vérifié** : `tsc --noEmit`, `oxlint` et `npm run build` propres sur
+  `apps/web` ; `tsc --noEmit` et `oxlint` propres sur `apps/mobile`. Pas
+  de vérification en conditions réelles possible depuis ce sandbox
+  (réseau Supabase/Google bloqué pour les outils navigateur, pas
+  d'émulateur mobile) — le schéma RLS utilisé (`ratings_insert_own`) est
+  inchangé et déjà écrit/testé en local (Postgres réel) lors de la
+  migration elle-même, pas de risque de sécurité nouveau introduit ici.
+- **Résultat** : l'écran #11 existe enfin des deux côtés (web et
+  mobile, passager et chauffeur) ; `drivers.rating_avg`/`rating_count`
+  et `passengers.rating_avg`/`rating_count` vont enfin recevoir de
+  vraies données au lieu de rester figés à leur valeur par défaut.
+
+---
+
 ## Gabarit pour une nouvelle tâche
 
 ```markdown
