@@ -87,12 +87,8 @@ sous-fichiers par sujet (plus aucun fichier de code ne dépasse
   à confirmer sur un vrai téléphone.
 - **Carte live admin et facturation détail non vérifiées avec de
   vraies données** — code et route corrects, mais pas encore de vraie
-  facture ni de connexion admin fonctionnelle pour le confirmer (voir
-  point suivant).
-- **Mot de passe du compte admin probablement inutilisable** — ce
-  compte a été créé comme passager (code email), jamais via un
-  formulaire mot de passe. Réinitialiser depuis Dashboard Supabase →
-  Authentication → Users si `/login` échoue.
+  facture pour le confirmer. La connexion admin, elle, est résolue (voir
+  §5).
 - **Auto-complétion d'adresse (Google Places) délibérément pas
   construite** — remplacée par géolocalisation + carte, qui correspond
   mieux à la réalité togolaise (adresses peu standardisées).
@@ -138,6 +134,14 @@ découpage des fichiers d'écran trop volumineux). Détail complet, daté :
 voir [`CHANGELOG.md`](CHANGELOG.md), entrées les plus récentes en
 premier.
 
+**`apps/admin` déployé et vérifié en ligne sur Vercel** (6 septembre
+2026, avec Gilles) — deux blocages trouvés et corrigés (Root Directory
+Vercel non défini, variables d'environnement présentes mais vides) et
+le mot de passe du compte admin (`abotchigilles@yahoo.fr`, généré
+automatiquement à la création, inutilisable) redéfini directement en
+base — connexion admin en ligne confirmée fonctionnelle. Détail complet
+dans `TASK-053` (`docs/TASKS.md`).
+
 ## 6. Prochaine étape
 
 Deux chantiers restent ouverts, aucun ne bloque l'usage actuel du site
@@ -147,11 +151,9 @@ pas du code :
 - **TASK-054 (critique avant lancement réel)** : passer l'organisation
   Supabase au plan Pro — sans ça, aucune sauvegarde n'existe (voir §3
   et §7). Décision de budget qui vous appartient.
-- **TASK-053 (priorité haute)** : le déploiement Vercel d'`apps/admin`
-  est en cours (variables d'environnement recréées, redéploiement
-  lancé) mais pas encore confirmé fonctionnel, et `apps/web` n'a pas
-  encore de projet Vercel. Nécessite vos actions dans l'interface Vercel
-  — voir §7.
+- **TASK-053 (priorité haute)** : `apps/admin` est en ligne et
+  fonctionnel sur Vercel. Reste `apps/web`, qui n'a pas encore de projet
+  Vercel — nécessite vos actions dans l'interface Vercel — voir §7.
 
 En dehors de ces deux tâches, ce qui reste est soit externe
 (décisions/comptes qui vous appartiennent, §7), soit une vérification
@@ -169,9 +171,6 @@ avec de vraies données).
   voulez) : `cd apps/mobile && npm install && npx expo start`, puis
   scanner le QR code avec l'app **Expo Go** (Android/iOS, gratuite) —
   pas besoin de compte Expo/EAS pour ça.
-- **Connexion admin** : essayez `/login` avec `abotchigilles@yahoo.fr`.
-  Si ça échoue (probable), réinitialisez le mot de passe depuis
-  Dashboard → Authentication → Users → ce compte.
 - **Mobile Money** : Flooz, TMoney (direct) ou Semoa Togo (agrégateur)
   — non bloquant. Détermine aussi la réponse à la question de custody
   des fonds notée en §3.

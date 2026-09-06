@@ -46,22 +46,37 @@ Mobile Money, compte Expo, etc.), pas de développement — voir
 
 ## TASK-053 — Finaliser le déploiement Vercel (apps/web et apps/admin)
 
-- **Objectif** : `apps/admin` est en cours de déploiement sur Vercel
-  (projet créé, variables d'environnement recréées en type Plaintext
-  après confusion avec le type Secret write-only) — la confirmation
-  qu'un site fonctionnel se charge n'a pas encore été obtenue.
-  `apps/web` n'a pas encore de projet Vercel du tout.
-- **Priorité** : haute (bloque la mise en ligne réelle).
-- **Statut** : Bloqué — nécessite les actions de Gilles dans l'interface
-  Vercel (pas d'accès direct depuis cet environnement sans jeton API,
-  voir `docs/STATUS.md` §7) ou la création d'un jeton API Vercel
-  (`vercel.com/account/tokens`, 7 jours, compte personnel) pour que
-  Claude puisse piloter le déploiement directement.
+- **Objectif** : `apps/admin` déployé sur Vercel et confirmé fonctionnel
+  le 6 septembre 2026 (voir Résultat). `apps/web` n'a encore aucun
+  projet Vercel.
+- **Priorité** : haute (bloque la mise en ligne réelle d'`apps/web`).
+- **Statut** : En cours — `apps/admin` terminé et vérifié, `apps/web`
+  reste à créer (nécessite les actions de Gilles dans l'interface
+  Vercel : **Add New → Project**, importer le dépôt `Gilles-04/vtc`,
+  définir **Root Directory** = `apps/web`, ajouter les 3 variables
+  d'environnement de `apps/web/.env.example`).
 - **Fichiers concernés** : aucun (configuration côté Vercel, pas de
   code).
 - **Dépendances** : aucune.
-- **Vérification attendue** : site chargé sans erreur console, connexion
-  réelle testée.
+- **Vérification attendue (`apps/web`)** : site chargé sans erreur
+  console, connexion réelle testée.
+- **Résultat (`apps/admin`)** : deux blocages trouvés et corrigés en
+  direct avec Gilles le 6 septembre 2026 — **Root Directory** non défini
+  dans les réglages Vercel (causait un `404: NOT_FOUND`, corrigé en le
+  mettant à `apps/admin`) puis **variables d'environnement présentes
+  mais sans valeur** (`VITE_SUPABASE_URL`/`VITE_SUPABASE_PUBLISHABLE_KEY`
+  vides, causait une page blanche identique au souci rencontré en local
+  — corrigé en renseignant les valeurs réelles). Site vérifié
+  fonctionnel par Gilles à `https://vtc-admin-*.vercel.app` (URL exacte
+  générée par Vercel, change à chaque déploiement — domaine fixe pas
+  encore configuré). Au passage, le compte admin
+  (`abotchigilles@yahoo.fr`) avait un mot de passe généré automatiquement
+  (créé à l'origine comme passager, jamais via un formulaire mot de
+  passe) — aucune option de réinitialisation dans le tableau de bord
+  Supabase utilisé, mot de passe défini directement en base via
+  `extensions.crypt()`/`gen_salt('bf')` (méthode standard compatible
+  avec le hachage de Supabase Auth). Connexion admin confirmée
+  fonctionnelle.
 
 ---
 
