@@ -2080,3 +2080,49 @@ rien n'a été supprimé ni résumé, seulement déplacé (voir
   du projet ; une nouvelle session Claude Code dispose désormais d'un
   fichier de règles permanentes sans avoir à relire l'historique de
   conversation.
+
+## TASK-052 — Découper les 4 fichiers d'écran trop volumineux
+
+- **Objectif** : `apps/web/src/pages/DriverHome.tsx` (804 lignes),
+  `apps/mobile/app/chauffeur/accueil.tsx` (759 lignes),
+  `apps/mobile/app/passager/accueil.tsx` (568 lignes) et
+  `apps/web/src/pages/PassengerHome.tsx` (565 lignes) mélangeaient
+  affichage, appels Supabase et état local dans un seul fichier — les
+  séparer en sous-fichiers par sujet, sans changer le comportement
+  (dernier point ouvert de la réorganisation du 6 septembre 2026, avec
+  TASK-051 et le déploiement Vercel — TASK-053).
+- **Statut** : Terminé (6 septembre 2026).
+- **Fait** : même découpage sur les 4 fichiers — un hook
+  `use*Dashboard.ts` regroupant toute la donnée/les mutations (aucun
+  JSX), un fichier par bloc d'affichage avec des props explicites, et un
+  fichier d'assemblage :
+  - `apps/web/src/pages/DriverHome/` (7 fichiers) et
+    `apps/web/src/pages/PassengerHome/` (5 fichiers) : le fichier
+    d'assemblage est `index.tsx` (TanStack Router résout un dossier vers
+    son `index.tsx` comme avant vers le fichier plat — aucun changement
+    de route).
+  - `apps/mobile/src/screens/DriverHome/` (6 fichiers) et
+    `apps/mobile/src/screens/PassengerHome/` (5 fichiers) — placés en
+    dehors de `app/` par précaution vis-à-vis du routage par fichier
+    d'Expo Router (un fichier sans export default n'y est normalement
+    pas traité comme une route, mais autant ne pas en dépendre).
+    `app/chauffeur/accueil.tsx` et `app/passager/accueil.tsx` deviennent
+    de simples re-exports (`export { default } from '../../src/screens/...'`).
+  - `useDriverDashboard.ts` (web) reste long (451 lignes, seul
+    dépassement restant) — une seule responsabilité cohérente (tout ce
+    que l'écran charge/modifie) ; le découper davantage croiserait les
+    dépendances (`driver`, `activeRide`) entre plusieurs hooks sans gain
+    réel, jugé pas utile pour l'instant (voir `docs/DECISIONS.md` si
+    reconsidéré).
+- **Vérifié** : `tsc --noEmit`/`vite build`/`oxlint` propres après
+  chaque fichier (un fichier = un commit, 4 commits). Par rendu réel
+  (Playwright/Chromium, session + REST Supabase simulés) sur les 4
+  écrans : web servi via `serve -s dist`, mobile via `expo start --web`
+  (même technique que TASK-034/046/050) — 13+12+6+6 = 37 vérifications
+  OK au total, aucune erreur console. Première vérification par rendu
+  réel de `DriverHome.tsx` (web) et `app/chauffeur/accueil.tsx` (mobile),
+  qui n'avaient jamais été exercés directement jusqu'ici (voir TASK-050
+  §Non couvert).
+- **Résultat** : les 4 fichiers signalés par l'audit du 6 septembre 2026
+  sont découpés, zéro changement de comportement. Il ne reste plus aucun
+  fichier de code dépassant 500 lignes dans le dépôt.

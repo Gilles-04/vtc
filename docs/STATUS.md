@@ -55,7 +55,9 @@ lançable en une commande locale : `npm run verify`) ; dossiers
 (`CHANGELOG.md`, `DECISIONS.md` nouveaux) ; README racine remis à jour ;
 [`CLAUDE.md`](../CLAUDE.md) créé (règles permanentes de travail sur ce
 dépôt, pour qu'une nouvelle session reprenne sans relire la
-conversation).
+conversation) ; les 4 fichiers d'écran dépassant 550 lignes découpés en
+sous-fichiers par sujet (plus aucun fichier de code ne dépasse
+500 lignes).
 
 ## 3. Ce qui pose problème / limites connues
 
@@ -99,23 +101,22 @@ conversation).
 
 ## 4. En cours
 
-Rien en cours — en attente de la prochaine demande. Deux tâches restent
-ouvertes dans [`TASKS.md`](TASKS.md) (TASK-052 : découper les 4 fichiers
-d'écran trop volumineux ; TASK-053 : finaliser le déploiement Vercel),
-ni l'une ni l'autre urgente au sens code — voir §6.
+Rien en cours — en attente de la prochaine demande. Une tâche reste
+ouverte dans [`TASKS.md`](TASKS.md) (TASK-053 : finaliser le
+déploiement Vercel), non bloquante pour le reste du code — voir §6.
 
 ## 5. Dernièrement terminé
 
-Réorganisation du dépôt en 3 étapes (nettoyage, CI, documentation,
-README racine, `CLAUDE.md` — voir §2) et audit RPC complémentaire +
-vérification par rendu réel de 5 fonctionnalités (notifications, jeton
-push, notation, support, anti-fraude appareils). Détail complet, daté :
-voir [`CHANGELOG.md`](CHANGELOG.md), entrées les plus récentes en
-premier.
+Réorganisation du dépôt en 4 étapes (nettoyage, CI, documentation,
+README racine + `CLAUDE.md`, découpage des 4 fichiers d'écran trop
+volumineux — voir §2) et audit RPC complémentaire + vérification par
+rendu réel de 5 fonctionnalités (notifications, jeton push, notation,
+support, anti-fraude appareils). Détail complet, daté : voir
+[`CHANGELOG.md`](CHANGELOG.md), entrées les plus récentes en premier.
 
 ## 6. Prochaine étape
 
-Deux chantiers restent ouverts, aucun bloquant pour l'usage actuel du
+Un seul chantier reste ouvert, non bloquant pour l'usage actuel du
 site :
 
 - **TASK-053 (priorité haute)** : le déploiement Vercel d'`apps/admin`
@@ -123,15 +124,13 @@ site :
   lancé) mais pas encore confirmé fonctionnel, et `apps/web` n'a pas
   encore de projet Vercel. Nécessite vos actions dans l'interface Vercel
   — voir §7.
-- **TASK-052 (priorité basse)** : 4 fichiers d'écran dépassent 550
-  lignes et mélangent plusieurs responsabilités — pas un bug, juste plus
-  difficile à faire évoluer en l'état.
 
-En dehors de ces deux tâches, ce qui reste est soit externe
+En dehors de cette tâche, ce qui reste est soit externe
 (décisions/comptes qui vous appartiennent, §7), soit une vérification
 que je ne peux pas faire depuis cet environnement de développement
-(rendu natif réel d'`apps/mobile`, upload de document, confirmations
-`Alert.alert`, carte live et facturation détail avec de vraies données).
+(rendu natif réel d'`apps/mobile` sur un vrai appareil, upload de
+document, confirmations `Alert.alert`, carte live et facturation détail
+avec de vraies données).
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 

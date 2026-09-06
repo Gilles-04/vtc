@@ -12,34 +12,13 @@ backlog libre).
 
 ---
 
-Les tâches TASK-001 à TASK-051 sont toutes terminées et vérifiées, leur
-détail complet est dans [`CHANGELOG.md`](CHANGELOG.md). Deux tâches
-restent ouvertes ci-dessous, issues de la demande de réorganisation du
-6 septembre 2026 ; le reste de ce qui manque avant le lancement réel
+Les tâches TASK-001 à TASK-052 sont toutes terminées et vérifiées, leur
+détail complet est dans [`CHANGELOG.md`](CHANGELOG.md). Une tâche reste
+ouverte ci-dessous ; le reste de ce qui manque avant le lancement réel
 dépend de décisions externes (fournisseur Mobile Money, compte Expo,
 etc.), pas de développement — voir [`STATUS.md`](STATUS.md) §7.
 
 ---
-
-## TASK-052 — Découper les 4 fichiers d'écran trop volumineux
-
-- **Objectif** : `apps/web/src/pages/DriverHome.tsx` (804 lignes),
-  `apps/mobile/app/chauffeur/accueil.tsx` (759 lignes),
-  `apps/mobile/app/passager/accueil.tsx` (568 lignes) et
-  `apps/web/src/pages/PassengerHome.tsx` (565 lignes) mélangent
-  plusieurs responsabilités (affichage, appels Supabase, état local) —
-  les séparer en sous-fichiers par sujet (ex. `DriverHome/index.tsx` +
-  `useDriverDashboard.ts` + sous-composants), sans changer le
-  comportement.
-- **Priorité** : basse (confort de maintenance, pas un bug ni un
-  blocage — le code actuel fonctionne).
-- **Statut** : À faire.
-- **Fichiers concernés** : les 4 fichiers ci-dessus.
-- **Dépendances** : aucune.
-- **Vérification attendue** : `npm run verify` propre après chaque
-  fichier découpé (un fichier = un commit), comportement identique
-  vérifié par rendu réel (Playwright) là où c'est possible depuis ce
-  sandbox.
 
 ## TASK-053 — Finaliser le déploiement Vercel (apps/web et apps/admin)
 
