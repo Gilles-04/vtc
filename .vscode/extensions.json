@@ -1,0 +1,17 @@
+{
+  // Extensions recommandées pour ce projet — VS Code propose de les
+  // installer automatiquement à l'ouverture du dossier.
+  "recommendations": [
+    // Vérifie le code au fur et à mesure (apps/web, apps/admin, apps/mobile
+    // utilisent tous oxlint, pas ESLint).
+    "oxc.oxc-vscode",
+    // Complétion des classes Tailwind CSS (apps/web, apps/admin).
+    "bradlc.vscode-tailwindcss",
+    // Complétion + vérification des Edge Functions (supabase/functions,
+    // écrites en Deno, pas en Node — sans cette extension VS Code
+    // affichera des erreurs d'import incorrectes sur ces fichiers).
+    "denoland.vscode-deno",
+    // Outils Expo (apps/mobile) — aperçu, diagnostics natifs.
+    "expo.vscode-expo-tools"
+  ]
+}

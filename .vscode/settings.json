@@ -1,0 +1,20 @@
+{
+  // Le dossier supabase/functions est écrit en Deno (pas en Node) — sans
+  // ce réglage, VS Code applique les règles TypeScript/Node partout et
+  // signale à tort les imports Deno comme des erreurs.
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.lint": true,
+  "deno.unstable": true,
+
+  // Dossiers générés à ne jamais fouiller ni afficher dans l'explorateur —
+  // ils sont reconstruits automatiquement, jamais modifiés à la main.
+  "files.exclude": {
+    "**/dist": true,
+    "**/.expo": true
+  },
+  "search.exclude": {
+    "**/dist": true,
+    "**/.expo": true,
+    "**/package-lock.json": true
+  }
+}
