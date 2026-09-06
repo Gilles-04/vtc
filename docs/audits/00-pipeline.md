@@ -13,7 +13,7 @@ possible (`npm run verify`, `npm audit`) — jamais d'invention, tout
 | 2 | Audit sécurité complet d'un site web en développement | [`02-audit-securite-web.md`](02-audit-securite-web.md) | ✅ Terminé (6 sept. 2026) — verdict 🟡 ACCEPTABLE AVEC CORRECTIONS MINEURES |
 | 3 | Audit sécurité + configuration Supabase | [`03-audit-securite-supabase.md`](03-audit-securite-supabase.md) | ✅ Terminé (6 sept. 2026) — verdict 🟡 GO CONDITIONNEL |
 | 4 | Audit architecture, scalabilité et maintenabilité | [`04-audit-architecture.md`](04-audit-architecture.md) | ✅ Terminé (6 sept. 2026) — sain, un point à mesurer (latence région Supabase) |
-| 5 | Audit tests, qualité du code et fiabilité | `05-audit-tests-qualite.md` | ⏳ À faire |
+| 5 | Audit tests, qualité du code et fiabilité | [`05-audit-tests-qualite.md`](05-audit-tests-qualite.md) | ✅ Terminé (6 sept. 2026) — 5 tests réels ajoutés et intégrés au CI (0 → 5) |
 | 6 | Audit performance et optimisation complète | `06-audit-performance.md` | ⏳ À faire |
 | 7 | Audit UX/UI, accessibilité et expérience utilisateur | `07-audit-ux-ui.md` | ⏳ À faire |
 | 8 | Hardening et protection maximale d'un VPS Ubuntu en production | `08-audit-hardening-vps.md` | ⏳ À faire — **probablement non applicable** (aucun VPS pour ce projet, voir audit 1 §1) |
