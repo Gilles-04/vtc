@@ -2040,3 +2040,43 @@ rien n'a été supprimé ni résumé, seulement déplacé (voir
   la correction d'embedding PostgREST de TASK-048 fonctionne. Aucun
   autre gap du même type (RPC prête, jamais appelée) trouvé dans le
   reste de la base.
+
+## TASK-051 — Réorganisation, étape 3 : tableau de bord + règles permanentes
+
+- **Objectif** : suite de la réorganisation en 3 étapes validée par
+  Gilles le 6 septembre 2026 (étape 1 : nettoyage sans risque ; étape 2 :
+  suppression de `packages/` + `docs/DECISIONS.md` + CI + éclatement
+  STATUS/TASKS/CHANGELOG — commits `beae0a9`, `53c2824`, `5568f4a`, non
+  numérotés en TASK-XXX à l'époque) : le README racine décrivait
+  encore le projet à son tout début (apps/web et apps/mobile « non
+  initialisées », dossiers `packages/` déjà supprimés, 5 migrations au
+  lieu de 18) et contredisait `docs/STATUS.md` ; et la Phase 7 de la
+  demande de réorganisation (règles permanentes pour Claude Code) restait
+  non traitée.
+- **Statut** : Terminé (6 septembre 2026).
+- **Fait** :
+  - **README racine réécrit** : pointe vers l'état réel de chaque
+    application (README propre à chacune), vers `docs/STATUS.md`/
+    `TASKS.md`/`CHANGELOG.md`/`DECISIONS.md`/`CLAUDE.md`, structure du
+    dépôt à jour (plus de `packages/`).
+  - **`npm run verify` ajouté à la racine** (+ `verify:web`/`admin`/
+    `mobile`) : une seule commande qui rejoue exactement
+    `.github/workflows/ci.yml` (`tsc --noEmit`, `vite build` pour
+    web/admin, `oxlint`) pour les trois apps sans avoir à retenir les
+    commandes par dossier. Testé de bout en bout avant commit (exit 0
+    sur les trois apps, seulement des avertissements oxlint déjà
+    connus).
+  - **`CLAUDE.md` créé** à la racine : protocole avant/pendant/après une
+    tâche, format de compte rendu (symboles ✅⚠️❌⏳🔒), limite entre
+    décisions purement techniques (tranchées seules) et décisions à
+    faire valider par Gilles, interdictions absolues, et les pièges déjà
+    rencontrés cette session (VITE_* non vérifié au build, search_path
+    de `gen_random_bytes()`, packages/ supprimés, STATUS.md instantané
+    vs journal, absence de script `build` pour apps/mobile, mot de passe
+    admin probablement inutilisable).
+- **Vérifié** : `npm run verify` propre (trois apps) avant chaque commit
+  de cette tâche.
+- **Résultat** : le tableau de bord racine reflète à nouveau l'état réel
+  du projet ; une nouvelle session Claude Code dispose désormais d'un
+  fichier de règles permanentes sans avoir à relire l'historique de
+  conversation.

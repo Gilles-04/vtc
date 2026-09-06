@@ -1,11 +1,14 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 6 septembre 2026 (réorganisation du dépôt :
-dossiers `packages/` jamais initialisés supprimés, vérification
-automatique GitHub ajoutée, ce fichier réécrit en instantané court —
-l'historique complet des 50 tâches précédentes a déménagé dans
-[`CHANGELOG.md`](CHANGELOG.md), rien n'a été perdu. Raisonnement complet
-dans [`DECISIONS.md`](DECISIONS.md).)*
+*Dernière mise à jour : 6 septembre 2026 (réorganisation du dépôt en 3
+étapes : dossiers `packages/` jamais initialisés supprimés, vérification
+automatique GitHub ajoutée, documentation éclatée en instantané court +
+historique daté séparé, README racine remis à jour, et
+[`CLAUDE.md`](../CLAUDE.md) créé pour formaliser les règles permanentes
+de travail. Raisonnement complet dans [`DECISIONS.md`](DECISIONS.md),
+détail de chaque étape dans [`CHANGELOG.md`](CHANGELOG.md) TASK-051 (les
+deux étapes précédentes, commits `beae0a9`/`53c2824`/`5568f4a`, sont
+décrites dans son objectif).)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour
 > significative. Historique daté : [`CHANGELOG.md`](CHANGELOG.md).
@@ -46,9 +49,13 @@ dashboard admin.
 
 **Réorganisation du dépôt (6 septembre 2026)** — vérification
 automatique GitHub à chaque envoi (`.github/workflows/ci.yml`,
-compilation + construction + contrôle de code par application) ;
-dossiers `packages/` (jamais utilisés) supprimés ; documentation
-réorganisée (`CHANGELOG.md`, `DECISIONS.md` nouveaux).
+compilation + construction + contrôle de code par application, aussi
+lançable en une commande locale : `npm run verify`) ; dossiers
+`packages/` (jamais utilisés) supprimés ; documentation réorganisée
+(`CHANGELOG.md`, `DECISIONS.md` nouveaux) ; README racine remis à jour ;
+[`CLAUDE.md`](../CLAUDE.md) créé (règles permanentes de travail sur ce
+dépôt, pour qu'une nouvelle session reprenne sans relire la
+conversation).
 
 ## 3. Ce qui pose problème / limites connues
 
@@ -92,24 +99,39 @@ réorganisée (`CHANGELOG.md`, `DECISIONS.md` nouveaux).
 
 ## 4. En cours
 
-Rien en cours — en attente de la prochaine demande.
+Rien en cours — en attente de la prochaine demande. Deux tâches restent
+ouvertes dans [`TASKS.md`](TASKS.md) (TASK-052 : découper les 4 fichiers
+d'écran trop volumineux ; TASK-053 : finaliser le déploiement Vercel),
+ni l'une ni l'autre urgente au sens code — voir §6.
 
 ## 5. Dernièrement terminé
 
-Réorganisation du dépôt (nettoyage, CI, documentation — voir §2) et
-audit RPC complémentaire + vérification par rendu réel de 5
-fonctionnalités (notifications, jeton push, notation, support,
-anti-fraude appareils). Détail complet, daté : voir
-[`CHANGELOG.md`](CHANGELOG.md), entrées les plus récentes en premier.
+Réorganisation du dépôt en 3 étapes (nettoyage, CI, documentation,
+README racine, `CLAUDE.md` — voir §2) et audit RPC complémentaire +
+vérification par rendu réel de 5 fonctionnalités (notifications, jeton
+push, notation, support, anti-fraude appareils). Détail complet, daté :
+voir [`CHANGELOG.md`](CHANGELOG.md), entrées les plus récentes en
+premier.
 
 ## 6. Prochaine étape
 
-Aucun chantier de code n'est bloqué en attente d'une décision technique
-de mon côté. Ce qui reste est soit externe (décisions/comptes qui vous
-appartiennent, §7), soit une vérification que je ne peux pas faire
-depuis cet environnement de développement (rendu natif réel
-d'`apps/mobile`, upload de document, confirmations `Alert.alert`, carte
-live et facturation détail avec de vraies données).
+Deux chantiers restent ouverts, aucun bloquant pour l'usage actuel du
+site :
+
+- **TASK-053 (priorité haute)** : le déploiement Vercel d'`apps/admin`
+  est en cours (variables d'environnement recréées, redéploiement
+  lancé) mais pas encore confirmé fonctionnel, et `apps/web` n'a pas
+  encore de projet Vercel. Nécessite vos actions dans l'interface Vercel
+  — voir §7.
+- **TASK-052 (priorité basse)** : 4 fichiers d'écran dépassent 550
+  lignes et mélangent plusieurs responsabilités — pas un bug, juste plus
+  difficile à faire évoluer en l'état.
+
+En dehors de ces deux tâches, ce qui reste est soit externe
+(décisions/comptes qui vous appartiennent, §7), soit une vérification
+que je ne peux pas faire depuis cet environnement de développement
+(rendu natif réel d'`apps/mobile`, upload de document, confirmations
+`Alert.alert`, carte live et facturation détail avec de vraies données).
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
