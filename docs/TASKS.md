@@ -13,12 +13,36 @@ backlog libre).
 ---
 
 Les tâches TASK-001 à TASK-052 sont toutes terminées et vérifiées, leur
-détail complet est dans [`CHANGELOG.md`](CHANGELOG.md). Une tâche reste
-ouverte ci-dessous ; le reste de ce qui manque avant le lancement réel
-dépend de décisions externes (fournisseur Mobile Money, compte Expo,
-etc.), pas de développement — voir [`STATUS.md`](STATUS.md) §7.
+détail complet est dans [`CHANGELOG.md`](CHANGELOG.md). Deux tâches
+restent ouvertes ci-dessous ; le reste de ce qui manque avant le
+lancement réel dépend de décisions externes (fournisseur Mobile Money,
+compte Expo, etc.), pas de développement — voir
+[`STATUS.md`](STATUS.md) §7.
 
 ---
+
+## TASK-054 — Passer l'organisation Supabase au plan Pro (sauvegardes)
+
+- **Objectif** : l'organisation Supabase de ce projet (`VTC-TOGO`) est
+  sur le plan Free — confirmé par requête directe le 6 septembre 2026
+  (`docs/audits/09-audit-backups-monitoring-dr.md`). Ce plan ne propose
+  **aucune sauvegarde automatique** de la base de données (ni
+  quotidienne, ni Point-in-Time Recovery). En cas d'incident, toute
+  donnée réelle (comptes, courses, paiements, documents KYC) serait
+  perdue définitivement, sans recours.
+- **Priorité** : critique **avant tout lancement réel** — sans impact
+  tant que seules des données de développement existent.
+- **Statut** : Bloqué — décision de budget qui vous appartient, pas
+  technique. Passer au plan Pro active les sauvegardes quotidiennes par
+  défaut.
+- **Fichiers concernés** : aucun (configuration côté Dashboard
+  Supabase).
+- **Dépendances** : aucune.
+- **Vérification attendue** : une fois le plan changé, tester une
+  restauration réelle (créer un projet de test, restaurer dedans,
+  vérifier que l'application fonctionne dessus) avant de considérer le
+  sujet clos — ne jamais supposer une sauvegarde fiable sans l'avoir vue
+  fonctionner.
 
 ## TASK-053 — Finaliser le déploiement Vercel (apps/web et apps/admin)
 

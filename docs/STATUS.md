@@ -61,6 +61,17 @@ sous-fichiers par sujet (plus aucun fichier de code ne dépasse
 
 ## 3. Ce qui pose problème / limites connues
 
+- **🔴 Aucune sauvegarde de la base de données — le projet Supabase est
+  sur le plan Free.** Confirmé par requête directe (organisation
+  `VTC-TOGO`, `plan: free`) le 6 septembre 2026 — voir
+  [`docs/audits/09-audit-backups-monitoring-dr.md`](audits/09-audit-backups-monitoring-dr.md).
+  Sur ce plan, Supabase ne propose **aucune sauvegarde automatique**
+  (ni quotidienne, ni PITR) : en cas d'incident, toute donnée réelle
+  (comptes, courses, paiements, documents KYC) serait **perdue
+  définitivement**, sans recours. Sans impact tant que seules des
+  données de développement existent — devient un risque réel dès le
+  premier vrai utilisateur. Passer au plan Pro avant tout lancement
+  réel est une condition de base, pas une amélioration optionnelle.
 - **Notifications push jamais livrées à un vrai appareil** — le code
   est en place mais bloqué par deux points externes : aucun projet
   Expo créé (§7) et, une fois obtenu, Expo Go seul ne reçoit plus les
@@ -134,6 +145,9 @@ avec de vraies données).
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
+- **🔴 Passer l'organisation Supabase au plan Pro avant tout lancement
+  réel** (voir §3) — sans ça, aucune sauvegarde n'existe. Décision de
+  budget, pas technique.
 - **Tester `apps/mobile` sur votre téléphone** (optionnel, quand vous
   voulez) : `cd apps/mobile && npm install && npx expo start`, puis
   scanner le QR code avec l'app **Expo Go** (Android/iOS, gratuite) —

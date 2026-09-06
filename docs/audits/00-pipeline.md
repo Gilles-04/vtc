@@ -17,7 +17,7 @@ possible (`npm run verify`, `npm audit`) — jamais d'invention, tout
 | 6 | Audit performance et optimisation complète | [`06-audit-performance.md`](06-audit-performance.md) | ✅ Terminé (6 sept. 2026) — 2 causes racines trouvées (bundle admin non découpé par route, appels Storage N+1) |
 | 7 | Audit UX/UI, accessibilité et expérience utilisateur | [`07-audit-ux-ui.md`](07-audit-ux-ui.md) | ✅ Terminé (6 sept. 2026) — bug de contraste réel trouvé et corrigé dans les 3 apps |
 | 8 | Hardening et protection maximale d'un VPS Ubuntu en production | [`08-audit-hardening-vps.md`](08-audit-hardening-vps.md) | ✅ Terminé (6 sept. 2026) — **non applicable**, confirmé (aucun VPS pour ce projet) |
-| 9 | Audit sauvegardes, monitoring, logs et disaster recovery | `09-audit-backups-dr.md` | ⏳ À faire |
+| 9 | Audit sauvegardes, monitoring, logs et disaster recovery | [`09-audit-backups-monitoring-dr.md`](09-audit-backups-monitoring-dr.md) | ✅ Terminé (6 sept. 2026) — 🔴 **critique** : projet Supabase sur plan Free, aucune sauvegarde |
 | 10 | Mode développeur autonome — projet propre de A à Z | — (appliqué en continu, pas un document séparé) | ⏳ En continu |
 | 11 | Audit SEO intégral et optimisation complète du site | `11-audit-seo.md` | ⏳ À faire |
 | 12 | Dossier documentaire complet et vivant du projet | `../` (structure `docs/` existante à compléter) | ⏳ À faire en dernier |
