@@ -13,13 +13,39 @@ backlog libre).
 ---
 
 Les tâches TASK-001 à TASK-052 sont toutes terminées et vérifiées, leur
-détail complet est dans [`CHANGELOG.md`](CHANGELOG.md). Deux tâches
+détail complet est dans [`CHANGELOG.md`](CHANGELOG.md). Trois tâches
 restent ouvertes ci-dessous ; le reste de ce qui manque avant le
 lancement réel dépend de décisions externes (fournisseur Mobile Money,
 compte Expo, etc.), pas de développement — voir
 [`STATUS.md`](STATUS.md) §7.
 
 ---
+
+## TASK-055 — Ajouter les briques SEO de base avant mise en ligne publique
+
+- **Objectif** : l'audit SEO du 6 septembre 2026
+  (`docs/audits/11-audit-seo.md`) a trouvé un site fonctionnel mais sans
+  aucune des briques SEO standards. Le point le plus important n'est
+  pas le référencement lui-même mais une **exposition non voulue** :
+  `apps/admin` (back-office privé) n'a **aucune protection contre
+  l'indexation** (`meta robots`/`robots.txt`) — si son URL Vercel
+  devient publique sans protection d'accès plateforme, un moteur de
+  recherche pourrait l'indexer. À corriger avant que TASK-053 rende
+  `apps/admin` public. Le reste (meta description, Open Graph pour le
+  partage WhatsApp, titres par route, `robots.txt`/sitemap pour
+  `apps/web`) est une amélioration, pas un blocage.
+- **Priorité** : haute pour le point `apps/admin` (avant mise en ligne
+  publique) ; moyenne pour le reste (`apps/web`).
+- **Statut** : À faire — travail de code, pas une décision externe.
+- **Fichiers concernés** : `apps/admin/index.html` (meta robots),
+  `apps/web/index.html` (meta description, Open Graph), nouveaux
+  `apps/web/public/robots.txt` et `apps/admin/public/robots.txt`.
+- **Dépendances** : le correctif `apps/admin` doit être fait avant ou
+  en même temps que TASK-053 (déploiement Vercel), pas après.
+- **Vérification attendue** : `npm run verify` (build+lint) toujours
+  vert ; une fois une URL publique disponible, vérifier le rendu de
+  partage d'un lien `apps/web` (WhatsApp/Facebook) et confirmer via
+  `curl` que `apps/admin` renvoie bien l'en-tête/meta `noindex`.
 
 ## TASK-054 — Passer l'organisation Supabase au plan Pro (sauvegardes)
 
