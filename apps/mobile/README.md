@@ -47,7 +47,7 @@ Construit et vérifié réellement (voir §Vérification ci-dessous) :
   Sans cet appel, `dispatch_next_offer` (docs/08-matching.md) ne peut
   matcher aucun chauffeur — gap trouvé et corrigé le 4 septembre 2026,
   absent aussi bien côté web que mobile jusque-là (voir
-  `docs/TASKS.md` TASK-035).
+  `docs/CHANGELOG.md` TASK-035).
 
 **Limitation connue, spécifique au mode web de vérification** :
 `Alert.alert()` (React Native) est un no-op complet sur `react-native-web`

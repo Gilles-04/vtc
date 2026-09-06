@@ -3,7 +3,7 @@
 Application web React 19 + Vite + TanStack Router. Les 24 écrans
 documentés en [`../../docs/05-ecrans.md`](../../docs/05-ecrans.md)
 §Dashboard Admin sont construits (certains regroupés — voir
-[`docs/TASKS.md`](../../docs/TASKS.md) TASK-020/024/026 pour le détail
+[`docs/CHANGELOG.md`](../../docs/CHANGELOG.md) TASK-020/024/026 pour le détail
 des choix de regroupement liste+détail+action en un seul écran).
 
 ## Démarrage
@@ -55,7 +55,7 @@ ci-dessous).
 ## Premier compte admin (bootstrap)
 
 **Fait** : `super_admin` inséré pour `abotchigilles@yahoo.fr` dans
-`admin_roles` (voir `docs/TASKS.md` TASK-027). Ce compte existait déjà
+`admin_roles` (voir `docs/CHANGELOG.md` TASK-027). Ce compte existait déjà
 en tant que compte passager (créé via le code email `/passager` dans
 `apps/web`), pas via un formulaire email+mot de passe.
 

@@ -64,7 +64,7 @@ Détail complet et statut réel de chaque écran : voir
 `tsc --noEmit` / `npm run build` / `oxlint` systématiquement propres
 avant chaque commit. Vérification par rendu réel (Chromium piloté par
 Playwright, requêtes Supabase simulées) faite pour les écrans les plus
-récents — voir `docs/TASKS.md` TASK-050 pour le détail de la méthode.
+récents — voir `docs/CHANGELOG.md` TASK-050 pour le détail de la méthode.
 Jamais testé avec le vrai projet Supabase en réseau réel depuis cet
 environnement de développement (accès bloqué) — à confirmer en local
 ou une fois déployé.

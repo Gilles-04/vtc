@@ -1,428 +1,94 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 5 septembre 2026 (audit systématique
-« backend prêt, jamais appelé » poursuivi sur toute la base — après
-notifications (TASK-046), jeton push (TASK-045), notation post-course
-(TASK-047) et support client (TASK-048), même méthode appliquée à
-`device_fingerprints` : le mécanisme anti-fraude « appareils partagés »,
-testé en local dès la migration 1, n'avait jamais reçu une seule ligne
-en production faute d'appel client — enfin câblé, best-effort
-(TASK-049) ; audit étendu à toutes les fonctions `public.` (TASK-050) :
-aucun autre gap du même type trouvé, `referral_code`/`referred_by`
-identifiés comme scaffolding délibérément non actif (même catégorie que
-`promotions`), pas construit. **Nouveau** : ces cinq fonctionnalités
-enfin vérifiées par un rendu réel (Playwright + Chromium + mocks
-REST/RPC, comme TASK-030–042) plutôt que la seule compilation — confirme
-notamment que la correction d'embedding PostgREST de TASK-048
-fonctionne vraiment ; captures d'écran envoyées au porteur du projet.
-Ces six tâches, plus les 7 zones transverses/admin trouvées le même
-jour (TASK-042) et le sélecteur géolocalisation+carte demandé par le
-porteur du projet après son premier test réel en local (TASK-043/044),
-couvrent tout ce qui a été construit le 5 septembre — détail complet
-dans `docs/TASKS.md`)*
+*Dernière mise à jour : 6 septembre 2026 (réorganisation du dépôt :
+dossiers `packages/` jamais initialisés supprimés, vérification
+automatique GitHub ajoutée, ce fichier réécrit en instantané court —
+l'historique complet des 50 tâches précédentes a déménagé dans
+[`CHANGELOG.md`](CHANGELOG.md), rien n'a été perdu. Raisonnement complet
+dans [`DECISIONS.md`](DECISIONS.md).)*
 
-> Instantané, pas un journal — réécrit à chaque mise à jour significative.
+> Instantané, pas un journal — réécrit à chaque mise à jour
+> significative. Historique daté : [`CHANGELOG.md`](CHANGELOG.md).
+> Tâches en cours/à faire : [`TASKS.md`](TASKS.md).
 
 ## 1. Où en est-on ?
 
-Le backend (schéma, logique métier, module financier complet, deux
-catégories voiture/moto-taxi) est **déployé pour de vrai** sur le projet
-Supabase dédié : 18 migrations + 5 Edge Functions en place et vérifiées
-(32 tables, 52 fonctions, 51 policies RLS, grants internes durcis).
-**Les vrais tarifs sont câblés** (`pricing_rules` + `subscription_plans`,
-migration 15) — plus aucun tarif inventé ni manquant.
+**Le code applicatif est complet pour le périmètre MVP documenté**, sur
+les trois plateformes :
 
-**Le dashboard admin (`apps/admin/`) est complet et pleinement actionnable** :
-les 24 écrans documentés dans `docs/05-ecrans.md` sont construits (certains
-regroupés — Règlements et Réclamations & SOS couvrent chacun
-liste+détail+action en un seul écran) — connexion, vue d'ensemble,
-utilisateurs, chauffeurs/KYC, véhicules, courses, **paiements (liste +
-confirmer/marquer échoué/rembourser)**, facturation, abonnements (liste +
-plans), règlements, zones, tarification, réclamations & SOS, fraude,
-statistiques globales. Tous vérifiés dans un vrai navigateur
-(Playwright/Chromium) avec des mocks REST/RPC réalistes ; confirmation
-avec de vraies requêtes réseau contre le projet réel non testée depuis cet
-environnement (réseau sandbox bloqué vers `*.supabase.co`) — à faire en
-local chez vous.
-
-**`apps/web` est maintenant fonctionnellement complet des deux côtés**
-(passager et chauffeur), code vérifié de bout en bout, mais bloqué en
-usage réel par un seul point externe désormais (voir plus bas) :
-
-- **Côté passager** : auth par email confirmée en conditions réelles
-  (vous avez créé deux comptes en local, flux `signInWithOtp`/`verifyOtp`
-  bout en bout hors sandbox) ; `PassengerHome.tsx` affiche désormais un
-  vrai tableau de bord — suivi de la course en cours (infos publiques du
-  chauffeur une fois matché, annulation), formulaire de demande de course
-  (catégorie, adresses avec coordonnées saisies à la main en attendant
-  Google Places, estimation, confirmation), historique des courses
-  passées.
-- **Côté chauffeur** : auth par email, dépôt de dossier KYC + véhicule,
-  et tableau de bord opérationnel complet (abonnement, disponibilité,
-  offres de course reçues en Realtime, course en cours jusqu'à
-  `complete_ride`).
-
-Bloqué en usage réel par un seul point désormais (§3/§7) :
-**`GOOGLE_MAPS_API_KEY`** toujours pas fournie — `pricing-directions`
-(Edge Function) répond `not_configured`, l'écran de demande de course
-l'affiche clairement plutôt que d'échouer en silence. Les tarifs
-(`pricing_rules`) ne bloquent plus rien, câblés le 4 septembre (§5).
-
-**Le matching n'était en réalité pas fonctionnel jusqu'à aujourd'hui,
-sur aucune des deux plateformes** — indépendamment de la clé Google Maps
-et des tarifs. `dispatch_next_offer` exige une position chauffeur récente
-(`update_driver_location`, existante et accordée depuis la migration 2),
-mais aucun client ne l'appelait jamais. Corrigé le 4 septembre (TASK-035,
-§5) : suivi de position en continu (foreground uniquement) tant que le
-chauffeur est disponible, y compris pendant une course, sur `apps/web`
-et `apps/mobile`.
-
-**4 livrables** (révision du 3 septembre 2026, détail dans
-`docs/02-architecture-technique.md`) : Web, Android, iOS, Admin — chacun
-couvrant passager **et** chauffeur sauf l'admin. Android/iOS = un seul
-code Expo (`apps/mobile`) — **complet côté code** depuis le 4 septembre
-2026 : accueil, auth par code email, tableau de bord chauffeur (dossier,
-documents, abonnement, disponibilité, offres, course en cours) et demande
-de course passager (suivi, formulaire, historique), portés directement
-depuis `apps/web` (mêmes RPC/Edge Function, même logique). Vérifié via le
-mode web d'Expo + Playwright (aucun émulateur Android/iOS disponible dans
-cet environnement — pas de SDK Android, pas d'Xcode). **Non vérifié** :
-rendu natif réel sur simulateur/appareil, upload de document réel, et
-trois confirmations (`Alert.alert`, un no-op confirmé sur le mode web
-utilisé ici — fonctionne normalement sur appareil réel) : achat
-d'abonnement, paiement cash confirmé, annulation de course.
-
-Un serveur **MCP Supabase** est connecté à cette session (accès direct au
-projet réel — lecture, migrations, avis de sécurité) mais c'est un canal
-séparé de la politique réseau du sandbox : le navigateur ne peut toujours
-pas contacter `*.supabase.co` directement depuis cet environnement.
-
-**Tous les écrans transverses et de sécurité manquants sont désormais
-construits** (5 septembre 2026, TASK-042 dans `docs/TASKS.md`) : un audit
-grep contre l'inventaire complet de `docs/05-ecrans.md` a trouvé 7 zones
-réellement absentes malgré des mois de travail — SOS (passager +
-chauffeur, web + mobile), Signalement (écran #14), fiabilité chauffeur
-(`acceptance_rate`/`cancellation_rate`, calculés depuis TASK-039 mais
-jamais montrés), Profil/Paramètres (transverse), Onboarding + Profil
-initial passager (écrans #1/#4), Facturation — détail admin (écran #16)
-et Carte live des courses admin (écran #10, Leaflet + OpenStreetMap).
-Toutes construites et vérifiées (tsc/build/lint) le jour même — détail
-complet en §5.
-
-**La notation post-course (écran #11) est désormais construite elle
-aussi** (5 septembre 2026, TASK-047) — dernier écran MVP documenté
-jamais livré : `ratings` avait ses RLS/grants/trigger complets depuis la
-migration 1 mais restait à 0 ligne. Modale étoiles + commentaire
-proposée automatiquement après une course terminée non encore notée,
-web et mobile, passager et chauffeur.
-
-**Le support client (écran transverse « Support ») est désormais
-construit lui aussi** (5 septembre 2026, TASK-048) : `support_tickets`/
-`support_ticket_messages` avaient leurs RLS et RPC complètes depuis la
-migration 1 mais aucun client n'avait jamais ouvert de ticket. Ticket +
-fil de messages côté passager/chauffeur (web et mobile), traitement
-(prise en charge, réponse, résolution) intégré à l'écran admin
-Réclamations & SOS. A aussi révélé et corrigé le même bug d'embedding
-PostgREST déjà rencontré 5 fois (FK `user_id` manquante vers `profiles`).
-
-Avec cette tâche, **les 24+ écrans documentés dans `docs/05-ecrans.md`
-sont désormais tous construits, sur les trois plateformes.**
-
-**L'empreinte d'appareil anti-fraude est désormais câblée** (5 septembre
-2026, TASK-049) : `device_fingerprints` avait sa RLS, sa contrainte
-unique et son trigger `flag_device_duplicate` testés en local depuis la
-migration 1, mais aucun client n'avait jamais inséré la moindre ligne —
-un des trois mécanismes anti-fraude documentés du projet n'avait donc
-jamais pu se déclencher en production. Identifiant persistant côté
-client (`localStorage`/`AsyncStorage`), enregistré une fois après
-connexion, best-effort.
-
-Reste à construire : l'autocomplétion d'adresse Google Places (§3, non
-bloquant), géolocalisation en arrière-plan côté `apps/mobile` (hors
-périmètre porté ce jour), le worker de dispatch dédié (écrit, pas
-déployé — comblé en attendant par un repli `pg_cron`, voir §2 et §5).
-**Notifications push câblées côté code (TASK-045)** mais pas encore
-livrables à un vrai téléphone — aucun projet Expo créé
-(`EXPO_PUBLIC_PROJECT_ID` manquant) ni build de développement (Expo Go
-seul ne suffit plus pour recevoir un push distant sur Android depuis le
-SDK 53), voir §3/§7.
+- **Backend** : 18 migrations + 5 Edge Functions déployées pour de vrai
+  sur le projet Supabase dédié (32 tables, 52 fonctions, 51 policies
+  RLS). Vrais tarifs câblés (`pricing_rules`/`subscription_plans`),
+  matching avec critère de fiabilité, `pg_cron` actif.
+- **`apps/admin`** : les 24 écrans de `docs/05-ecrans.md` sont
+  construits et actionnables (utilisateurs, chauffeurs/KYC, véhicules,
+  courses, paiements, facturation, abonnements, règlements, zones,
+  tarification, réclamations & SOS + tickets support, fraude,
+  statistiques, carte live).
+- **`apps/web`** : passager et chauffeur complets — demande de course
+  avec géolocalisation/carte, suivi, historique + factures PDF,
+  notation, SOS, signalement, notifications, support client, profil.
+  Testé en conditions réelles par le porteur du projet en local.
+- **`apps/mobile`** (Expo, Android + iOS, un seul code) : même
+  périmètre qu'`apps/web`, jamais lancé sur un simulateur/appareil réel
+  (voir §3).
 
 ## 2. Ce qui fonctionne
 
-**Vérification par rendu réel des tâches 045-049 (5 septembre 2026,
-TASK-050)** — jusqu'ici seulement vérifiées par `tsc`/`build`/`oxlint`
-(pas de Playwright depuis TASK-042, faute d'y avoir repensé), rejouées
-dans Chromium (session Supabase falsifiée, requêtes REST/RPC
-interceptées avec des réponses réalistes, même méthode que
-TASK-030–042) : admin (`/reclamations`, section Tickets support) et web
-passager (`/passager/accueil`, notation + notifications + support) —
-18 vérifications, toutes passées. Confirme notamment que la correction
-d'embedding PostgREST de TASK-048 fonctionne réellement, pas seulement
-en théorie SQL. `apps/mobile` reste non vérifiable en rendu réel
-(aucun émulateur dans ce sandbox).
+Détail complet de chaque fonctionnalité et sa date de construction :
+[`CHANGELOG.md`](CHANGELOG.md) (TASK-001 à TASK-050). En résumé, tout
+le parcours MVP fonctionne de bout en bout : inscription/connexion par
+code email, demande de course avec tarif réel et matching, abonnement
+chauffeur, paiement (cash + Mobile Money en mode manuel), facturation
+automatique, notation, notifications, support, anti-fraude (appareils
+partagés + anomalies GPS + limitation de débit), et l'intégralité du
+dashboard admin.
 
-**Empreinte d'appareil anti-fraude (5 septembre 2026, TASK-049)** —
-`device_fingerprints` (RLS + contrainte unique `(user_id, device_id)` +
-trigger `flag_device_duplicate` vers `fraud_flags`) testée en local
-depuis la migration 1 mais jamais alimentée par un client : un des
-trois mécanismes anti-fraude documentés (`docs/11-securite.md`) n'avait
-donc jamais pu se déclencher en production. Identifiant persistant
-(`localStorage` web / `AsyncStorage` mobile) enregistré une fois après
-connexion, passager et chauffeur, web et mobile — best-effort, aucune
-migration nécessaire.
-
-**Support client (5 septembre 2026, TASK-048)** — écran transverse
-« Support », documenté depuis le début pour passager et chauffeur mais
-jamais construit : ouverture de ticket (catégorie, sujet, message) et
-fil de messages, web et mobile ; traitement (prise en charge, réponse,
-résolution) intégré à l'écran admin Réclamations & SOS.
-`support_tickets`/`support_ticket_messages` (RLS + RPC
-`create_support_ticket`/`admin_assign_support_ticket`/
-`admin_resolve_support_ticket`) prêtes depuis la migration 1 mais
-jamais utilisées — `admin_stats_overview.open_support_tickets` était
-même déjà affiché sur la Vue d'ensemble admin sans qu'aucun ticket ne
-puisse exister. A aussi révélé et corrigé le même bug d'embedding
-PostgREST déjà rencontré 5 fois (FK `support_tickets.user_id` manquante
-vers `profiles`, migration `support_tickets_profile_embed_fk`).
-
-**Notation post-course (5 septembre 2026, TASK-047)** — étoiles 1-5 +
-commentaire optionnel, proposée automatiquement après la course la plus
-récente terminée si elle n'est pas encore notée, web et mobile, passager
-et chauffeur. `ratings` (RLS + trigger `apply_rating_to_aggregate`)
-prête depuis la migration 1 mais jamais exposée côté client jusqu'ici —
-0 ligne malgré des courses terminées. `drivers.rating_avg`/`rating_count`
-et `passengers.rating_avg`/`rating_count` vont enfin recevoir de vraies
-données. Aucune migration nécessaire, uniquement du frontend.
-
-**Boîte de notifications in-app (5 septembre 2026, TASK-046)** — cloche
-avec badge non-lu + liste, web et mobile, passager et chauffeur. La table
-`notifications` (RLS/grants complets) était prête depuis le premier jour
-et alimentée par une dizaine de déclencheurs (course, matching,
-abonnement, fiabilité, SOS) mais jamais lue par aucun client — le push
-était le seul canal envisagé, et il n'a jamais fonctionné avant
-aujourd'hui (TASK-045) faute de jeton enregistré. Aucune migration
-nécessaire, uniquement du frontend sur un schéma déjà éprouvé.
-
-**Jeton push mobile enfin enregistré (5 septembre 2026, TASK-045)** —
-`registerForPushNotifications()` écrit `profiles.push_token` après
-connexion (passager et chauffeur). Le pipeline serveur tournait déjà
-(vérifié TASK-006) mais 0 profil sur 6 avait un jeton en production
-avant ce jour. Bloqué en pratique par deux points externes (§3/§7) :
-aucun projet Expo créé, et Expo Go seul ne suffit plus pour un push
-distant Android depuis le SDK 53 (limite Expo, pas de ce projet).
-
-**Tous les écrans transverses/sécurité identifiés manquants sont
-construits (5 septembre 2026, TASK-042)** :
-- **SOS** — bouton transverse dans l'en-tête passager/chauffeur (`apps/web`
-  et `apps/mobile`), confirmation puis géolocalisation ponctuelle,
-  `trigger_sos` (migration 18) qui construit la position côté serveur
-  plutôt qu'un insert direct sur une colonne `geography`.
-- **Signalement** (écran #14) — catégorie + description, insert direct
-  sur `reports` (RLS déjà permissive), depuis la course en cours ou
-  l'historique, `apps/web` et `apps/mobile`.
-- **Fiabilité chauffeur affichée** — `acceptance_rate`/`cancellation_rate`
-  (calculés depuis TASK-039) enfin visibles sur le tableau de bord
-  chauffeur.
-- **Profil/Paramètres** — édition nom/langue (`profiles`), accessible
-  même avant approbation du dossier chauffeur, `apps/web` et `apps/mobile`.
-- **Onboarding + Profil initial passager** (écrans #1/#4) — écran
-  d'accueil avant la saisie email ; capture nom/langue après le tout
-  premier code vérifié, seulement pour un compte encore sans nom.
-- **Admin Facturation — détail** (écran #16, `/facturation/$invoiceId`).
-- **Admin Carte live des courses** (écran #10, `/carte`) — Leaflet +
-  OpenStreetMap (pas de clé Google Maps pour `apps/admin`, usage interne
-  staff), s'appuie sur `admin_active_rides_locations()` (migration 18).
-
-**Base de données** (18 migrations, vérifiées en local puis déployées,
-comptage confirmé identique) : cycle complet d'une course par catégorie
-(matching, cash/Mobile Money), frais de service 2,5 % jamais mélangés à
-l'abonnement, facturation/règlement/remboursement automatiques, reporting
-financier complet (`admin_stats_overview`), KYC/anti-fraude/support
-hérités. Migrations 9-12 ont corrigé le même bug d'embedding PostgREST
-(FK manquante vers `profiles`) sur `payments`, `invoices`, `user_roles`,
-`reports` et `sos_alerts`. Migrations 13-14 ont ajouté
-`get_ride_driver_public_info`/`get_ride_passenger_public_info` (seules
-portes d'accès aux infos publiques entre passager et chauffeur assignés
-à une même course, RLS interdisant tout accès direct) puis corrigé une
-faille NULL-safety découverte en vérifiant les grants réels (appel non
-authentifié pas correctement rejeté avant le correctif). Migration 15 a
-câblé les vrais tarifs (`pricing_rules`, `subscription_plans`) et corrigé
-un repli manquant sur la majoration de nuit (ne se déclenchait jamais
-sans zone sélectionnée — la sélection de zone est optionnelle côté
-passager et la table `zones` est vide sur le projet réel).
-
-**Dashboard admin complet et actionnable** (`apps/admin/`) : voir §1.
-Code React 19 + Vite + TanStack Router, même stack que `apps/web`.
-
-**`apps/web` complet des deux côtés** (passager et chauffeur) : voir §1.
-
-**Clé Google Maps obtenue et câblée (5 septembre 2026)** — dernier
-blocage réel du parcours passager. Deux clés créées séparément (voir
-`.env.example` racine) : clé serveur (`GOOGLE_MAPS_API_KEY`, Directions
-API uniquement, aucune restriction de referrer, secret Supabase Edge
-Function) et clé client (`VITE_GOOGLE_MAPS_API_KEY`/
-`EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`, Places API (New) + Maps JavaScript
-API, restreinte par referrer HTTP). **Vérifié en conditions réelles**,
-pas seulement supposé configuré : appel direct de l'Edge Function
-`pricing-directions` via `net.http_post` (le sandbox ne peut toujours
-pas contacter `*.supabase.co` directement) — réponse `HTTP 200` avec de
-vraies données Google Directions (`distance_km`, `duration_min`) puis
-tarif calculé correctement par `estimate_ride_fare` (tarif minimum
-voiture 700 FCFA appliqué quand le calcul au km tombe en dessous).
-L'estimation/demande de course fonctionne désormais de bout en bout.
-Reste à construire (pas bloquant, saisie manuelle des coordonnées en
-attendant, §3) : l'autocomplétion d'adresse avec la clé client.
-
-**`apps/mobile` complet côté code, même périmètre qu'`apps/web`** : voir
-§1. Rendu natif réel non vérifié dans cet environnement (§3).
-
-**`pg_cron` réellement actif sur le projet réel** — découvert en
-déployant la migration 16 que l'extension n'avait jamais été installée :
-`expire_subscriptions` et `cleanup_rate_limits` (en place depuis le tout
-début du projet) n'avaient donc **jamais tourné automatiquement en
-production**, malgré le `do $$ if exists(pg_extension pg_cron)... $$`
-qui masquait le problème sans erreur. Corrigé : extension installée, les
-trois tâches (les deux existantes + `recompute-driver-reliability`,
-ci-dessous) programmées et vérifiées en train de tourner
-(`cron.job_run_details`, pas seulement `cron.job`). Aucun effet de bord
-au moment de l'activation (1 seul abonnement en base, non expiré ; 0
-ligne obsolète dans `rate_limit_counters`).
-
-**Le matching ne bloque plus indéfiniment sur un chauffeur muet** —
-découverte plus grave en creusant le sujet `pg_cron` ci-dessus : le
-worker dédié (`services/matching-worker/`) qui relance le dispatch
-quand une offre expire sans réponse (15 s) n'a **jamais été déployé**
-(aucun VPS choisi pour ce projet). Sans lui, une course dont le chauffeur
-assigné ne répond jamais restait bloquée en `'searching'` pour toujours.
-Vérifié directement contre le projet réel — contrairement à ce que
-`services/matching-worker/README.md` affirmait — que `pg_cron` accepte
-un intervalle en secondes, pas seulement la minute : `expire_ride_offers_and_dispatch()`
-y est désormais planifiée toutes les 5 s (migration
-`00000000000017_interim_cron_offer_sweep.sql`, confirmé avec le porteur
-du projet avant activation). Solution de repli, pas un remplacement — le
-worker dédié reste la solution prévue une fois un serveur choisi ; les
-deux peuvent tourner en parallèle sans risque le jour venu
-(`for update skip locked`).
-
-**Critère de fiabilité du matching** (`docs/08-matching.md`, migration
-16) — `drivers.acceptance_rate`/`cancellation_rate`, recalculés toutes
-les 15 min (`pg_cron`), intégrés au classement de `dispatch_next_offer`
-juste après la distance. Demandé explicitement par le porteur du projet
-(documenté jusque-là comme non fait au MVP).
-
-**Position du chauffeur envoyée en continu** (`update_driver_location`,
-foreground uniquement) sur `apps/web` (API géolocalisation du navigateur)
-et `apps/mobile` (`expo-location`) — condition nécessaire au matching
-(`dispatch_next_offer`), absente sur les deux plateformes jusqu'au
-4 septembre (TASK-035 dans `docs/TASKS.md`).
-
-**Reçu PDF d'abonnement chauffeur** (`apps/web`, `jsPDF`) — un par
-paiement d'abonnement réussi, téléchargeable depuis le tableau de bord
-chauffeur (TASK-036 dans `docs/TASKS.md`).
-
-**Facture PDF de course** (`apps/web`, même `jsPDF`) — téléchargeable
-depuis l'historique passager (TASK-037) **et** depuis l'écran Revenus du
-chauffeur (TASK-038, ci-dessous) pour chaque course facturée. Les deux
-rendus PDF ne couvrent que `apps/web`, pas `apps/mobile`.
-
-**Écran Revenus + historique de courses chauffeur** (`apps/web`,
-`docs/05-ecrans.md` écran #18) — gains transport jour/7 jours/mois
-(`invoices.transport_amount_fcfa`, net des frais de service par
-construction), historique des 20 dernières courses, bouton Facture
-(TASK-038 dans `docs/TASKS.md`).
-
-**5 Edge Functions déployées** (`payment-webhook-momo`,
-`phone-verification-start`/`-check`, `pricing-directions`,
-`push-notifications-dispatch`) — URLs vérifiées. `push-notifications-dispatch`
-tourne réellement de bout en bout via un trigger `pg_net` fait main
-(Database Webhook natif cassé sur ce projet, contourné en migration 5).
-`phone-verification-start`/`-check` non appelées depuis l'abandon d'eSMS
-Africa — conservées, pas supprimées.
-
-**Design** : 37 écrans (canvas Claude Design) — antérieur à la révision
-du modèle économique et de l'architecture du 3 septembre ; ne reflète ni
-les écrans catégorie/facturation/fraude ni le regroupement
-passager+chauffeur par plateforme, ni les 24 écrans admin réels.
+**Réorganisation du dépôt (6 septembre 2026)** — vérification
+automatique GitHub à chaque envoi (`.github/workflows/ci.yml`,
+compilation + construction + contrôle de code par application) ;
+dossiers `packages/` (jamais utilisés) supprimés ; documentation
+réorganisée (`CHANGELOG.md`, `DECISIONS.md` nouveaux).
 
 ## 3. Ce qui pose problème / limites connues
 
-- **Notifications push jamais réellement livrées à un appareil (TASK-045)**
-  — le pipeline serveur tourne depuis des mois mais aucun client n'a
-  jamais écrit `profiles.push_token` (vérifié : 0 profil sur 6). Câblage
-  client fait le 5 septembre, mais deux points externes empêchent encore
-  un vrai test : aucun projet Expo créé (`EXPO_PUBLIC_PROJECT_ID`
-  manquant, §7) et, une fois obtenu, Expo Go seul ne suffira plus pour
-  recevoir un push distant sur Android (limite Expo depuis le SDK 53,
-  pas de ce projet) — il faudra un build de développement
-  (`eas build --profile development`).
-- **Carte live admin (`/carte`) non vérifiée avec de vraies données** —
-  navigation réelle confirmée (Chromium headless, route/auth guard OK,
-  aucune erreur JS), mais le rendu de la carte avec des marqueurs réels
-  n'a pas pu être vérifié : pas de mot de passe admin utilisable, réseau
-  sandbox bloqué vers `*.supabase.co` (même limitation que la connexion
-  admin ci-dessous, pas un problème propre à cet écran).
-- **Facturation détail (`/facturation/$id`) non vérifiable sur une vraie
-  facture** — code/route corrects (tsc/build propres, même schéma de
-  requête que les écrans détail existants), mais aucune facture n'existe
-  encore en production (aucune course payée terminée à ce jour).
-- **Sélecteur géolocalisation + carte `apps/mobile` (TASK-044) non
-  vérifié en conditions réelles** — porté en `react-native-webview`
-  (`react-native-maps` demanderait un rebuild natif), `tsc`/`oxlint`
-  propres, mais ni le rendu réel de la carte ni la compatibilité de
-  `react-native-webview` avec Expo Go managé n'ont pu être testés depuis
-  ce sandbox (aucun émulateur, accès à `maps.googleapis.com` bloqué). À
-  tester sur un vrai appareil avant de le considérer utilisable.
+- **Notifications push jamais livrées à un vrai appareil** — le code
+  est en place mais bloqué par deux points externes : aucun projet
+  Expo créé (§7) et, une fois obtenu, Expo Go seul ne reçoit plus les
+  push distants sur Android depuis le SDK 53 (limite Expo) — un build
+  de développement sera nécessaire.
+- **`apps/mobile` jamais testé sur un simulateur/appareil réel** —
+  seulement vérifié en mode web faute d'environnement adapté. Trois
+  confirmations (`Alert.alert` : achat d'abonnement, paiement cash,
+  annulation) et le rendu réel de la carte de géolocalisation restent
+  à confirmer sur un vrai téléphone.
+- **Carte live admin et facturation détail non vérifiées avec de
+  vraies données** — code et route corrects, mais pas encore de vraie
+  facture ni de connexion admin fonctionnelle pour le confirmer (voir
+  point suivant).
+- **Mot de passe du compte admin probablement inutilisable** — ce
+  compte a été créé comme passager (code email), jamais via un
+  formulaire mot de passe. Réinitialiser depuis Dashboard Supabase →
+  Authentication → Users si `/login` échoue.
 - **Auto-complétion d'adresse (Google Places) délibérément pas
-  construite** (TASK-043) — la clé client le permettrait, mais la
-  compatibilité du composant `Autocomplete` historique avec une clé
-  restreinte à « Places API (New) » n'est pas garantie, et beaucoup de
-  lieux au Togo ne sont pas indexés de toute façon. Remplacé par
-  géolocalisation + carte, qui répond mieux au besoin réel.
-- **`apps/mobile` jamais lancé sur un simulateur/appareil réel** — cet
-  environnement n'a ni SDK Android ni Xcode, uniquement vérifié via le
-  mode web d'Expo. Trois confirmations (`Alert.alert`, achat d'abonnement/
-  paiement cash/annulation) n'ont pas pu être exercées en conséquence
-  (no-op côté web, fonctionnent normalement sur appareil réel).
-- **Secrets Edge Functions pas tous configurés** : `PAYMENT_WEBHOOK_SECRET`
-  (aucune dépendance externe). `ESMS_AFRICA_API_KEY` n'est plus à l'ordre
-  du jour (abandonné).
-- **Premier compte admin créé** (`abotchigilles@yahoo.fr`,
-  `super_admin` inséré dans `admin_roles` via MCP) mais **mot de passe
-  probablement inutilisable** : ce compte existait déjà comme compte
-  passager (créé via `/passager`, code email — TASK-021), jamais via un
-  formulaire email+mot de passe. `/login` (`apps/admin`) utilise
-  `signInWithPassword` — réinitialiser le mot de passe depuis Dashboard
-  → Authentication → Users si la connexion échoue. Non testable depuis
-  ce sandbox (réseau bloqué).
-- **Database Webhook natif Supabase cassé sur ce projet** — contourné
-  pour `push-notifications-dispatch`, un futur besoin similaire
-  rencontrera la même anomalie.
-- **Custody des fonds Mobile Money d'une course, non tranchée** (détaillé
-  dans [10-paiements.md](10-paiements.md) §Paiement de la course). Lié :
-  la confirmation manuelle admin des paiements (TASK-030) ne couvre que
-  les abonnements chauffeur — un paiement de course Mobile Money bloqué
-  ne peut être que marqué échoué par l'admin, jamais confirmé à la main
-  (la confirmation exige la vérification du montant/référence auprès du
-  fournisseur, réservée au webhook `service_role`).
-- **`phone-verification-check` non testée** — eSMS Africa abandonné,
-  circuit en réserve pour un futur fournisseur SMS.
-- **Mobile Money** : fournisseur non choisi (§7) — non bloquant, backend
-  en mode manuel/admin.
+  construite** — remplacée par géolocalisation + carte, qui correspond
+  mieux à la réalité togolaise (adresses peu standardisées).
+- **Custody des fonds Mobile Money d'une course, non tranchée** — voir
+  `docs/10-paiements.md` §Paiement de la course. Un paiement de course
+  Mobile Money bloqué ne peut être que marqué échoué par l'admin,
+  jamais confirmé à la main (réservé au webhook `service_role`).
+- **Mobile Money** : fournisseur non choisi (§7) — non bloquant,
+  backend en mode manuel/admin.
 - **Protection mots de passe compromis (HaveIBeenPwned) désactivée** —
-  interrupteur dashboard (Authentication → Password protection), pas une
-  migration. Deux minutes, quand vous voulez.
-- **RLS : `auth.uid()` réévalué ligne par ligne, pas seulement une fois
-  par requête** (avis performance Supabase, 36 policies concernées, sur
-  la quasi-totalité des tables) — recommandation standard Supabase :
-  écrire `(select auth.uid())` au lieu de `auth.uid()` dans une policy
-  pour que le planificateur l'évalue une seule fois. **Présent depuis la
-  toute première migration**, pas une régression récente ; sans impact
-  mesurable au volume actuel (quelques lignes par table), deviendrait
-  sensible à l'échelle. Corriger proprement demanderait de réécrire
-  ~36 policies dans une seule migration transverse — volontairement pas
-  fait ici (hors périmètre de l'audit en cours, risque de sécurité si
-  fait à la hâte) ; à traiter comme un chantier dédié le jour où le
-  volume réel le justifie.
+  interrupteur Dashboard, pas une migration. Deux minutes, quand vous
+  voulez.
+- **RLS : `auth.uid()` réévalué ligne par ligne** (avis performance
+  Supabase, ~36 policies) — présent depuis la première migration, sans
+  impact au volume actuel, à corriger comme chantier dédié si le
+  volume réel le justifie un jour.
+- **`phone-verification-check`/`ESMS_AFRICA_API_KEY`** : circuit
+  eSMS Africa abandonné au profit du code email, code conservé en
+  réserve pour un futur fournisseur SMS.
 
 ## 4. En cours
 
@@ -430,424 +96,41 @@ Rien en cours — en attente de la prochaine demande.
 
 ## 5. Dernièrement terminé
 
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-050) :
-**audit RPC complémentaire + vérification Playwright** — après
-TASK-045-049, audit étendu à toutes les fonctions `public.` (pas
-seulement les tables) : aucun autre gap trouvé, toutes les fonctions à
-0 appel client s'expliquent (Edge Function, `service_role` uniquement,
-ou flux téléphone déjà abandonné). Découverte au passage :
-`passengers.referral_code`/`referred_by` (auto-généré à l'inscription)
-n'a aucune logique de récompense ni RPC associée nulle part — même
-catégorie que `promotions` (scaffolding préparé, non actif au MVP),
-volontairement pas construit. **Vérification par rendu réel** (nouveau
-depuis TASK-042) : `apps/admin`/`apps/web` servis localement, Chromium
-piloté via Playwright avec session Supabase falsifiée et requêtes
-REST/RPC interceptées — 18 vérifications (ticket support pris en
-charge/répondu/résolu côté admin ; notation/notifications/support
-côté passager web), toutes passées, confirmant que la correction
-d'embedding PostgREST de TASK-048 fonctionne réellement. Captures
-d'écran envoyées. `apps/mobile` reste non vérifiable en rendu réel
-(aucun émulateur dans ce sandbox).
-
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-049) :
-**empreinte d'appareil anti-fraude câblée** — découverte par la même
-méthode que TASK-045/046/047/048 (pas une demande explicite) :
-`device_fingerprints` a sa RLS, sa contrainte unique `(user_id,
-device_id)` et son trigger `flag_device_duplicate` (écrit dans
-`fraud_flags` dès qu'un même appareil sert à plusieurs comptes) testés
-en local dès la migration 1 (`docs/11-securite.md` cite un test réel
-concluant), mais aucun client n'avait jamais inséré la moindre ligne —
-0 ligne dans `device_fingerprints` **et** dans `fraud_flags` en
-production. `registerDeviceFingerprint()` : identifiant persistant
-généré côté client (`localStorage` sur web, `AsyncStorage` sur mobile —
-déjà une dépendance du projet, aucune nouvelle lib native), enregistré
-une fois après connexion, passager et chauffeur, web et mobile.
-Best-effort strict : erreur de contrainte unique (déjà enregistré)
-ignorée silencieusement, toute autre erreur seulement journalisée,
-jamais remontée à l'utilisateur. **Aucune migration nécessaire** — RLS/
-contrainte/trigger déjà en place, seul le frontend manquait. Vérifié :
-tsc/build/lint propres sur `apps/web` et `apps/mobile`. Pas de test en
-conditions réelles possible depuis ce sandbox (mêmes limitations réseau
-connues).
-
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-048) :
-**support client construit (écran transverse, web + mobile + admin)** —
-découverte par la même méthode que TASK-045/046/047 (pas une demande
-explicite) : `support_tickets`/`support_ticket_messages` ont leurs RLS
-et trois RPC (`create_support_ticket`, `admin_assign_support_ticket`,
-`admin_resolve_support_ticket`) prêtes depuis la migration 1, et
-« Support » est documenté comme écran transverse pour les deux apps
-dans `docs/05-ecrans.md`, mais aucun client n'avait jamais ouvert de
-ticket — `admin_stats_overview.open_support_tickets` était même déjà
-affiché sur la Vue d'ensemble admin sans qu'aucun ticket ne puisse
-exister pour l'alimenter. `SupportButton` (liste des tickets, création,
-fil de messages avec réponse) côté passager/chauffeur, web et mobile ;
-nouvelle section « Tickets support » dans l'écran admin Réclamations &
-SOS (prise en charge, réponse, résolution). **Découverte significative
-en câblant l'embed PostgREST admin** : `support_tickets.user_id` ne
-référençait que `auth.users`, pas `profiles` — exactement le même bug
-déjà corrigé 5 fois (`payments`, `invoices`, `user_roles`, `reports`,
-`sos_alerts`, début septembre). FK ajoutée (migration
-`support_tickets_profile_embed_fk`, table à 0 ligne au moment de
-l'ajout, aucun risque). Avec cette tâche, les 24+ écrans documentés
-dans `docs/05-ecrans.md` sont désormais tous construits, sur les trois
-plateformes. Vérifié : tsc/build/lint propres sur les trois apps ; FK
-vérifiée directement sur le projet réel après application. Pas de test
-en conditions réelles du flux complet possible depuis ce sandbox
-(mêmes limitations réseau connues).
-
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-047) :
-**notation post-course construite (écran #11, web + mobile, passager +
-chauffeur)** — découverte par la même méthode que TASK-045/046 (pas une
-demande explicite) : `ratings` a des RLS et un trigger complets
-(`apply_rating_to_aggregate` met à jour `rating_avg`/`rating_count` sur
-`drivers` et `passengers`) depuis la migration 1, et l'écran est
-documenté comme requis pour le MVP dans `docs/05-ecrans.md`, mais aucun
-client n'avait jamais inséré la moindre ligne malgré des courses déjà
-`completed` en production. `RatingModal` (étoiles 1-5 + commentaire
-optionnel) proposée automatiquement après la course la plus récente si
-elle est terminée et pas encore notée par l'utilisateur courant. Côté
-mobile chauffeur, il n'existait aucune requête d'historique de courses
-(pas d'écran Revenus sur mobile) : ajout d'une requête dédiée et
-volontairement minimale, limitée à la détection de notation — pas de
-reconstruction de l'écran Revenus complet sur mobile, hors périmètre.
-**Aucune migration nécessaire** — RLS/trigger déjà en place, seul le
-frontend manquait. Vérifié : tsc/build/lint propres sur `apps/web` et
-`apps/mobile` ; pas de test en conditions réelles possible depuis ce
-sandbox (mêmes limitations réseau connues).
-
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-046) :
-**boîte de notifications in-app construite (web + mobile, passager +
-chauffeur)** — découverte en auditant TASK-045 (pas une demande
-explicite) : `public.notifications` (RLS + grants complets, chacun lit
-les siennes et peut marquer comme lu) est prête depuis la toute première
-migration et alimentée par une dizaine de déclencheurs (statuts de
-course, matching, abonnement, fiabilité, SOS), mais aucun client ne
-l'avait jamais lue — le push était le seul canal envisagé, et il n'a
-jamais fonctionné avant aujourd'hui (TASK-045). Cloche avec badge
-non-lu + liste (realtime sur les nouvelles insertions), marquer un ou
-tous comme lus. **Aucune migration nécessaire** — uniquement du
-frontend sur un schéma RLS déjà éprouvé (même famille que
-`profiles`/`reports`), pas de risque de sécurité nouveau. Vérifié :
-tsc/build/lint propres sur les deux apps ; pas de test en conditions
-réelles possible depuis ce sandbox (mêmes limitations réseau connues).
-
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-045) :
-**enregistrement du jeton push câblé (`apps/mobile`)** — découverte en
-auditant les notifications push (pas une demande explicite) : le
-pipeline serveur (trigger sur `notifications` → `push-notifications-dispatch`
-→ API Expo) tourne réellement depuis des mois, vérifié fonctionnel dès
-TASK-006, mais `profiles.push_token` (colonne prête depuis la migration
-4) n'avait jamais été écrite par aucun client — 0 profil sur 6 avec un
-jeton, vérifié directement sur le projet réel. Aucune notification n'a
-donc jamais pu être livrée à un vrai appareil malgré la fonctionnalité
-documentée comme opérationnelle. `registerForPushNotifications()` :
-permission + jeton (`expo-notifications`) + écriture sur
-`profiles.push_token`, appelé une fois après connexion (passager et
-chauffeur), best-effort strict (jamais bloquant). Reste bloqué par deux
-points externes, pas du code : aucun projet Expo créé
-(`EXPO_PUBLIC_PROJECT_ID` manquant, §7) et, une fois obtenu, un push
-distant Android ne peut plus être testé via Expo Go seul depuis le SDK
-53 (limite Expo, pas de ce projet) — un build de développement sera
-nécessaire.
-
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-044) :
-**sélecteur géolocalisation + carte porté vers `apps/mobile`**, en
-`react-native-webview` (page HTML embarquée chargeant le même Maps
-JavaScript API) plutôt que `react-native-maps` — ce dernier demanderait
-un rebuild natif hors du workflow Expo Go managé de ce projet.
-Géolocalisation via `expo-location`, poussée dans la WebView par
-`postMessage`. Contournement TypeScript nécessaire (bug de typage connu
-de la lib : `WebView<P = undefined>` résout en props `never` en JSX sans
-generic explicite). `tsc`/`oxlint` propres — **non vérifié en conditions
-réelles** (ni émulateur ni accès à `maps.googleapis.com` depuis ce
-sandbox), à tester sur un vrai appareil via Expo Go avant de considérer
-la fonctionnalité utilisable côté mobile.
-
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-043) :
-**sélecteur géolocalisation + carte pour la demande de course**
-(`apps/web`). Premier test réel du porteur du projet sur `apps/web` en
-local — a fait remonter que la saisie manuelle de coordonnées ne
-correspond pas à la réalité togolaise (adresses/coordonnées peu
-maîtrisées). `LocationPicker` : bouton « Ma position », carte Google Maps
-avec repère déplaçable, remplace les champs latitude/longitude de
-`PassengerHome.tsx`. Deux bugs d'affichage réels trouvés et corrigés
-grâce à ses captures d'écran (carte réduite à une vignette minuscule —
-cause réelle : le reset Tailwind sur `<img>` s'appliquait aux tuiles
-Google Maps, corrigé par `.gm-style img { max-width: none }`), aucun des
-deux non détectable depuis ce sandbox (accès direct à
-`maps.googleapis.com` bloqué par la politique réseau). Ne couvre que
-`apps/web` — `apps/mobile` reste en saisie manuelle.
-
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-042) :
-**les 7 écrans/zones manquants identifiés par un audit honnête sont
-construits.** Demande explicite du porteur du projet après avoir demandé
-« as-tu fait toutes les interfaces ? » — réponse honnête (grep sur le
-code réel contre l'inventaire de `docs/05-ecrans.md`, pas la mémoire)
-révélant SOS et Signalement entièrement absents malgré des mois de
-travail, la fiabilité chauffeur calculée mais jamais affichée, aucun
-écran Profil/Paramètres, aucune capture de nom à l'inscription passager,
-et deux écrans admin jamais construits (Facturation détail, Carte live).
-Tout construit le jour même, un commit par sous-partie :
-- **SOS** : migration 18 (`trigger_sos`, `admin_active_rides_locations`)
-  appliquée au projet réel et revérifiée (grants réels, pas
-  `{"success":true}`) ; bouton transverse web + mobile, passager +
-  chauffeur, confirmation puis géolocalisation ponctuelle.
-- **Signalement** (écran #14) : formulaire catégorie + description sur
-  `reports`, web + mobile.
-- **Fiabilité chauffeur** : `acceptance_rate`/`cancellation_rate` enfin
-  affichés sur le tableau de bord chauffeur.
-- **Profil/Paramètres** : édition nom/langue, web + mobile.
-- **Onboarding + Profil initial passager** (écrans #1/#4) : écran
-  d'accueil + capture nom/langue pour un tout nouveau compte uniquement.
-- **Admin Facturation détail** (écran #16) : `/facturation/$invoiceId`.
-- **Admin Carte live des courses** (écran #10) : `/carte`, Leaflet +
-  OpenStreetMap (pas de clé Google Maps configurée pour `apps/admin`,
-  usage interne staff).
-Vérifié : tsc/build/lint propres sur les trois apps après chaque
-sous-partie ; migration revérifiée directement contre le projet réel ;
-navigation réelle vers `/carte` en Chromium headless. Non vérifiable
-depuis ce sandbox (limitations déjà connues, pas nouvelles) : rendu de
-la carte avec de vraies données, facturation détail sur une vraie
-facture (§3). `trigger_sos` volontairement pas appelée pour de vrai en
-production (déclencherait une vraie alerte au staff).
-
-**5 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-041) :
-**clé Google Maps obtenue et câblée, dernier blocage réel du parcours
-passager levé.** Le porteur du projet a créé les deux clés dans Google
-Cloud Console (guidé pas à pas, captures d'écran à l'appui) : clé
-serveur (Directions API, sans restriction de referrer) et clé client
-(Places API (New) + Maps JavaScript API, restreinte par referrer). Clé
-client mise en place directement (`apps/web/.env`, `apps/mobile/.env`,
-jamais commitée — vérifié) ; clé serveur transmise pour configuration en
-secret Supabase (aucun outil MCP ne permet de gérer les secrets Edge
-Function, seul le porteur du projet peut le faire depuis le Dashboard).
-**Vérifié en conditions réelles**, pas seulement supposé configuré :
-`pricing-directions` appelée via `net.http_post` depuis la base (le
-sandbox ne peut pas contacter `*.supabase.co` directement) — `HTTP 200`,
-vraies données Google Directions, tarif calculé correctement (minimum
-voiture 700 FCFA appliqué). L'estimation/demande de course fonctionne
-désormais de bout en bout avec de vraies données. Reste à construire,
-non bloquant : l'autocomplétion d'adresse (Google Places) côté
-formulaire, actuellement une saisie manuelle des coordonnées.
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-040) :
-**le matching ne peut plus rester bloqué indéfiniment sur un chauffeur
-muet** — découvert en creusant le fonctionnement réel de `pg_cron`
-(TASK-039, juste en dessous) : `services/matching-worker/` (censé
-relancer le dispatch quand une offre expire sans réponse) n'a jamais été
-déployé, faute de VPS choisi pour ce projet. Sans lui, une course dont le
-chauffeur assigné ne répondait jamais restait bloquée en `'searching'`
-pour toujours — un vrai trou de production, pas un manque de finition.
-`services/matching-worker/README.md` affirmait `pg_cron` incapable de
-descendre sous la minute — vérifié directement contre le projet réel
-que c'est faux (`cron.schedule(name, '5 seconds', ...)`, confirmé par
-plusieurs exécutions consécutives espacées de 5 s pile dans
-`cron.job_run_details`). Confirmé avec le porteur du projet avant
-d'agir (`AskUserQuestion` — programmer une tâche pg_cron supplémentaire
-en production dépassait le périmètre de la tâche en cours) : migration
-`00000000000017_interim_cron_offer_sweep.sql` planifie désormais
-`expire_ride_offers_and_dispatch()` toutes les 5 s. Solution de repli,
-pas un remplacement — le worker dédié reste la solution prévue une fois
-un serveur choisi ; les deux peuvent tourner en parallèle sans risque
-(`for update skip locked`). Doc corrigée (`08-matching.md`,
-`services/matching-worker/README.md`, `docs/STATUS.md`).
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-039) :
-**critère de fiabilité du matching construit, `pg_cron` réellement activé
-en production** — demandé explicitement par le porteur du projet
-(`docs/08-matching.md` le documentait comme non fait au MVP). Migration
-16 : `drivers.acceptance_rate`/`cancellation_rate` (fenêtre glissante
-30 jours, `null` sans donnée récente — jamais pénalisant), recalculés par
-`recompute_driver_reliability()` (`pg_cron`, toutes les 15 min),
-intégrés au classement de `dispatch_next_offer` juste après la distance.
-Vérifié en local (Postgres réel, deux chauffeurs à distance identique —
-fiable systématiquement préféré au peu fiable ; un chauffeur sans
-historique départagé équitablement par la note) avant application au
-projet réel via MCP. **Découverte significative en vérifiant le
-déploiement** (pas seulement `{"success":true}`) : `pg_cron` n'était
-jamais installé sur le projet réel — `expire_subscriptions`/
-`cleanup_rate_limits` (en place depuis le tout début du projet)
-n'avaient donc jamais tourné automatiquement, sans qu'aucune erreur ne
-le signale (le garde `if exists(pg_extension pg_cron)` masquait le
-problème). Confirmé avec l'utilisateur avant d'agir (activer une
-extension puis programmer des tâches qui modifient des données réelles
-en production dépasse le périmètre demandé) — il a choisi d'activer les
-trois tâches. Aucun effet de bord au moment de l'activation (vérifié
-avant : 1 seul abonnement en base, non expiré) ; `expire-subscriptions`
-confirmé réellement exécuté avec succès dans `cron.job_run_details`, pas
-seulement programmé dans `cron.job`.
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-038) :
-**écran Revenus + historique de courses chauffeur construit**
-(`docs/05-ecrans.md` écran #18, jamais fait jusqu'ici) — tuiles de gains
-jour/7 jours/mois (`invoices.transport_amount_fcfa`, calculées côté
-client sur une seule requête bornée au mois), historique des 20
-dernières courses, bouton Facture réutilisant `generateRideInvoicePdf`
-(TASK-037) avec les infos chauffeur prises directement dans l'état local
-(pas d'appel RPC redondant sur soi-même) et le nom du passager via
-`get_ride_passenger_public_info`. Ferme au passage la dissymétrie notée
-en clôturant TASK-037 (le chauffeur n'avait aucun moyen d'accéder à la
-facture de ses propres courses).
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-037) :
-**facture PDF de course construite** — le deuxième des deux manques de
-rendu PDF identifiés ce jour (le premier, TASK-036, ci-dessous) ; celui-ci
-était un manque déjà connu et documenté (`docs/10-paiements.md`
-§Facturation le listait explicitement), pas une découverte. Bouton
-« Facture » dans l'historique passager (`apps/web`) pour chaque course
-avec facture générée (`invoices`) — numéro, date, passager, chauffeur,
-véhicule/plaque, trajet, distance, montants. `pdfSafe()` (le correctif
-d'encodage jsPDF de TASK-036) extrait vers `apps/web/src/lib/pdf.ts`,
-partagé entre les deux générateurs plutôt que dupliqué. Ne couvre pas
-`apps/mobile` ni un futur écran d'historique de courses côté chauffeur
-(n'existe pas encore).
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-036) :
-**reçu PDF d'abonnement chauffeur réellement construit** — découvert que
-`docs/10-paiements.md` documentait ce reçu (`jsPDF`) comme déjà fait
-depuis le tout début du projet alors qu'il n'existait nulle part dans le
-code (vérifié : aucune occurrence de `jsPDF` dans le dépôt avant ce jour).
-Construit pour de vrai : `apps/web/src/lib/receipt.ts`, section « Reçus »
-dans le tableau de bord chauffeur, un bouton Télécharger par paiement
-d'abonnement réussi. A aussi révélé un vrai bug au passage : les polices
-standard de jsPDF ne rendent pas l'espace fine insécable qu'utilise le
-formatage FCFA comme séparateur de milliers (montant affiché corrompu
-dans le PDF) — repéré en relisant le contenu réel du fichier généré, pas
-seulement en vérifiant qu'un PDF valide existait ; corrigé localement
-dans `receipt.ts`. `jsPDF` embarque `html2canvas`+`dompurify` (~380 Ko
-gzip, plugin `.html()` jamais utilisé) — chargé à la demande (`import()`
-dynamique) plutôt que dans le chunk principal, pour ne pas alourdir le
-chargement de tout le monde (passager compris) pour une fonctionnalité
-chauffeur seule. Doc corrigée au passage (référençait aussi une route
-`/abonnement` qui n'a jamais existé). Ne couvre pas la facture de course
-(`invoices`, toujours sans rendu PDF, périmètre plus large) ni
-`apps/mobile` (non porté, jsPDF nécessite une approche différente en
-React Native).
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-035) :
-**position du chauffeur câblée sur les deux plateformes** — découvert en
-vérifiant si `update_driver_location` (existante depuis la migration 2,
-condition nécessaire au matching via `dispatch_next_offer`) était
-réellement appelée : elle ne l'était nulle part, ni côté `apps/web` ni
-côté `apps/mobile`. Sans cet appel le matching n'aurait jamais pu
-fonctionner en production, indépendamment de la clé Google Maps ou des
-tarifs. Corrigé : suivi de position en continu (foreground uniquement,
-jamais d'arrière-plan) tant que le chauffeur est disponible, y compris
-pendant une course. A aussi révélé et corrigé un vrai bug au passage :
-le premier appel `supabase.rpc(...)` dans la callback de position
-n'était ni `await` ni `.then()` — `supabase-js` expose un thenable
-paresseux, la requête ne partait donc jamais avant correction. Un grep
-systématique sur les trois apps a confirmé que c'était un cas isolé.
-Vérifié via Playwright (`expo-location` a une vraie implémentation web,
-contrairement à `Alert.alert`) : géolocalisation accordée → appel RPC
-avec les bonnes coordonnées ; refusée → message d'erreur clair, aucun
-appel. `tsc`/`oxlint` propres.
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-034) :
-**`apps/mobile` porté au même périmètre qu'`apps/web`** — tableau de bord
-chauffeur (onboarding, documents via `expo-file-system`, abonnement,
-disponibilité, offres, course en cours) et demande de course passager
-(suivi, formulaire avec le nouveau composant `SelectField`, estimation,
-historique), portage direct des mêmes RPC/Edge Function. Vérifié via le
-mode web d'Expo + Playwright (aucun émulateur natif ici) : les deux
-tableaux de bord de bout en bout sur les chemins non bloqués par
-`Alert.alert` (no-op découvert sur ce mode de vérification, sans effet
-sur le comportement natif réel). `tsc`/`oxlint` propres.
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md`
-(TASK-033) : **`apps/mobile` démarré** (Expo SDK 57 + TypeScript + Expo
-Router) — accueil avec bascule de rôle, authentification par code email
-passager/chauffeur (composant partagé, port direct de la logique
-`apps/web`), gardes de session sur les 4 routes.
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md`
-(TASK-032) : **vrais tarifs câblés** — `pricing_rules` (voiture 250 FCFA prise en
-charge + 250 FCFA/km, minimum 700 FCFA ; moto 100 FCFA prise en charge +
-70 FCFA/km, pas de minimum ; majoration de nuit 10 % de 22h à 5h pour les
-deux) et correction de `subscription_plans` (Pass Jour moto 500 → 300
-FCFA, jamais confirmé avant). Corrigé au passage : la majoration de nuit
-ne se déclenchait jamais sans zone sélectionnée (repli sur la fenêtre
-22h-5h ajouté). Plus aucun tarif inventé ni manquant — la demande de
-course ne dépend plus que de la clé Google Maps (§3/§7).
-
-**Toujours le 4 septembre 2026** — détail complet dans `docs/TASKS.md`
-(TASK-029 à TASK-031) : **côté chauffeur de `apps/web` construit** (auth, dépôt de
-dossier KYC + véhicule, tableau de bord avec abonnement/disponibilité/
-offres/course en cours) ; **actions admin sur les paiements manuels**
-(Confirmer/Marquer échoué/Rembourser sur `/paiements`) ; **accueil
-passager réel + demande de course** (suivi de course, formulaire de
-demande avec estimation, historique) ; deux fonctions dédiées pour les
-infos publiques chauffeur↔passager (migration 13) et un correctif de
-sécurité NULL-safety découvert en vérifiant les grants réels après coup
-(migration 14) — a aussi révélé et corrigé un embed PostgREST déjà
-silencieusement cassé côté chauffeur (infos passager jamais affichées en
-production).
-
-**3 septembre 2026** — détail complet dans `docs/TASKS.md` (TASK-004 à
-TASK-028) : nav admin regroupée par domaine + README admin rafraîchi ;
-premier compte admin bootstrappé ; révision du modèle économique
-(catégories, frais de service) ; module paiement/abonnement/facturation ;
-déploiement réel du schéma (12 migrations) et des 5 Edge Functions ;
-contournement `pg_net` pour les push ; les 24 écrans du dashboard admin,
-un à un ; bucket Storage `driver-documents` ; correction récurrente d'un
-bug d'embedding PostgREST (5 tables) ; MCP Supabase connecté +
-durcissement de 13 grants internes ; révision d'architecture
-(4 plateformes) ; `apps/web` scaffoldé + auth passager par code email ;
-eSMS Africa abandonné (documentation).
-
-Antérieurement (2 septembre 2026) : backend initial complet (schéma,
-~35 fonctions, worker, 5 Edge Functions), cadrage (12 livrables), design
-UX/UI (37 écrans) — détail dans l'historique de conversation.
+Réorganisation du dépôt (nettoyage, CI, documentation — voir §2) et
+audit RPC complémentaire + vérification par rendu réel de 5
+fonctionnalités (notifications, jeton push, notation, support,
+anti-fraude appareils). Détail complet, daté : voir
+[`CHANGELOG.md`](CHANGELOG.md), entrées les plus récentes en premier.
 
 ## 6. Prochaine étape
 
-Le code applicatif (dashboard admin, `apps/web` et `apps/mobile`,
-passager/chauffeur) est terminé pour le périmètre MVP documenté sur les
-trois plateformes, écrans transverses/sécurité inclus (TASK-042),
-notation post-course incluse (TASK-047) et support client inclus
-(TASK-048) — les 24+ écrans de `docs/05-ecrans.md` sont désormais tous
-construits. Seule pièce visuelle non construite, non bloquante :
-l'autocomplétion d'adresse Google Places (§3). « Moyens de paiement » (écran transverse listé dans
-`docs/05-ecrans.md`) reste délibérément non construit : aucun moyen de
-paiement n'est enregistré dans ce système, le mode est choisi à chaque
-course — pas de quoi construire un écran tant que cette conception ne
-change pas.
-
-Ce qui reste est soit externe (décisions/comptes qui vous appartiennent,
-§7), soit une vérification que je ne peux pas faire depuis cet
-environnement (rendu natif réel d'`apps/mobile` sur un simulateur/appareil
-Android ou iOS, upload de document, les trois confirmations `Alert.alert`,
-rendu réel de la carte live et de la facturation détail sur des données
-réelles, §3). Aucun chantier de code n'est bloqué en attente d'une
-décision technique de mon côté.
+Aucun chantier de code n'est bloqué en attente d'une décision technique
+de mon côté. Ce qui reste est soit externe (décisions/comptes qui vous
+appartiennent, §7), soit une vérification que je ne peux pas faire
+depuis cet environnement de développement (rendu natif réel
+d'`apps/mobile`, upload de document, confirmations `Alert.alert`, carte
+live et facturation détail avec de vraies données).
 
 ## 7. Décision(s) / action(s) requise(s) de votre part
 
 - **Tester `apps/mobile` sur votre téléphone** (optionnel, quand vous
   voulez) : `cd apps/mobile && npm install && npx expo start`, puis
-  scanner le QR code avec l'app **Expo Go** (Android/iOS, gratuite) — pas
-  besoin de compte Expo/EAS pour ça. C'est le seul moyen de vérifier le
-  rendu natif réel et les trois confirmations `Alert.alert`, non
-  testables depuis cet environnement (voir §3).
+  scanner le QR code avec l'app **Expo Go** (Android/iOS, gratuite) —
+  pas besoin de compte Expo/EAS pour ça.
 - **Connexion admin** : essayez `/login` avec `abotchigilles@yahoo.fr`.
-  Si ça échoue (probable — voir §3), réinitialisez le mot de passe
-  depuis Dashboard → Authentication → Users → ce compte.
-- **Mobile Money** : Flooz, TMoney (direct) ou Semoa Togo (agrégateur) —
-  non bloquant. Détermine aussi la réponse à la question de custody des
-  fonds notée en §3.
-- **Créer un projet Expo (compte gratuit)** pour activer les
-  notifications push (TASK-045) : `cd apps/mobile && npx eas init` (invite
-  à se connecter/créer un compte sur expo.dev) puis renseigner l'identifiant
-  obtenu dans `EXPO_PUBLIC_PROJECT_ID` (`.env`). Sans ça, le code déjà en
-  place n'enregistre jamais de jeton (échoue silencieusement, pas
-  d'erreur visible). Un vrai test de réception demandera ensuite un build
-  de développement (`eas build --profile development`) — Expo Go seul ne
-  reçoit plus les push distants sur Android depuis le SDK 53.
+  Si ça échoue (probable), réinitialisez le mot de passe depuis
+  Dashboard → Authentication → Users → ce compte.
+- **Mobile Money** : Flooz, TMoney (direct) ou Semoa Togo (agrégateur)
+  — non bloquant. Détermine aussi la réponse à la question de custody
+  des fonds notée en §3.
+- **Créer un projet Expo** (compte gratuit) pour activer les
+  notifications push : `cd apps/mobile && npx eas init`, puis
+  renseigner l'identifiant obtenu dans `EXPO_PUBLIC_PROJECT_ID`
+  (`.env`). Un vrai test de réception demandera ensuite un build de
+  développement (`eas build --profile development`).
 - **Comptes développeur mobile** (Play Console, Apple Developer) — non
-  bloquant avant la Phase 9.
-- **Régime fiscal togolais** (facturation pour compte du chauffeur) et
-  **statut réglementaire de la collecte Mobile Money pour compte de
-  tiers** — à valider avant production réelle (voir
-  [01-architecture-fonctionnelle.md](01-architecture-fonctionnelle.md)
-  §Rôle des parties et [10-paiements.md](10-paiements.md)).
+  bloquant avant publication sur les stores.
+- **Régime fiscal togolais** et **statut réglementaire de la collecte
+  Mobile Money pour compte de tiers** — à valider avant production
+  réelle (voir `docs/01-architecture-fonctionnelle.md` §Rôle des
+  parties et `docs/10-paiements.md`).
