@@ -1,0 +1,62 @@
+# Vérification automatique à chaque envoi sur GitHub — refait exactement
+# les contrôles qu'on fait à la main (compilation, construction,
+# vérification de code) et affiche une coche verte ou une croix rouge sur
+# la page du commit / de la pull request. Ne bloque rien tout seul, c'est
+# un signal, pas un obstacle.
+name: Vérifications
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  web:
+    name: apps/web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx tsc --noEmit
+        working-directory: apps/web
+      - run: npm run build
+        working-directory: apps/web
+      - run: npm run lint
+        working-directory: apps/web
+
+  admin:
+    name: apps/admin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx tsc --noEmit
+        working-directory: apps/admin
+      - run: npm run build
+        working-directory: apps/admin
+      - run: npm run lint
+        working-directory: apps/admin
+
+  mobile:
+    name: apps/mobile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      # Pas de "build" ici : une app Expo se construit avec `eas build`
+      # (nécessite un compte Expo), pas avec un simple script npm —
+      # voir apps/mobile/README.md.
+      - run: npx tsc --noEmit
+        working-directory: apps/mobile
+      - run: npm run lint
+        working-directory: apps/mobile
