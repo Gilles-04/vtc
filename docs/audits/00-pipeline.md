@@ -12,7 +12,7 @@ possible (`npm run verify`, `npm audit`) — jamais d'invention, tout
 | 1 | Audit intégral de production, fonctionnalité et mise en ligne | [`01-audit-production.md`](01-audit-production.md) | ✅ Terminé (6 sept. 2026) — verdict 🟠 NOT READY |
 | 2 | Audit sécurité complet d'un site web en développement | [`02-audit-securite-web.md`](02-audit-securite-web.md) | ✅ Terminé (6 sept. 2026) — verdict 🟡 ACCEPTABLE AVEC CORRECTIONS MINEURES |
 | 3 | Audit sécurité + configuration Supabase | [`03-audit-securite-supabase.md`](03-audit-securite-supabase.md) | ✅ Terminé (6 sept. 2026) — verdict 🟡 GO CONDITIONNEL |
-| 4 | Audit architecture, scalabilité et maintenabilité | `04-audit-architecture.md` | ⏳ À faire |
+| 4 | Audit architecture, scalabilité et maintenabilité | [`04-audit-architecture.md`](04-audit-architecture.md) | ✅ Terminé (6 sept. 2026) — sain, un point à mesurer (latence région Supabase) |
 | 5 | Audit tests, qualité du code et fiabilité | `05-audit-tests-qualite.md` | ⏳ À faire |
 | 6 | Audit performance et optimisation complète | `06-audit-performance.md` | ⏳ À faire |
 | 7 | Audit UX/UI, accessibilité et expérience utilisateur | `07-audit-ux-ui.md` | ⏳ À faire |
