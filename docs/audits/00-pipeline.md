@@ -15,7 +15,7 @@ possible (`npm run verify`, `npm audit`) — jamais d'invention, tout
 | 4 | Audit architecture, scalabilité et maintenabilité | [`04-audit-architecture.md`](04-audit-architecture.md) | ✅ Terminé (6 sept. 2026) — sain, un point à mesurer (latence région Supabase) |
 | 5 | Audit tests, qualité du code et fiabilité | [`05-audit-tests-qualite.md`](05-audit-tests-qualite.md) | ✅ Terminé (6 sept. 2026) — 5 tests réels ajoutés et intégrés au CI (0 → 5) |
 | 6 | Audit performance et optimisation complète | [`06-audit-performance.md`](06-audit-performance.md) | ✅ Terminé (6 sept. 2026) — 2 causes racines trouvées (bundle admin non découpé par route, appels Storage N+1) |
-| 7 | Audit UX/UI, accessibilité et expérience utilisateur | `07-audit-ux-ui.md` | ⏳ À faire |
+| 7 | Audit UX/UI, accessibilité et expérience utilisateur | [`07-audit-ux-ui.md`](07-audit-ux-ui.md) | ✅ Terminé (6 sept. 2026) — bug de contraste réel trouvé et corrigé dans les 3 apps |
 | 8 | Hardening et protection maximale d'un VPS Ubuntu en production | `08-audit-hardening-vps.md` | ⏳ À faire — **probablement non applicable** (aucun VPS pour ce projet, voir audit 1 §1) |
 | 9 | Audit sauvegardes, monitoring, logs et disaster recovery | `09-audit-backups-dr.md` | ⏳ À faire |
 | 10 | Mode développeur autonome — projet propre de A à Z | — (appliqué en continu, pas un document séparé) | ⏳ En continu |
