@@ -6,7 +6,7 @@ type Tone = 'default' | 'navy' | 'gold' | 'red' | 'green'
 const toneStyles: Record<Tone, { bg: string; fg: string }> = {
   default: { bg: colors.ink100, fg: colors.ink600 },
   navy: { bg: colors.navy100, fg: colors.navy700 },
-  gold: { bg: '#fdf3d9', fg: colors.gold600 },
+  gold: { bg: '#fdf3d9', fg: colors.gold700 },
   red: { bg: colors.red50, fg: colors.red700 },
   green: { bg: '#ecfdf3', fg: '#15803d' },
 }

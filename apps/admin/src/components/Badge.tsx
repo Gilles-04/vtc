@@ -8,7 +8,7 @@ interface BadgeProps {
 const toneClasses: Record<NonNullable<BadgeProps['tone']>, string> = {
   default: 'bg-ink-100 text-ink-600',
   navy: 'bg-navy-100 text-navy-700',
-  gold: 'bg-gold-400/20 text-gold-600',
+  gold: 'bg-gold-400/20 text-gold-700',
   red: 'bg-red-50 text-red-700',
   green: 'bg-green-50 text-green-700',
 }

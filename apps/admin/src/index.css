@@ -16,6 +16,12 @@
   --color-gold-400: #f2c94c;
   --color-gold-500: #e0ac1f;
   --color-gold-600: #b8860b;
+  /* Réservé au texte sur fond clair (badges) : gold-600 ne passe pas le
+     contraste WCAG AA sur bg-gold-400/20 (2.96:1, il faut 4,5:1 pour du
+     texte de cette taille) — trouvé par l'audit accessibilité (axe-core,
+     6 septembre 2026, apps/web, même palette). gold-600 reste correct
+     pour le grand texte gras (StatCard, ≥3:1 requis, mesuré à 3,25:1). */
+  --color-gold-700: #8f6300;
 
   --color-ink-50: #f7f8fa;
   --color-ink-100: #e7eaf0;

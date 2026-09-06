@@ -12,6 +12,12 @@ export const colors = {
   gold400: '#f2c94c',
   gold500: '#e0ac1f',
   gold600: '#b8860b',
+  // Réservé au texte sur fond clair (badges) : gold600 ne passe pas le
+  // contraste WCAG AA sur le fond du badge (2.96:1, il faut 4,5:1) —
+  // trouvé par l'audit accessibilité (axe-core, apps/web, 6 sept. 2026,
+  // même palette dupliquée ici). gold600 reste correct pour les usages
+  // non textuels (ActivityIndicator, accentColor).
+  gold700: '#8f6300',
 
   ink50: '#f7f8fa',
   ink100: '#e7eaf0',
