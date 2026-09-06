@@ -9,13 +9,14 @@ sur le prix payé par le passager — voir
 [docs/01-architecture-fonctionnelle.md](docs/01-architecture-fonctionnelle.md)).
 Lancement prévu à Lomé, extension progressive au reste du Togo.
 
-> **Avant de développer quoi que ce soit, lire les 12 livrables de cadrage
-> dans [`docs/`](docs/)** — architecture fonctionnelle et technique,
-> sitemap, parcours utilisateur, écrans, schéma de base de données, API,
-> logique du matching/abonnement/paiement, sécurité, roadmap. Point d'entrée
-> de continuité entre sessions : [`docs/STATUS.md`](docs/STATUS.md).
+> **État réel du projet, à lire avant toute tâche** :
+> [`docs/STATUS.md`](docs/STATUS.md) (instantané court, jamais un journal).
+> Tâches en cours : [`docs/TASKS.md`](docs/TASKS.md). Historique complet et
+> daté : [`docs/CHANGELOG.md`](docs/CHANGELOG.md). Pourquoi certains choix
+> ont été faits : [`docs/DECISIONS.md`](docs/DECISIONS.md). Règles
+> permanentes de travail sur ce dépôt : [`CLAUDE.md`](CLAUDE.md).
 
-## Sommaire des livrables
+## Sommaire des livrables de cadrage (`docs/`)
 
 | # | Document |
 |---|---|
@@ -44,23 +45,36 @@ Functions) · React 19 + Vite (web, dashboard admin) · React Native/Expo
 
 ```
 apps/
-  web/          # app web publique, passager + chauffeur — non initialisée (voir docs/02-architecture-technique.md §Révision du 3 septembre 2026)
-  mobile/       # app Expo (Android + iOS), passager + chauffeur — non initialisée, voir docs/12-roadmap.md
-  admin/        # dashboard web, équipe uniquement — connexion, vue d'ensemble, chauffeurs/KYC, courses construits, voir apps/admin/README.md
-packages/
-  shared-types/ # types générés depuis le schéma Supabase
-  api-client/   # client Supabase + fonctions typées communes
-  ui/           # composants partagés passager/chauffeur
+  web/          # passager + chauffeur (React 19 + Vite + TanStack Router) — voir apps/web/README.md
+  admin/        # dashboard équipe (24 écrans) — voir apps/admin/README.md
+  mobile/       # Expo, Android + iOS, même périmètre que web — voir apps/mobile/README.md
 supabase/
-  migrations/   # schéma + logique métier SQL, source de vérité (doc 06/07)
-  functions/    # 5 Edge Functions (doc 07) — écrites et vérifiées avec Deno,
-                # jamais déployées faute de projet Supabase disponible
+  migrations/   # schéma + logique métier SQL, source de vérité (doc 06/07) — déployées pour de vrai
+  functions/    # 5 Edge Functions (doc 07) — écrites, vérifiées et déployées sur le vrai projet
 services/
-  matching-worker/  # processus à part, toujours actif (doc 08 §Concurrence)
-docs/           # les 12 livrables + suivi de projet
+  matching-worker/  # écrit et testé en local, jamais déployé — remplacé pour l'instant par un
+                     # balayage pg_cron interne à Supabase (voir docs/DECISIONS.md)
+docs/           # les 12 livrables de cadrage + suivi de projet (STATUS/TASKS/CHANGELOG/DECISIONS)
+.github/workflows/  # vérification automatique (tsc + build + lint) à chaque envoi sur main
 ```
 
-## Démarrage (base de données)
+## Démarrage
+
+Chaque application se lance indépendamment — voir son propre README pour
+le détail (variables d'environnement, écrans construits) :
+[`apps/web/README.md`](apps/web/README.md),
+[`apps/admin/README.md`](apps/admin/README.md),
+[`apps/mobile/README.md`](apps/mobile/README.md).
+
+```sh
+npm install                 # une fois, à la racine (workspaces npm)
+npm run dev --workspace=apps/web     # ou apps/admin
+cd apps/mobile && npx expo start     # mobile : scanner le QR code avec Expo Go
+```
+
+Base de données (déjà déployée sur le projet Supabase dédié — cette
+commande sert à rejouer les migrations sur un autre projet, par exemple
+pour un environnement de test) :
 
 ```sh
 npx supabase login
@@ -68,28 +82,16 @@ npx supabase link --project-ref <ref-du-projet-supabase-dedie>
 npx supabase db push
 ```
 
-Les 5 migrations (`supabase/migrations/`) — schéma, logique métier (RPC,
-triggers, `pg_cron`), vérification téléphone, jetons push, contournement
-notifications push (voir `docs/STATUS.md`) — ont été **réellement testées**
-en local (Postgres 16 + PostGIS) puis **déployées sur le vrai projet
-Supabase dédié**, pas seulement relues : cycle complet d'une course
-(création → matching → acceptation → trajet → fin → notation), abonnement
-(achat → confirmation → expiration automatique → blocage du chauffeur),
-KYC, anti-fraude (appareil partagé, anomalie GPS, limitation de débit),
-suspension de compte, tickets support — 25 vérifications automatisées,
-toutes passantes en local. Les 5 Edge Functions (`supabase/functions/`)
-sont écrites, vérifiées avec Deno réel (compilation, typage contre les
-vraies bibliothèques, lint) et **déployées sur le vrai projet** — URLs
-vérifiées une par une. `push-notifications-dispatch` tourne déjà
-réellement de bout en bout (notification de test → appel HTTP confirmé).
-Le worker de dispatch (`services/matching-worker/`) est écrit, testé pour
-de vrai contre un Postgres local, mais pas encore déployé (VPS + systemd).
+## Vérification
 
-Le dashboard admin (`apps/admin/`) a 5 écrans construits — voir
-`docs/STATUS.md`. `apps/web/` a sa première page (accueil public). Le
-reste (auth passager, apps mobiles) démarre en Phase 0/1 de la
-[roadmap](docs/12-roadmap.md), une fois les comptes fournisseurs
-restants (Google Maps, Expo/EAS) ouverts.
+Une seule commande, à la racine, rejoue exactement ce que vérifie GitHub
+Actions à chaque envoi (`tsc --noEmit`, build, `oxlint`) pour les trois
+applications :
+
+```sh
+npm run verify              # web + admin + mobile
+npm run verify:web          # une seule application
+```
 
 ## Licence
 

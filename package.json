@@ -5,6 +5,11 @@
   "workspaces": [
     "apps/*"
   ],
-  "scripts": {},
+  "scripts": {
+    "verify": "npm run verify:web && npm run verify:admin && npm run verify:mobile",
+    "verify:web": "npm run build --workspace=apps/web && npm run lint --workspace=apps/web",
+    "verify:admin": "npm run build --workspace=apps/admin && npm run lint --workspace=apps/admin",
+    "verify:mobile": "tsc --noEmit -p apps/mobile && npm run lint --workspace=apps/mobile"
+  },
   "license": "UNLICENSED"
 }
