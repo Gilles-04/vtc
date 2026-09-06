@@ -32,6 +32,19 @@ Lancement prévu à Lomé, extension progressive au reste du Togo.
 | 10 | [Logique des paiements](docs/10-paiements.md) |
 | 11 | [Règles de sécurité](docs/11-securite.md) |
 | 12 | [Roadmap de développement](docs/12-roadmap.md) |
+| 13 | [Glossaire](docs/13-glossaire.md) |
+
+## Audits (6 septembre 2026)
+
+Suite de 12 audits indépendants (production, sécurité web, sécurité
+Supabase, architecture, tests, performance, UX/accessibilité, hardening
+VPS, sauvegardes/DR, mode développeur autonome, SEO, documentation) —
+verdicts, preuves et plans de remédiation détaillés dans
+[`docs/audits/00-pipeline.md`](docs/audits/00-pipeline.md). Trouvaille la
+plus importante à ce jour : le projet Supabase est sur le plan Free, donc
+**sans aucune sauvegarde** — voir
+[`docs/audits/09-audit-backups-monitoring-dr.md`](docs/audits/09-audit-backups-monitoring-dr.md)
+et `TASK-054`.
 
 ## Stack (détail et justification en doc 02)
 
@@ -54,7 +67,8 @@ supabase/
 services/
   matching-worker/  # écrit et testé en local, jamais déployé — remplacé pour l'instant par un
                      # balayage pg_cron interne à Supabase (voir docs/DECISIONS.md)
-docs/           # les 12 livrables de cadrage + suivi de projet (STATUS/TASKS/CHANGELOG/DECISIONS)
+docs/           # les 13 livrables de cadrage + suivi de projet (STATUS/TASKS/CHANGELOG/DECISIONS)
+  audits/       # 12 audits indépendants (production, sécurité, perf, SEO, doc...) — voir docs/audits/00-pipeline.md
 .github/workflows/  # vérification automatique (tsc + build + lint) à chaque envoi sur main
 ```
 

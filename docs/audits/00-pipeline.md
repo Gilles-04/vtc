@@ -20,7 +20,7 @@ possible (`npm run verify`, `npm audit`) — jamais d'invention, tout
 | 9 | Audit sauvegardes, monitoring, logs et disaster recovery | [`09-audit-backups-monitoring-dr.md`](09-audit-backups-monitoring-dr.md) | ✅ Terminé (6 sept. 2026) — 🔴 **critique** : projet Supabase sur plan Free, aucune sauvegarde |
 | 10 | Mode développeur autonome — projet propre de A à Z | [`10-audit-mode-developpeur-autonome.md`](10-audit-mode-developpeur-autonome.md) | ✅ Terminé (6 sept. 2026) — dépôt propre, une tension disclosée (attribution Git, hors de mon autorité à changer seul) |
 | 11 | Audit SEO intégral et optimisation complète du site | [`11-audit-seo.md`](11-audit-seo.md) | ✅ Terminé (6 sept. 2026) — 🟡 SEO minimal, aucune URL publique à indexer pour l'instant, un point d'exposition à corriger (`apps/admin` non protégé contre l'indexation) |
-| 12 | Dossier documentaire complet et vivant du projet | `../` (structure `docs/` existante à compléter) | ⏳ À faire en dernier |
+| 12 | Dossier documentaire complet et vivant du projet | [`12-audit-documentation.md`](12-audit-documentation.md) | ✅ Terminé (6 sept. 2026) — 🟢 sain, 2 lacunes trouvées et corrigées (dossier d'audits invisible depuis le README, aucun glossaire) |
 
 ## Note sur l'étape 10
 
@@ -33,6 +33,26 @@ Traitée explicitement dans
 dépôt structurellement propre, avec une tension disclosée plutôt que
 cachée (les pieds de page `Co-Authored-By` dans l'historique Git — une
 contrainte de la session en cours, pas un choix fait sur ce projet).
+
+## 🚀 Synthèse — pipeline terminé, prêt pour la décision de mise en ligne
+
+Les 12 audits sont terminés. **Un seul bloquant réellement critique
+identifié sur l'ensemble du pipeline** : l'absence de sauvegarde
+(Audit 9, plan Supabase Free) — décision de budget, pas technique
+(`TASK-054`). Tout le reste est soit déjà correct (audits 2-8, 10),
+soit une amélioration non bloquante trackée (`TASK-055` pour le SEO/
+exposition `apps/admin`, corrections d'accessibilité déjà appliquées en
+Audit 7, 5 tests e2e déjà intégrés au CI en Audit 5), soit une
+dépendance externe déjà connue et non liée aux audits (déploiement
+Vercel, `TASK-053`).
+
+**Avant un vrai lancement avec de vrais utilisateurs**, dans l'ordre :
+1. `TASK-054` — passer Supabase au plan Pro (sauvegardes) — **votre
+   décision**.
+2. `TASK-053` — finaliser le déploiement Vercel — **votre action**
+   dans l'interface Vercel.
+3. `TASK-055` — corriger l'exposition `apps/admin` (protection contre
+   l'indexation) avant que son URL devienne publique.
 
 ## Suivi
 

@@ -1,5 +1,13 @@
 # 11 — Règles de sécurité
 
+Ce document décrit les règles **telles que conçues**. Leur vérification
+réelle contre le projet Supabase déployé (policies RLS, fonctions
+`SECURITY DEFINER`, secrets, en-têtes HTTP) est traitée séparément, avec
+preuves à l'appui, dans
+[`docs/audits/02-audit-securite-web.md`](audits/02-audit-securite-web.md)
+et
+[`docs/audits/03-audit-securite-supabase.md`](audits/03-audit-securite-supabase.md).
+
 ## Authentification
 
 - **Code à usage unique par email** (Supabase Auth natif,

@@ -4,6 +4,12 @@ Construction **progressive**, jamais tout en une fois — principe explicite
 du cadrage (§13). Chaque étape doit être fonctionnelle et vérifiable avant
 de passer à la suivante.
 
+Cette roadmap décrit les phases **prévues**. L'état réel d'avancement,
+avec ce qui est vraiment fait/vérifié aujourd'hui, vit dans
+[`docs/STATUS.md`](STATUS.md) ; ce qui bloque avant un vrai lancement est
+listé dans [`docs/audits/00-pipeline.md`](audits/00-pipeline.md) (12 audits
+indépendants, 6 septembre 2026).
+
 ## Phase 0 — Fondations (avant toute fonctionnalité visible)
 
 - Projet Supabase dédié créé, schéma initial appliqué (migration —
