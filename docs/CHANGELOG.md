@@ -2126,3 +2126,36 @@ rien n'a été supprimé ni résumé, seulement déplacé (voir
 - **Résultat** : les 4 fichiers signalés par l'audit du 6 septembre 2026
   sont découpés, zéro changement de comportement. Il ne reste plus aucun
   fichier de code dépassant 500 lignes dans le dépôt.
+
+---
+
+## TASK-055 — Protection anti-indexation `apps/admin` + briques SEO de base
+
+- **Objectif** : l'audit SEO du 6 septembre 2026
+  (`docs/audits/11-audit-seo.md`) avait trouvé `apps/admin` (back-office
+  privé) sans aucune protection contre l'indexation par un moteur de
+  recherche, et `apps/web` sans meta description ni Open Graph (aperçu
+  de partage vide sur WhatsApp/Facebook).
+- **Statut** : Terminé (6 septembre 2026).
+- **Fait** :
+  - `apps/admin/index.html` : `<meta name="robots" content="noindex, nofollow">`.
+  - `apps/admin/public/robots.txt` : `Disallow: /` (défense en
+    profondeur, en plus de la balise `noindex`).
+  - `apps/web/index.html` : `<meta name="description">` réelle
+    (reprenant le contenu de la page d'accueil), balises Open Graph de
+    base (`og:type`, `og:locale`, `og:title`, `og:description`) et
+    `twitter:card`. Pas d'`og:image` : aucune image de partage dédiée
+    n'existe pour l'instant (asset à créer, pas un défaut de code —
+    non bloquant, WhatsApp/Facebook affichent déjà titre + description
+    sans image).
+  - `apps/web/public/robots.txt` : autorise tout (`Allow: /`).
+- **Vérifié** : `npm run verify:web` et `npm run verify:admin`
+  (`tsc --noEmit` + `vite build` + `oxlint`) propres sur les deux apps ;
+  contenu des balises confirmé dans le HTML construit
+  (`apps/admin/dist/index.html`, `apps/web/dist/index.html`).
+- **Résultat** : le point le plus important de l'audit SEO (exposition
+  non voulue d'`apps/admin`) est corrigé avant que TASK-053 ne rende son
+  URL Vercel publique. Restent en amélioration non urgente (voir
+  `docs/audits/11-audit-seo.md` plan de remédiation) : titre par route
+  dynamique, `sitemap.xml`, données structurées JSON-LD, une vraie image
+  de partage — aucun n'est bloquant.

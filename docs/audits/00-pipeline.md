@@ -40,19 +40,19 @@ Les 12 audits sont terminés. **Un seul bloquant réellement critique
 identifié sur l'ensemble du pipeline** : l'absence de sauvegarde
 (Audit 9, plan Supabase Free) — décision de budget, pas technique
 (`TASK-054`). Tout le reste est soit déjà correct (audits 2-8, 10),
-soit une amélioration non bloquante trackée (`TASK-055` pour le SEO/
-exposition `apps/admin`, corrections d'accessibilité déjà appliquées en
-Audit 7, 5 tests e2e déjà intégrés au CI en Audit 5), soit une
+soit déjà corrigé dans la foulée (`TASK-055` : protection anti-
+indexation `apps/admin` + briques SEO de base `apps/web`, Audit 11 ;
+corrections d'accessibilité, Audit 7 ; 5 tests e2e intégrés au CI,
+Audit 5 ; dossier `docs/` relié + glossaire, Audit 12), soit une
 dépendance externe déjà connue et non liée aux audits (déploiement
 Vercel, `TASK-053`).
 
-**Avant un vrai lancement avec de vrais utilisateurs**, dans l'ordre :
+**Avant un vrai lancement avec de vrais utilisateurs**, il ne reste que
+deux chantiers, tous deux hors de portée technique directe :
 1. `TASK-054` — passer Supabase au plan Pro (sauvegardes) — **votre
-   décision**.
+   décision** de budget.
 2. `TASK-053` — finaliser le déploiement Vercel — **votre action**
    dans l'interface Vercel.
-3. `TASK-055` — corriger l'exposition `apps/admin` (protection contre
-   l'indexation) avant que son URL devienne publique.
 
 ## Suivi
 

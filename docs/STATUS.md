@@ -112,19 +112,12 @@ sous-fichiers par sujet (plus aucun fichier de code ne dépasse
 - **`phone-verification-check`/`ESMS_AFRICA_API_KEY`** : circuit
   eSMS Africa abandonné au profit du code email, code conservé en
   réserve pour un futur fournisseur SMS.
-- **`apps/admin` non protégé contre l'indexation par un moteur de
-  recherche** — confirmé lors de l'audit SEO du 6 septembre 2026
-  ([`docs/audits/11-audit-seo.md`](audits/11-audit-seo.md) §4) : aucune
-  balise `noindex`/`robots.txt`. Sans impact tant qu'`apps/admin` n'a
-  pas d'URL publique (TASK-053 en cours), mais à corriger avant que ce
-  soit le cas — back-office privé, pas censé apparaître dans Google.
-  Voir `TASK-055`.
 
 ## 4. En cours
 
-Rien en cours — en attente de la prochaine demande. Trois tâches
-restent ouvertes dans [`TASKS.md`](TASKS.md) (TASK-053, TASK-054,
-TASK-055), non bloquantes pour le reste du code — voir §6.
+Rien en cours — en attente de la prochaine demande. Deux tâches
+restent ouvertes dans [`TASKS.md`](TASKS.md) (TASK-053, TASK-054), non
+bloquantes pour le reste du code — voir §6.
 
 ## 5. Dernièrement terminé
 
@@ -132,20 +125,24 @@ TASK-055), non bloquantes pour le reste du code — voir §6.
 audit avec preuves réelles (code + interrogation directe du projet
 Supabase) et verdict explicite, jamais de case cochée par supposition.
 Synthèse complète : [`docs/audits/00-pipeline.md`](audits/00-pipeline.md).
-Trois résultats concrets en sont sortis, au-delà des verdicts eux-mêmes :
-5 tests e2e + accessibilité ajoutés et intégrés au CI (0 → 5, Audit 5),
-un bug de contraste réel corrigé dans les 3 apps (Audit 7), et le
-dossier `docs/` relié/complété avec un glossaire (Audit 12). Avant ce
-pipeline : réorganisation du dépôt en 4 étapes (nettoyage, CI,
-documentation, README racine + `CLAUDE.md`, découpage des fichiers
-d'écran trop volumineux). Détail complet, daté : voir
-[`CHANGELOG.md`](CHANGELOG.md), entrées les plus récentes en premier.
+Plusieurs corrections concrètes en sont sorties, au-delà des verdicts
+eux-mêmes : 5 tests e2e + accessibilité ajoutés et intégrés au CI
+(0 → 5, Audit 5), un bug de contraste réel corrigé dans les 3 apps
+(Audit 7), le dossier `docs/` relié/complété avec un glossaire
+(Audit 12), et la protection anti-indexation d'`apps/admin` + les
+briques SEO de base d'`apps/web` (Audit 11, `TASK-055` — meta
+`noindex`/`robots.txt` sur `apps/admin`, meta description/Open Graph
+sur `apps/web`). Avant ce pipeline : réorganisation du dépôt en
+4 étapes (nettoyage, CI, documentation, README racine + `CLAUDE.md`,
+découpage des fichiers d'écran trop volumineux). Détail complet, daté :
+voir [`CHANGELOG.md`](CHANGELOG.md), entrées les plus récentes en
+premier.
 
 ## 6. Prochaine étape
 
-Trois chantiers restent ouverts, aucun ne bloque l'usage actuel du
-site en développement — l'ordre ci-dessous est celui à suivre avant un
-vrai lancement public :
+Deux chantiers restent ouverts, aucun ne bloque l'usage actuel du site
+en développement — tous deux nécessitent une action de votre part,
+pas du code :
 
 - **TASK-054 (critique avant lancement réel)** : passer l'organisation
   Supabase au plan Pro — sans ça, aucune sauvegarde n'existe (voir §3
@@ -155,12 +152,8 @@ vrai lancement public :
   lancé) mais pas encore confirmé fonctionnel, et `apps/web` n'a pas
   encore de projet Vercel. Nécessite vos actions dans l'interface Vercel
   — voir §7.
-- **TASK-055 (à faire avant que TASK-053 rende `apps/admin` public)** :
-  ajouter la protection anti-indexation sur `apps/admin` et les briques
-  SEO de base sur `apps/web` (voir §3) — travail de code, pas une
-  décision externe.
 
-En dehors de ces trois tâches, ce qui reste est soit externe
+En dehors de ces deux tâches, ce qui reste est soit externe
 (décisions/comptes qui vous appartiennent, §7), soit une vérification
 que je ne peux pas faire depuis cet environnement de développement
 (rendu natif réel d'`apps/mobile` sur un vrai appareil, upload de
