@@ -1,14 +1,17 @@
 # État du projet — VTC Togo
 
-*Dernière mise à jour : 6 septembre 2026 (réorganisation du dépôt en 3
-étapes : dossiers `packages/` jamais initialisés supprimés, vérification
-automatique GitHub ajoutée, documentation éclatée en instantané court +
-historique daté séparé, README racine remis à jour, et
-[`CLAUDE.md`](../CLAUDE.md) créé pour formaliser les règles permanentes
-de travail. Raisonnement complet dans [`DECISIONS.md`](DECISIONS.md),
-détail de chaque étape dans [`CHANGELOG.md`](CHANGELOG.md) TASK-051 (les
-deux étapes précédentes, commits `beae0a9`/`53c2824`/`5568f4a`, sont
-décrites dans son objectif).)*
+*Dernière mise à jour : 6 septembre 2026 (pipeline de 12 audits
+indépendants terminé — production, sécurité web, sécurité Supabase,
+architecture, tests, performance, UX/accessibilité, hardening VPS,
+sauvegardes/DR, mode développeur autonome, SEO, documentation. Détail
+complet et preuves : [`docs/audits/00-pipeline.md`](audits/00-pipeline.md).
+Avant cela, réorganisation du dépôt en 3 étapes : dossiers `packages/`
+jamais initialisés supprimés, vérification automatique GitHub ajoutée,
+documentation éclatée en instantané court + historique daté séparé,
+README racine remis à jour, et [`CLAUDE.md`](../CLAUDE.md) créé pour
+formaliser les règles permanentes de travail. Raisonnement complet dans
+[`DECISIONS.md`](DECISIONS.md), détail de chaque étape dans
+[`CHANGELOG.md`](CHANGELOG.md) TASK-051.)*
 
 > Instantané, pas un journal — réécrit à chaque mise à jour
 > significative. Historique daté : [`CHANGELOG.md`](CHANGELOG.md).
@@ -109,34 +112,55 @@ sous-fichiers par sujet (plus aucun fichier de code ne dépasse
 - **`phone-verification-check`/`ESMS_AFRICA_API_KEY`** : circuit
   eSMS Africa abandonné au profit du code email, code conservé en
   réserve pour un futur fournisseur SMS.
+- **`apps/admin` non protégé contre l'indexation par un moteur de
+  recherche** — confirmé lors de l'audit SEO du 6 septembre 2026
+  ([`docs/audits/11-audit-seo.md`](audits/11-audit-seo.md) §4) : aucune
+  balise `noindex`/`robots.txt`. Sans impact tant qu'`apps/admin` n'a
+  pas d'URL publique (TASK-053 en cours), mais à corriger avant que ce
+  soit le cas — back-office privé, pas censé apparaître dans Google.
+  Voir `TASK-055`.
 
 ## 4. En cours
 
-Rien en cours — en attente de la prochaine demande. Une tâche reste
-ouverte dans [`TASKS.md`](TASKS.md) (TASK-053 : finaliser le
-déploiement Vercel), non bloquante pour le reste du code — voir §6.
+Rien en cours — en attente de la prochaine demande. Trois tâches
+restent ouvertes dans [`TASKS.md`](TASKS.md) (TASK-053, TASK-054,
+TASK-055), non bloquantes pour le reste du code — voir §6.
 
 ## 5. Dernièrement terminé
 
-Réorganisation du dépôt en 4 étapes (nettoyage, CI, documentation,
-README racine + `CLAUDE.md`, découpage des 4 fichiers d'écran trop
-volumineux — voir §2) et audit RPC complémentaire + vérification par
-rendu réel de 5 fonctionnalités (notifications, jeton push, notation,
-support, anti-fraude appareils). Détail complet, daté : voir
+**Pipeline de 12 audits indépendants** (6 septembre 2026) — chaque
+audit avec preuves réelles (code + interrogation directe du projet
+Supabase) et verdict explicite, jamais de case cochée par supposition.
+Synthèse complète : [`docs/audits/00-pipeline.md`](audits/00-pipeline.md).
+Trois résultats concrets en sont sortis, au-delà des verdicts eux-mêmes :
+5 tests e2e + accessibilité ajoutés et intégrés au CI (0 → 5, Audit 5),
+un bug de contraste réel corrigé dans les 3 apps (Audit 7), et le
+dossier `docs/` relié/complété avec un glossaire (Audit 12). Avant ce
+pipeline : réorganisation du dépôt en 4 étapes (nettoyage, CI,
+documentation, README racine + `CLAUDE.md`, découpage des fichiers
+d'écran trop volumineux). Détail complet, daté : voir
 [`CHANGELOG.md`](CHANGELOG.md), entrées les plus récentes en premier.
 
 ## 6. Prochaine étape
 
-Un seul chantier reste ouvert, non bloquant pour l'usage actuel du
-site :
+Trois chantiers restent ouverts, aucun ne bloque l'usage actuel du
+site en développement — l'ordre ci-dessous est celui à suivre avant un
+vrai lancement public :
 
+- **TASK-054 (critique avant lancement réel)** : passer l'organisation
+  Supabase au plan Pro — sans ça, aucune sauvegarde n'existe (voir §3
+  et §7). Décision de budget qui vous appartient.
 - **TASK-053 (priorité haute)** : le déploiement Vercel d'`apps/admin`
   est en cours (variables d'environnement recréées, redéploiement
   lancé) mais pas encore confirmé fonctionnel, et `apps/web` n'a pas
   encore de projet Vercel. Nécessite vos actions dans l'interface Vercel
   — voir §7.
+- **TASK-055 (à faire avant que TASK-053 rende `apps/admin` public)** :
+  ajouter la protection anti-indexation sur `apps/admin` et les briques
+  SEO de base sur `apps/web` (voir §3) — travail de code, pas une
+  décision externe.
 
-En dehors de cette tâche, ce qui reste est soit externe
+En dehors de ces trois tâches, ce qui reste est soit externe
 (décisions/comptes qui vous appartiennent, §7), soit une vérification
 que je ne peux pas faire depuis cet environnement de développement
 (rendu natif réel d'`apps/mobile` sur un vrai appareil, upload de
